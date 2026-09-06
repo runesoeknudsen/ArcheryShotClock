@@ -1,0 +1,8 @@
+CERN Open Hardware Licence Version 2 - Strongly Reciprocal
+
+SPDX-License-Identifier: CERN-OHL-S-2.0
+
+The complete license text is maintained by CERN:
+https://ohwr.org/cern_ohl_s_v2.txt
+
+This file is a source reference until the complete, unmodified license text is vendored and verified.

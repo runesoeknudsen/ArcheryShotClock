@@ -1,0 +1,8 @@
+Creative Commons Attribution-ShareAlike 4.0 International
+
+SPDX-License-Identifier: CC-BY-SA-4.0
+
+The complete license text is maintained by Creative Commons:
+https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+This file is a source reference until the complete, unmodified license text is vendored and verified.

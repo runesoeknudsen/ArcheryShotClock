@@ -1,0 +1,13 @@
+{
+  "name": "archery-timer-web-tests",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

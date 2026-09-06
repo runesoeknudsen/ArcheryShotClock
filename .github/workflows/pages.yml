@@ -1,0 +1,54 @@
+name: Browser demo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Stage Pages site
+        run: |
+          mkdir -p _site
+          cp -a software/web/demo/. _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-artifact@v5
+        with:
+          name: browser-demo
+          path: _site
+          if-no-files-found: error
+
+  deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Stage Pages site
+        run: |
+          mkdir -p _site
+          cp -a software/web/demo/. _site/
+          touch _site/.nojekyll
+      - uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: _site
+          branch: gh-pages
+          clean-exclude: |
+            pr-preview
+          commit-message: Publish the browser demo.

@@ -1,0 +1,15 @@
+# Project Licensing
+
+Copyright (c) 2026 Rune Soe-Knudsen.
+
+This repository contains three categories of original material:
+
+- Software is licensed under the GNU Affero General Public License, version 3 or later (`AGPL-3.0-or-later`).
+- Hardware designs and hardware design documentation are licensed under the CERN Open Hardware Licence, Version 2, Strongly Reciprocal (`CERN-OHL-S-2.0`).
+- Documentation and other original creative content are licensed under the Creative Commons Attribution-ShareAlike 4.0 International License (`CC-BY-SA-4.0`).
+
+The applicable category is identified by the nearest directory `LICENSE` file and, where practical, by an SPDX identifier in the source file. The canonical license texts and their official sources are listed in `LICENSES/`.
+
+Third-party material is not relicensed by this project. It remains under its own license and is identified in `NOTICE.md` or in the relevant source distribution.
+
+This guide is not a substitute for the complete license terms. Where there is any conflict, the applicable license text governs.

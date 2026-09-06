@@ -1,0 +1,51 @@
+# Kept as a reference copy. The live workflow is .github/workflows/pages.yml.
+# Pages is served from the gh-pages branch. Pull requests also get a preview
+# via .github/workflows/pr-preview.yml.
+name: Browser demo
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Stage Pages site
+        run: |
+          mkdir -p _site
+          cp -a software/web/demo/. _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - uses: actions/upload-artifact@v5
+        with:
+          name: browser-demo
+          path: _site
+          if-no-files-found: error
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - id: publish
+        uses: actions/deploy-pages@v4

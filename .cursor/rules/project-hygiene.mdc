@@ -1,0 +1,13 @@
+---
+description: Keep project content and Git names free of automated-tool references
+alwaysApply: true
+---
+
+# Project hygiene
+
+- Do not mention automated code-generation tools, conversational assistants, model providers, or their product names in source files, documentation, comments, configuration, test data, generated project artifacts, commit messages, pull requests, issue text, tags, or branch names.
+- Do not add badges, attribution, co-authorship lines, trailers, URLs, metadata, or comments that identify such tools or services.
+- Use neutral descriptions of the actual implementation, behavior, and human contribution instead.
+- Before creating or renaming a branch, verify that its name contains no prohibited tool or provider reference.
+- Before committing, search the staged diff for prohibited references and remove them from project-owned content. Do not rewrite third-party notices or dependency metadata unless the change is required by that dependency.
+- Keep this rule generic: do not add a list of provider names to the repository.

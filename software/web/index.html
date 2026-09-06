@@ -1,0 +1,684 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Archery shot clock</title>
+  <style>
+    :root{--bg:#10151b;--panel:#18212a;--line:#39434c;--ink:#f4f0e8;--dim:#b8c5ce;--accent:#ff9638}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--ink);max-width:760px;margin:0 auto;padding:16px}
+    h1{font-size:1.1rem;margin:0;color:var(--accent)}
+    h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 8px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+    nav{display:flex;gap:6px}
+    nav a{color:var(--dim);text-decoration:none;padding:8px 12px;border:1px solid var(--line);border-radius:4px;font-weight:600}
+    nav a.on{background:var(--accent);color:#161616;border-color:var(--accent)}
+    section{border:1px solid var(--line);background:var(--panel);padding:14px;margin-bottom:12px}
+    #clockFace{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px auto;max-width:22rem}
+    #clockFace.under{flex-direction:column;gap:2px}
+    #clockGroup{font-size:1.55rem;font-weight:700;letter-spacing:.06em;line-height:1.05;text-align:center;white-space:pre;min-width:1.6em}
+    #clock{font-size:4.5rem;text-align:right;font-variant-numeric:tabular-nums;margin:0;line-height:1;min-width:4.4ch}
+    #lights{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
+    .lamp{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#222}
+    .lamp.on[data-colour=RED]{background:#ff1808}.lamp.on[data-colour=GREEN]{background:#00c81e}
+    .lamp.on[data-colour=YELLOW]{background:#ffb400}
+    .meta{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;color:var(--dim);font-size:.85rem}
+    .meta b{color:var(--ink);font-weight:600}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+    button{font:inherit;padding:14px 10px;border-radius:4px;border:1px solid #52606b;background:#d8e0e5;color:#161616;font-weight:600;cursor:pointer}
+    button.primary{background:var(--accent)}
+    button.danger{background:#e0402c;color:#fff;border-color:#e0402c}
+    label{display:block;margin:10px 0 4px;color:var(--dim);font-size:.85rem}
+    select,input{font:inherit;width:100%;padding:9px;border-radius:4px;border:1px solid #52606b;background:#0d1217;color:var(--ink)}
+    input[type=color]{height:42px;padding:4px;cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:640px){.row{grid-template-columns:1fr}}
+    #log{height:170px;overflow:auto;background:#0d1217;border:1px solid var(--line);padding:8px;font-family:ui-monospace,monospace;font-size:.7rem;white-space:pre-wrap;color:var(--dim)}
+    #note{color:var(--accent);min-height:1.2em;font-size:.85rem;text-align:center}
+    #headline{text-align:center;font-size:1.15rem;font-weight:700;margin:8px 0 4px}
+    #situation{text-align:center;color:var(--dim);font-size:.9rem;margin:0 0 8px}
+    .flow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 4px}
+    .step{padding:7px 8px;border:1px solid var(--line);border-radius:4px;font-size:.72rem;color:var(--dim);text-align:center;min-width:4.4rem}
+    .step.now{background:var(--accent);color:#161616;border-color:var(--accent);font-weight:700}
+    .step.done{border-color:#4a6;color:#cfe}
+    #preview{display:grid;gap:8px}
+    .preview-row{display:grid;grid-template-columns:9.5rem 1fr;gap:8px;align-items:start;font-size:.9rem;color:var(--dim)}
+    .preview-row b{color:var(--ink);font-weight:600}
+    a{color:var(--accent)}
+    .page[hidden]{display:none}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Archery shot clock</h1>
+    <nav>
+      <a href="#field" id="navField">Field</a>
+      <a href="#setup" id="navSetup">Setup</a>
+    </nav>
+  </header>
+
+  <div id="pageField" class="page">
+    <section>
+      <div id="lights">
+        <span class="lamp" id="lampRed" data-colour="RED"></span>
+        <span class="lamp" id="lampGreen" data-colour="GREEN"></span>
+        <span class="lamp" id="lampYellow" data-colour="YELLOW"></span>
+      </div>
+      <div id="clockFace">
+        <div id="clockGroup" hidden></div>
+        <div id="clock">-</div>
+      </div>
+      <div id="flow" class="flow"></div>
+      <div id="headline">Ready</div>
+      <div id="situation"></div>
+      <span id="phase" hidden></span>
+      <div class="meta">
+        <span>End <b id="end">-</b></span>
+        <span id="arrowsBox" hidden>Arrows <b id="arrows">-</b></span>
+        <span>Per arrow <b id="perArrow">-</b></span>
+        <span id="shooterBox" hidden>Shooting <b id="shooter">-</b></span>
+        <span id="detailBox" hidden>Detail <b id="detail">-</b></span>
+        <span id="shootOffBox" hidden><b>Shoot-off</b></span>
+        <span>Panel <b id="panel">-</b></span>
+      </div>
+      <div id="note"></div>
+    </section>
+
+    <section>
+      <h2>Next action</h2>
+      <div id="actions" class="grid"></div>
+      <div id="aux" class="grid" style="margin-top:10px"></div>
+      <div id="extendBox" class="row" style="margin-top:10px" hidden>
+        <div>
+          <label for="extendSeconds">Add time (Art. 11.2.2)</label>
+          <input id="extendSeconds" type="number" min="1" max="600" value="30">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" id="btnExtend">Add time</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="scoring" hidden>
+      <h2>Scoring</h2>
+      <div class="meta" style="justify-content:flex-start;margin-bottom:10px">
+        <span>System <b id="scoringSystem">-</b></span>
+        <span>End <b id="matchEnd">-</b></span>
+        <span>Result <b id="outcome">-</b></span>
+      </div>
+      <div class="row">
+        <div id="sideA"></div>
+        <div id="sideB"></div>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <button class="primary" onclick="score({action:'complete_end'})">Score end</button>
+        <button onclick="score({action:'reset'})">Reset match</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="pageSetup" class="page" hidden>
+    <section>
+      <h2>This is what the field will run</h2>
+      <div id="preview"></div>
+    </section>
+
+    <section>
+      <h2>Program</h2>
+      <div class="row">
+        <div>
+          <label for="mode">Timing program</label>
+          <select id="mode" onchange="saveSession()"></select>
+        </div>
+        <div>
+          <label for="eventClass">Event class</label>
+          <select id="eventClass" onchange="saveSession()">
+            <option value="ANNOUNCED">Announced / ranking - 30 s (Art. 11.2.1.1)</option>
+            <option value="OTHER">Other events - 40 s (Art. 11.2.1.2)</option>
+            <option value="OTHER_REDUCED">Other, reduced - 30 s (Art. 11.2.1.2)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="arrowsPerEnd">Arrows per end (Art. 10.1)</label>
+          <select id="arrowsPerEnd" onchange="saveSession()">
+            <option value="3">3</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+        <div>
+          <label for="resumeOccupy">Resume after a hold</label>
+          <select id="resumeOccupy" onchange="saveSession()">
+            <option value="true">Replay the 10 s occupy (Art. 11.2.4)</option>
+            <option value="false">Straight back to shooting</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="firstShooter">Shoots first (Art. 11.1.4.1)</label>
+          <select id="firstShooter" onchange="saveSession()">
+            <option value="1">A</option>
+            <option value="2">B</option>
+          </select>
+        </div>
+        <div>
+          <label for="signalEachPeriod">Signal each alternating period</label>
+          <select id="signalEachPeriod" onchange="saveSession()">
+            <option value="true">Yes</option>
+            <option value="false">No - several matches share the field (Art. 11.3.4)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="abcdRotation">AB / CD rotation (Art. 11.2.3.1)</label>
+          <select id="abcdRotation" onchange="saveSession()">
+            <option value="true">On — AB then CD, rotating each end</option>
+            <option value="false">Off — one detail</option>
+          </select>
+        </div>
+        <div>
+          <label for="details">Details on the line</label>
+          <input id="details" type="number" min="1" max="4" onchange="saveSession()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="breakEnabled">Break after scoring</label>
+          <select id="breakEnabled" onchange="saveSession()">
+            <option value="true">On — pause after N ends</option>
+            <option value="false">Off</option>
+          </select>
+        </div>
+        <div>
+          <label for="breakAfterEnds">Break after how many ends</label>
+          <input id="breakAfterEnds" type="number" min="1" max="36" value="12" onchange="saveSession()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="breakSeconds">Break length (seconds)</label>
+          <input id="breakSeconds" type="number" min="10" max="3600" value="900" onchange="saveSession()">
+        </div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="division">Division (Art. 12.1.4)</label>
+          <select id="division" onchange="saveSession()">
+            <option value="RECURVE">Recurve - set play</option>
+            <option value="BAREBOW">Barebow - set play</option>
+            <option value="COMPOUND">Compound - cumulative</option>
+          </select>
+        </div>
+        <div>
+          <label for="matchLogic">Match scoring</label>
+          <select id="matchLogic" onchange="saveSession()">
+            <option value="false">Off - shot clock only</option>
+            <option value="true">On - track ends and scores</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="shootOff">Shoot-off (Art. 12.5)</label>
+          <select id="shootOff" onchange="saveSession()">
+            <option value="false">No</option>
+            <option value="true">Yes - one arrow per athlete</option>
+          </select>
+        </div>
+        <div>
+          <label for="practiceSeconds">Practice length (seconds, Ch. 14)</label>
+          <input id="practiceSeconds" type="number" min="10" max="7200" onchange="saveSession()">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Display and sound</h2>
+      <div class="row">
+        <div>
+          <label for="display">Panel shows</label>
+          <select id="display" onchange="saveDisplay()">
+            <option value="CLOCK">Clock</option>
+            <option value="CLOCK_END">End number</option>
+            <option value="ARROWS">Arrows shot</option>
+            <option value="SCORE">Score</option>
+            <option value="SET_POINTS">Set points</option>
+            <option value="SHOOTER">Shooting side</option>
+            <option value="BLANK">Blank</option>
+          </select>
+        </div>
+        <div>
+          <label for="clockSeconds">Clock format</label>
+          <select id="clockSeconds" onchange="saveDisplay()">
+            <option value="true">Seconds only, right aligned</option>
+            <option value="false">Minutes and seconds (02:00)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="showAbcd">AB / CD with the time</label>
+          <select id="showAbcd" onchange="saveDisplay()">
+            <option value="true">On — show the shooting group</option>
+            <option value="false">Off — time only</option>
+          </select>
+        </div>
+        <div>
+          <label for="abcdVertical">AB / CD placement</label>
+          <select id="abcdVertical" onchange="saveDisplay()">
+            <option value="true">Vertical, left of the time</option>
+            <option value="false">Horizontal, under the time</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="showEndLabels">End and scoring on the panel</label>
+          <select id="showEndLabels" onchange="saveDisplay()">
+            <option value="true">On — End N, then Scoring N</option>
+            <option value="false">Off — keep showing the clock</option>
+          </select>
+        </div>
+        <div>
+          <label for="abcdFollowTimer">AB / CD colour</label>
+          <select id="abcdFollowTimer" onchange="saveDisplay()">
+            <option value="false">Fixed colour (default white)</option>
+            <option value="true">Follow the timer</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="abcdColour">AB / CD custom colour</label>
+          <input id="abcdColour" type="color" value="#ffffff" onchange="saveDisplay()">
+        </div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="brightness">Brightness <output id="brightnessValue"></output></label>
+          <input id="brightness" type="range" min="1" max="255" onchange="saveBrightness()">
+        </div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="beepMs">Beep length (ms)</label>
+          <input id="beepMs" type="number" min="20" max="2000" onchange="saveSound()">
+        </div>
+        <div>
+          <label for="gapMs">Gap between beeps (ms)</label>
+          <input id="gapMs" type="number" min="20" max="2000" onchange="saveSound()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="volume">Speaker volume <output id="volumeValue"></output></label>
+          <input id="volume" type="range" min="0" max="100" onchange="saveSound()">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" onclick="testSound()">Test sound</button>
+        </div>
+      </div>
+      <p style="color:var(--dim);font-size:.78rem;margin:10px 0 0">Article 11.3 fixes how many signals are given, never their tone, length or loudness. Volume is the MAX98357A speaker; the box buzzer stays on/off.</p>
+    </section>
+
+    <section>
+      <h2>Log</h2>
+      <div class="row">
+        <div>
+          <label for="traceLevel">Testing mode</label>
+          <select id="traceLevel" onchange="saveTrace()">
+            <option value="OFF">Off - running an event</option>
+            <option value="MINIMAL">On - record the evidence trail</option>
+            <option value="NORMAL">On, with input and heartbeat</option>
+            <option value="VERBOSE">On, verbose - bench only</option>
+          </select>
+        </div>
+        <div>
+          <label>Board</label>
+          <div class="meta" style="justify-content:flex-start">
+            <span>Free <b id="heap">-</b></span>
+            <span>Lowest <b id="heapMin">-</b></span>
+            <span>Clients <b id="apClients">-</b></span>
+          </div>
+        </div>
+      </div>
+      <div id="log" style="margin-top:10px"></div>
+      <p style="color:var(--dim);font-size:.78rem;margin:10px 0 0">Recording costs time and memory on the board. Leave it off while running an event; faults are logged either way.</p>
+    </section>
+  </div>
+
+  <script src="./demo/operator.js"></script>
+  <script>
+    const MODES = [
+      ['IND_NONALT', 'Individual qualification'],
+      ['IND_ALT', 'Individual match, alternating'],
+      ['TEAM_SIMUL', 'Team, both sides together'],
+      ['TEAM_ALT', 'Team match, alternating'],
+      ['MIXED_TEAM', 'Mixed team'],
+      ['PRACTICE', 'Practice']
+    ];
+    const $ = id => document.getElementById(id);
+    let latest = 0;
+    let lastState = null;
+    let lastStateAt = 0;
+    let lastLogSeq = 0;
+    let lastActionKey = '';
+
+    for (const [value, label] of MODES) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      $('mode').appendChild(option);
+    }
+
+    function note(text) { $('note').textContent = text; }
+
+    function showPage() {
+      const setup = location.hash === '#setup';
+      $('pageField').hidden = setup;
+      $('pageSetup').hidden = !setup;
+      $('navField').classList.toggle('on', !setup);
+      $('navSetup').classList.toggle('on', setup);
+    }
+    window.addEventListener('hashchange', showPage);
+    showPage();
+
+    const ARROW_VALUES = ['X', 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 'M'];
+
+    function buildSide(side, id) {
+      const host = $(id);
+      const label = side === 0 ? 'A' : 'B';
+      host.innerHTML =
+        `<label>Side ${label} <span id="flags${side}"></span></label>` +
+        `<div id="arrows${side}" style="font-family:ui-monospace,monospace;margin-bottom:6px">-</div>` +
+        `<div class="meta" style="justify-content:flex-start;margin-bottom:6px">` +
+        `<span>End <b id="endTotal${side}">0</b></span>` +
+        `<span>Total <b id="runningTotal${side}">0</b></span>` +
+        `<span>Sets <b id="setPoints${side}">0</b></span></div>` +
+        `<div id="keypad${side}" class="grid" style="grid-template-columns:repeat(6,1fr)"></div>` +
+        `<div class="grid" style="margin-top:6px;grid-template-columns:repeat(2,1fr)">` +
+        `<button onclick="score({action:'undo',side:${side}})">Undo arrow</button>` +
+        `<button onclick="score({action:'forfeit',side:${side},article:'13.3'})">Forfeit highest (13.3)</button>` +
+        `<button onclick="score({action:'yellow',side:${side}})">Yellow card (13.6.1)</button>` +
+        `<button onclick="score({action:'forfeit',side:${side},article:'13.6.2'})">Card ignored (13.6.2)</button>` +
+        `<button onclick="score({action:'warn',side:${side}})">Warning (13.4)</button>` +
+        `<button class="danger" onclick="score({action:'disqualify',side:${side}})">Disqualify (13.5)</button></div>`;
+
+      const keypad = $('keypad' + side);
+      for (const value of ARROW_VALUES) {
+        const button = document.createElement('button');
+        button.textContent = value === 'M' ? 'M' : value;
+        button.onclick = () => score({ action: 'arrow', side, value: value === 'M' ? 0 : value });
+        keypad.appendChild(button);
+      }
+    }
+    buildSide(0, 'sideA');
+    buildSide(1, 'sideB');
+
+    function applyMatch(state) {
+      $('scoring').hidden = !state.matchEnabled;
+      if (!state.matchEnabled) return;
+      $('scoringSystem').textContent = state.scoring === 'SET_PLAY' ? 'Set play' : 'Cumulative';
+      $('matchEnd').textContent = state.matchEnd;
+      $('outcome').textContent =
+        state.outcome === 'UNDECIDED' ? 'undecided' : state.outcome === 'DRAWN' ? 'level' : 'side ' + state.outcome;
+
+      for (const side of [0, 1]) {
+        const arrows = side === 0 ? state.arrowsA : state.arrowsB;
+        $('arrows' + side).textContent = arrows.length
+          ? arrows.map(a => (a.lost ? '(' + label(a.v) + ')' : label(a.v))).join(' ')
+          : '-';
+        $('endTotal' + side).textContent = state.endTotal[side];
+        $('runningTotal' + side).textContent = state.runningTotal[side];
+        $('setPoints' + side).textContent = state.setPoints[side];
+        const flags = [];
+        if (state.yellowCard[side]) flags.push('yellow card');
+        if (state.warnings[side]) flags.push(state.warnings[side] + ' warning(s)');
+        if (state.disqualified[side]) flags.push('disqualified');
+        $('flags' + side).textContent = flags.length ? '- ' + flags.join(', ') : '';
+      }
+    }
+
+    const label = value => (value === 11 ? 'X' : value === 0 ? 'M' : String(value));
+
+    function paintClock(state, ms) {
+      const face = $('clockFace');
+      const group = Operator.groupOnClock(state);
+      $('clock').textContent = Operator.clockFace(state, ms);
+      $('clock').style.color = Operator.timerColourCss(state);
+      $('clockGroup').hidden = !group;
+      if (group) {
+        const vertical = state.abcdVertical !== false;
+        face.classList.toggle('under', !vertical);
+        $('clockGroup').textContent = vertical ? group.charAt(0) + '\n' + group.charAt(1) : group;
+        $('clockGroup').style.color = Operator.groupColourCss(state);
+      } else {
+        face.classList.remove('under');
+      }
+    }
+
+    function tickClock() {
+      if (!lastState) return;
+      const elapsed = lastState.running || lastState.phase === 'BREAK' ? performance.now() - lastStateAt : 0;
+      paintClock(lastState, lastState.remainingMs - elapsed);
+    }
+
+    function draftFromForm(state) {
+      if (!$('mode')) return state;
+      return Object.assign({}, state, {
+        mode: $('mode').value,
+        eventClass: $('eventClass').value,
+        arrowsPerEnd: +$('arrowsPerEnd').value,
+        resumeOccupy: $('resumeOccupy').value === 'true',
+        firstShooter: +$('firstShooter').value,
+        signalEachPeriod: $('signalEachPeriod').value === 'true',
+        abcdRotation: $('abcdRotation').value === 'true',
+        details: $('abcdRotation').value === 'true' ? Math.max(+$('details').value, 2) : +$('details').value,
+        shootOff: $('shootOff').value === 'true',
+        practiceSeconds: +$('practiceSeconds').value,
+        clockSeconds: $('clockSeconds').value === 'true',
+        showAbcd: $('showAbcd').value === 'true',
+        abcdVertical: $('abcdVertical').value === 'true',
+        showEndLabels: $('showEndLabels').value === 'true',
+        abcdFollowTimer: $('abcdFollowTimer').value === 'true',
+        abcdColour: $('abcdColour').value,
+        breakEnabled: $('breakEnabled').value === 'true',
+        breakAfterEnds: +$('breakAfterEnds').value,
+        breakSeconds: +$('breakSeconds').value
+      });
+    }
+
+    function apply(state) {
+      lastState = state;
+      lastStateAt = performance.now();
+      paintClock(state, state.remainingMs);
+      $('heap').textContent = Math.round(state.freeHeap / 1024) + ' kB';
+      $('heapMin').textContent = Math.round(state.minFreeHeap / 1024) + ' kB';
+      $('apClients').textContent = state.apClients;
+      if (document.activeElement !== $('traceLevel')) $('traceLevel').value = state.traceLevel;
+      $('phase').textContent = state.phase;
+      $('end').textContent = state.end;
+      $('arrows').textContent = state.arrowsShot + '/' + state.arrowsPerEnd;
+      $('arrowsBox').hidden = !Operator.tracksLiveArrows(state);
+      $('perArrow').textContent = (state.perArrowMs / 1000) + ' s';
+      $('panel').textContent = state.panelText || '(blank)';
+      const alternating = state.mode === 'IND_ALT' || state.mode === 'TEAM_ALT';
+      Operator.syncDisplayOptions($('display'), state);
+      $('shooterBox').hidden = !alternating;
+      $('shooter').textContent = state.shooter === 1 ? 'A' : state.shooter === 2 ? 'B' : '-';
+      $('detailBox').hidden = state.details <= 1;
+      $('detail').textContent = state.detail + '/' + state.details;
+      $('shootOffBox').hidden = !state.shootOff;
+      for (const [id, colour] of [['lampRed', 'RED'], ['lampGreen', 'GREEN'], ['lampYellow', 'YELLOW']]) {
+        $(id).classList.toggle('on', state.light === colour);
+      }
+      if (document.activeElement !== $('mode')) $('mode').value = state.mode;
+      if (document.activeElement !== $('eventClass')) $('eventClass').value = state.eventClass;
+      if (document.activeElement !== $('arrowsPerEnd')) $('arrowsPerEnd').value = String(state.arrowsPerEnd);
+      if (document.activeElement !== $('resumeOccupy')) $('resumeOccupy').value = String(state.resumeOccupy);
+      if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter);
+      if (document.activeElement !== $('signalEachPeriod')) $('signalEachPeriod').value = String(state.signalEachPeriod);
+      if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(state.abcdRotation);
+      if (document.activeElement !== $('details')) $('details').value = state.details;
+      if (document.activeElement !== $('shootOff')) $('shootOff').value = String(state.shootOff);
+      if (document.activeElement !== $('practiceSeconds')) $('practiceSeconds').value = state.practiceSeconds;
+      if (document.activeElement !== $('division')) $('division').value = state.division;
+      if (document.activeElement !== $('matchLogic')) $('matchLogic').value = String(state.matchEnabled);
+      if (document.activeElement !== $('display')) $('display').value = state.display;
+      if (document.activeElement !== $('clockSeconds')) $('clockSeconds').value = String(state.clockSeconds !== false);
+      if (document.activeElement !== $('showAbcd')) $('showAbcd').value = String(state.showAbcd !== false);
+      if (document.activeElement !== $('abcdVertical')) $('abcdVertical').value = String(state.abcdVertical !== false);
+      if (document.activeElement !== $('showEndLabels')) $('showEndLabels').value = String(state.showEndLabels !== false);
+      if (document.activeElement !== $('abcdFollowTimer')) {
+        $('abcdFollowTimer').value = String(!!state.abcdFollowTimer);
+      }
+      if (document.activeElement !== $('abcdColour')) {
+        $('abcdColour').value = state.abcdColour || '#ffffff';
+      }
+      $('abcdColour').disabled = $('abcdFollowTimer').value === 'true';
+      if (document.activeElement !== $('breakEnabled')) $('breakEnabled').value = String(state.breakEnabled !== false);
+      if (document.activeElement !== $('breakAfterEnds') && state.breakAfterEnds != null) {
+        $('breakAfterEnds').value = String(state.breakAfterEnds);
+      }
+      if (document.activeElement !== $('breakSeconds') && state.breakSeconds != null) {
+        $('breakSeconds').value = String(state.breakSeconds);
+      }
+      applyMatch(state);
+      if (document.activeElement !== $('brightness')) $('brightness').value = state.brightness;
+      $('brightnessValue').textContent = state.brightness;
+      if (document.activeElement !== $('beepMs')) $('beepMs').value = state.beepMs;
+      if (document.activeElement !== $('gapMs')) $('gapMs').value = state.gapMs;
+      if (document.activeElement !== $('volume')) $('volume').value = state.volume;
+      $('volumeValue').textContent = state.volume;
+
+      const view = Operator;
+      const story = view.situation(state);
+      $('headline').textContent = story.headline;
+      $('situation').textContent = story.detail;
+      view.renderFlow($('flow'), state);
+      const actionKey = [state.phase, state.mode, state.detail, state.details, state.shooter,
+        state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
+        state.end, state.breakEnabled, state.breakAfterEnds].join('|');
+      if (actionKey !== lastActionKey) {
+        lastActionKey = actionKey;
+        view.renderActions($('actions'), state, runAction);
+        $('extendBox').hidden = !view.renderAux($('aux'), state, runAction);
+      }
+      view.renderPreview($('preview'), draftFromForm(state));
+    }
+
+    async function post(url, body) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        note(detail.error || 'Rejected');
+        return null;
+      }
+      note('');
+      const state = await response.json();
+      apply(state);
+      return state;
+    }
+
+    async function runAction(spec) {
+      if (spec.action === 'next_then_start') {
+        await post('/api/control', { action: 'next_end' });
+        await post('/api/control', { action: 'start' });
+        return;
+      }
+      if (spec.action === 'extend') {
+        await post('/api/control', { action: 'extend', seconds: +$('extendSeconds').value });
+        return;
+      }
+      await post('/api/control', { action: spec.action });
+    }
+
+    async function refresh() {
+      const id = ++latest;
+      const state = await fetch('/api/state').then(r => r.json());
+      if (id === latest) apply(state);
+    }
+
+    const control = action => post('/api/control', { action });
+    const saveSession = () => {
+      if ($('abcdRotation').value === 'true' && +$('details').value < 2) $('details').value = '2';
+      if (lastState) Operator.renderPreview($('preview'), draftFromForm(lastState));
+      return post('/api/session', {
+        mode: $('mode').value,
+        eventClass: $('eventClass').value,
+        arrowsPerEnd: +$('arrowsPerEnd').value,
+        firstShooter: +$('firstShooter').value,
+        details: +$('details').value,
+        practiceSeconds: +$('practiceSeconds').value,
+        division: $('division').value,
+        matchLogic: $('matchLogic').value === 'true',
+        resumeOccupy: $('resumeOccupy').value === 'true',
+        signalEachPeriod: $('signalEachPeriod').value === 'true',
+        abcdRotation: $('abcdRotation').value === 'true',
+        shootOff: $('shootOff').value === 'true',
+        breakEnabled: $('breakEnabled').value === 'true',
+        breakAfterEnds: +$('breakAfterEnds').value,
+        breakSeconds: +$('breakSeconds').value
+      });
+    };
+    const saveDisplay = () => {
+      if (lastState) Operator.renderPreview($('preview'), draftFromForm(lastState));
+      $('abcdColour').disabled = $('abcdFollowTimer').value === 'true';
+      return post('/api/display', {
+        content: $('display').value,
+        clockSeconds: $('clockSeconds').value === 'true',
+        showAbcd: $('showAbcd').value === 'true',
+        abcdVertical: $('abcdVertical').value === 'true',
+        showEndLabels: $('showEndLabels').value === 'true',
+        abcdFollowTimer: $('abcdFollowTimer').value === 'true',
+        abcdColour: $('abcdColour').value
+      });
+    };
+    const saveTrace = () => post('/api/trace', { level: $('traceLevel').value });
+    const score = body => post('/api/score', body);
+    const saveBrightness = () => post('/api/brightness', { brightness: +$('brightness').value });
+    const saveSound = () => post('/api/sound', { beepMs: +$('beepMs').value, gapMs: +$('gapMs').value, volume: +$('volume').value });
+    const testSound = () => post('/api/sound/test', {});
+
+    $('abcdFollowTimer').onchange = saveDisplay;
+    $('abcdColour').onchange = saveDisplay;
+    $('abcdColour').oninput = saveDisplay;
+    $('btnExtend').onclick = () => runAction({ action: 'extend' });
+
+    async function refreshLog() {
+      const data = await fetch('/api/log?after=' + lastLogSeq).then(r => r.json()).catch(() => null);
+      const pane = $('log');
+      if (!data) return;
+
+      if (!data.lines.length) {
+        if (!pane.textContent) pane.textContent = 'Nothing recorded yet.';
+        return;
+      }
+
+      const atBottom = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 20;
+      const text = data.lines.map(line => JSON.stringify(line)).join('\n');
+      pane.textContent = lastLogSeq === 0 ? text : pane.textContent + '\n' + text;
+      lastLogSeq = data.lines[data.lines.length - 1].seq || lastLogSeq;
+      if (atBottom) pane.scrollTop = pane.scrollHeight;
+    }
+
+    refresh();
+    refreshLog();
+    setInterval(refresh, 1000);
+    setInterval(tickClock, 100);
+    setInterval(refreshLog, 3000);
+  </script>
+</body>
+</html>

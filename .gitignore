@@ -1,0 +1,13 @@
+.pio/
+.vscode/.browse.c_cpp.db*
+.vscode/settings.json
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch/
+playwright-report/
+test-results/
+src/web_page.h
+node_modules/
+src/setup_page.h
+software/firmware/src/web_page.h
+software/firmware/src/setup_page.h

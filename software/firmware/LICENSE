@@ -1,0 +1,5 @@
+# Software license
+
+Original firmware and firmware-specific source code in this directory are licensed under the GNU Affero General Public License, version 3 or later (`AGPL-3.0-or-later`).
+
+See `../../LICENSES/AGPL-3.0-or-later.txt` and `../../NOTICE.md`. Third-party dependencies retain their own licenses.
