@@ -46,6 +46,11 @@ struct SessionConfig {
   // to replay the 10 s period, following 11.2.4's wording.
   bool replayOccupyOnResume = true;
 
+  // Default suspend/resume keeps the remaining shot time. Art. 11.2.4
+  // recalculation from unshot arrows is optional, because a pause must not
+  // restart the full period.
+  bool recalculateOnResume = false;
+
   // Art. 11.1.4.1 / 11.1.4.3: the higher-placed athlete or team decides who
   // shoots first. 1 or 2.
   uint8_t firstShooter = 1;

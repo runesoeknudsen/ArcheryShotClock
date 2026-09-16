@@ -413,38 +413,43 @@ void ShotClock::resume(uint32_t now) {
   const uint8_t unshot = unshotArrows();
   const uint32_t clockMs = state_.remainingMs;
   const uint32_t perArrow = perArrowMs();
-  uint32_t resumeMs = 0;
+  uint32_t resumeMs = clockMs;
   const char* article = nullptr;
   const char* reason = nullptr;
 
   const bool team = config_.mode == Mode::TeamSimultaneous || config_.mode == Mode::TeamAlternating ||
                     config_.mode == Mode::MixedTeam;
-  if (team) {
-    // Art. 11.2.4.2: keep the clock only if it holds more than 20 s per unshot
-    // arrow, otherwise reset to that floor.
-    const uint32_t floorMs = Rules::periodMs(unshot, Rules::PER_ARROW_ALTERNATING_MS);
-    resumeMs = Rules::teamResumeMs(clockMs, unshot);
-    article = "11.2.4.2";
-    reason = clockMs > floorMs ? "clock>floor" : "clock<=floor";
-    const TraceField fields[] = {
-        {"clock_ms", static_cast<int32_t>(clockMs)},
-        {"unshot", unshot},
-        {"floor_ms", static_cast<int32_t>(floorMs)},
-        {"result_ms", static_cast<int32_t>(resumeMs)},
-    };
-    tracer_.rule(now, article, "resume_recalc", fields, 4, reason);
+  if (config_.recalculateOnResume) {
+    if (team) {
+      const uint32_t floorMs = Rules::periodMs(unshot, Rules::PER_ARROW_ALTERNATING_MS);
+      resumeMs = Rules::teamResumeMs(clockMs, unshot);
+      article = "11.2.4.2";
+      reason = clockMs > floorMs ? "clock>floor" : "clock<=floor";
+      const TraceField fields[] = {
+          {"clock_ms", static_cast<int32_t>(clockMs)},
+          {"unshot", unshot},
+          {"floor_ms", static_cast<int32_t>(floorMs)},
+          {"result_ms", static_cast<int32_t>(resumeMs)},
+      };
+      tracer_.rule(now, article, "resume_recalc", fields, 4, reason);
+    } else {
+      resumeMs = Rules::individualResumeMs(unshot, perArrow);
+      article = "11.2.4.1";
+      const TraceField fields[] = {
+          {"clock_ms", static_cast<int32_t>(clockMs)},
+          {"unshot", unshot},
+          {"per_arrow_ms", static_cast<int32_t>(perArrow)},
+          {"result_ms", static_cast<int32_t>(resumeMs)},
+      };
+      tracer_.rule(now, article, "resume_recalc", fields, 4, "flat_per_arrow");
+    }
   } else {
-    // Art. 11.2.4.1: a flat per-arrow allowance for the unshot arrows. The
-    // article never compares this with the clock, so neither do we.
-    resumeMs = Rules::individualResumeMs(unshot, perArrow);
-    article = "11.2.4.1";
     const TraceField fields[] = {
         {"clock_ms", static_cast<int32_t>(clockMs)},
         {"unshot", unshot},
-        {"per_arrow_ms", static_cast<int32_t>(perArrow)},
         {"result_ms", static_cast<int32_t>(resumeMs)},
     };
-    tracer_.rule(now, article, "resume_recalc", fields, 4, "flat_per_arrow");
+    tracer_.rule(now, "session", "resume_remaining", fields, 3, "preserve");
   }
 
   pendingShootingMs_ = resumeMs;
