@@ -179,6 +179,8 @@ void Tracer::state(uint32_t nowMs, const StateSnapshot& snapshot, const char* ca
   line.unsigned32("rem_ms", snapshot.remainingMs);
   line.unsigned32("per_ms", snapshot.periodMs);
   line.unsigned32("end", snapshot.endNumber);
+  line.unsigned32("round", snapshot.roundNumber);
+  line.unsigned32("end_in_round", snapshot.endInRound);
   line.unsigned32("set", snapshot.setNumber);
   line.unsigned32("arrows", snapshot.arrowsShot);
   line.unsigned32("arrows_per_end", snapshot.arrowsPerEnd);

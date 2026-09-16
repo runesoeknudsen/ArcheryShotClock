@@ -15,8 +15,8 @@
 
 namespace Core {
 
-// 3: added the optional break after scoring, shown as its own phase.
-constexpr uint16_t SCHEMA_VERSION = 3;
+// 4: qualification progress — round, end-in-round, and configured totals.
+constexpr uint16_t SCHEMA_VERSION = 4;
 
 // Where the shooting sequence currently is. Phase 0 only ever reports Idle,
 // Shooting and Finished; the remaining values are the World Archery sequence
@@ -75,6 +75,13 @@ struct StateSnapshot {
   uint32_t periodMs = 0;     // full length of the current period
 
   uint16_t endNumber = 0;
+  uint8_t roundNumber = 1;
+  uint8_t endInRound = 1;
+  uint8_t endsPerRound = 12;
+  uint8_t qualificationRounds = 2;
+  bool lastEndOfRound = false;
+  bool lastEndOfQualification = false;
+  bool qualificationComplete = false;
   uint16_t setNumber = 0;
   uint8_t arrowsShot = 0;    // needed for Art. 11.2.4 resume even with scoring off
   uint8_t arrowsPerEnd = 0;
@@ -105,7 +112,11 @@ struct StateSnapshot {
   bool sameAs(const StateSnapshot& other) const {
     return schemaVersion == other.schemaVersion && phase == other.phase && light == other.light &&
            mode == other.mode && display == other.display && remainingMs == other.remainingMs &&
-           periodMs == other.periodMs && endNumber == other.endNumber && setNumber == other.setNumber &&
+           periodMs == other.periodMs && endNumber == other.endNumber && roundNumber == other.roundNumber &&
+           endInRound == other.endInRound && endsPerRound == other.endsPerRound &&
+           qualificationRounds == other.qualificationRounds && lastEndOfRound == other.lastEndOfRound &&
+           lastEndOfQualification == other.lastEndOfQualification &&
+           qualificationComplete == other.qualificationComplete && setNumber == other.setNumber &&
            arrowsShot == other.arrowsShot && arrowsPerEnd == other.arrowsPerEnd && shooter == other.shooter &&
            score[0] == other.score[0] && score[1] == other.score[1] && setPoints[0] == other.setPoints[0] &&
            setPoints[1] == other.setPoints[1] && running == other.running && finished == other.finished &&

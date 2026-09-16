@@ -40,6 +40,8 @@ struct Settings {
   bool breakEnabled;
   uint8_t breakAfterEnds;
   uint32_t breakMs;
+  uint8_t endsPerRound;
+  uint8_t qualificationRounds;
 
   // Not rulebook values - Article 11.3 defines signal counts only.
   uint16_t beepMs;

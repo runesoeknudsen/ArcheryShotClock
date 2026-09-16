@@ -78,12 +78,25 @@ void test_browser_host_abcd_letters_default_white() {
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixels[2 * 32 + 2]);
 }
 
+<<<<<<< HEAD
 void test_browser_host_reset_session_returns_to_end_one() {
   demo_init(0);
   TEST_ASSERT_EQUAL_INT(0, demo_control("start", 0));
   TEST_ASSERT_EQUAL_INT(0, demo_control("reset_session", 0));
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"phase\":\"IDLE\""));
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"end\":1"));
+=======
+void test_browser_host_accepts_qualification_structure() {
+  demo_init(0);
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"endsPerRound\":12"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"qualificationRounds\":2"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"round\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"endInRound\":1"));
+
+  TEST_ASSERT_EQUAL_INT(0, demo_session("{\"endsPerRound\":10,\"qualificationRounds\":1}"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"endsPerRound\":10"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"qualificationRounds\":1"));
+>>>>>>> 6d71c1a (Add qualification structure: ends per round and total rounds.)
 }
 
 void setUp() {}
@@ -97,6 +110,10 @@ int main() {
   RUN_TEST(test_browser_host_defaults_to_abcd_rotation);
   RUN_TEST(test_browser_host_rotates_cd_first_on_the_second_end);
   RUN_TEST(test_browser_host_abcd_letters_default_white);
+<<<<<<< HEAD
   RUN_TEST(test_browser_host_reset_session_returns_to_end_one);
+=======
+  RUN_TEST(test_browser_host_accepts_qualification_structure);
+>>>>>>> 6d71c1a (Add qualification structure: ends per round and total rounds.)
   return UNITY_END();
 }
