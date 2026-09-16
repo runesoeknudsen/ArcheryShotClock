@@ -42,6 +42,7 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
     json.boolean("breakEnabled", session.breakEnabled);
     json.unsigned32("breakAfterEnds", session.breakAfterEnds);
     json.unsigned32("breakSeconds", session.breakMs / 1000);
+    json.unsigned32("breakMinutes", session.breakMs / 60000);
   }
 
   json.unsigned32("perArrowMs", view.perArrowMs);

@@ -102,7 +102,8 @@ public:
   void resume(uint32_t now);
   void addArrow(uint32_t now);
   void removeArrow(uint32_t now);
-  void extendTime(uint32_t now, uint32_t extraMs);
+  // extraMs may be negative. A break that reaches zero ends immediately.
+  void extendTime(uint32_t now, int32_t extraMs);
   void emergency(uint32_t now);
   void clearEmergency(uint32_t now);
   void setDisplayContent(uint32_t now, DisplayContent content);

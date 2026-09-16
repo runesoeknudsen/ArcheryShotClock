@@ -283,7 +283,7 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
   const char* letters = groupLetters(request.detail);
   const uint8_t top = (group && !request.abcdVertical) ? 0 : DIGIT_TOP;
 
-  if (request.clockSeconds) {
+  if (request.clockSeconds && request.phase != Core::Phase::Break) {
     drawRightSeconds(totalSeconds, top, colour, pixels, result, 0);
   } else {
     drawMmSs(totalSeconds, colour, pixels, result);

@@ -61,7 +61,7 @@ function draftFromForm(state) {
     abcdColour: $('abcdColour').value,
     breakEnabled: $('breakEnabled').value === 'true',
     breakAfterEnds: +$('breakAfterEnds').value,
-    breakSeconds: +$('breakSeconds').value
+    breakMinutes: +$('breakMinutes').value
   });
 }
 
@@ -106,8 +106,9 @@ function apply(state) {
   if (document.activeElement !== $('breakAfterEnds') && state.breakAfterEnds != null) {
     $('breakAfterEnds').value = String(state.breakAfterEnds);
   }
-  if (document.activeElement !== $('breakSeconds') && state.breakSeconds != null) {
-    $('breakSeconds').value = String(state.breakSeconds);
+  if (document.activeElement !== $('breakMinutes')) {
+    if (state.breakMinutes != null) $('breakMinutes').value = String(state.breakMinutes);
+    else if (state.breakSeconds != null) $('breakMinutes').value = String(Math.round(state.breakSeconds / 60));
   }
   if (document.activeElement !== $('matchLogic')) $('matchLogic').value = String(state.matchEnabled);
   if (document.activeElement !== $('volume')) $('volume').value = state.volume;
@@ -210,7 +211,8 @@ try {
       return;
     }
     if (spec.action === 'extend') {
-      engine.control('extend', +$('extendSeconds').value);
+      const seconds = spec.seconds != null ? spec.seconds : +$('extendSeconds').value;
+      engine.control('extend', seconds);
       refresh();
       return;
     }
@@ -251,7 +253,7 @@ try {
       shootOff: false,
       breakEnabled: $('breakEnabled').value === 'true',
       breakAfterEnds: +$('breakAfterEnds').value,
-      breakSeconds: +$('breakSeconds').value
+      breakMinutes: +$('breakMinutes').value
     });
     $('note').textContent = code === 2 ? 'Mode not implemented' : '';
     refresh();
@@ -266,7 +268,7 @@ try {
   $('abcdRotation').onchange = session;
   $('breakEnabled').onchange = session;
   $('breakAfterEnds').onchange = session;
-  $('breakSeconds').onchange = session;
+  $('breakMinutes').onchange = session;
   $('matchLogic').onchange = session;
   $('display').onchange = () => { engine.display($('display').value); refresh(); };
   function savePanelOptions() {

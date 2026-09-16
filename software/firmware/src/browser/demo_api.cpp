@@ -294,7 +294,7 @@ int demo_control(const char* action, int32_t arg) {
   } else if (std::strcmp(action, "clear_emergency") == 0) {
     H().clock.clearEmergency(now);
   } else if (std::strcmp(action, "extend") == 0) {
-    if (arg > 0) H().clock.extendTime(now, static_cast<uint32_t>(arg) * 1000UL);
+    if (arg != 0) H().clock.extendTime(now, arg * 1000);
   } else {
     return 1;
   }
@@ -351,6 +351,10 @@ int demo_session(const char* json) {
   if (json && std::strstr(json, "breakSeconds")) {
     const int breakSeconds = readInt(json, "breakSeconds", 0);
     if (breakSeconds > 0) config.breakMs = static_cast<uint32_t>(breakSeconds) * 1000UL;
+  }
+  if (json && std::strstr(json, "breakMinutes")) {
+    const int breakMinutes = readInt(json, "breakMinutes", 0);
+    if (breakMinutes > 0) config.breakMs = static_cast<uint32_t>(breakMinutes) * 60UL * 1000UL;
   }
 
   H().clock.configure(now, config);
