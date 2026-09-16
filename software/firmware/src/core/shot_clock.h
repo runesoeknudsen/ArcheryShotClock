@@ -123,6 +123,8 @@ public:
   // missing arrows can be shot. Its elapsed time is deducted from the armed
   // round-end break, and the break countdown stays hidden until it finishes.
   void startTechnicalControl(uint32_t now, uint8_t arrows);
+  void skipTechnicalControl(uint32_t now);
+  void startMakeupEnds(uint32_t now, uint8_t ends);
   void emergency(uint32_t now);
   void clearEmergency(uint32_t now);
   void setDisplayContent(uint32_t now, DisplayContent content);
@@ -180,6 +182,9 @@ private:
   bool technicalControl_;
   bool technicalControlResolved_;
   uint8_t savedArrowsPerEnd_;
+  uint8_t makeupTotal_;
+  uint8_t makeupRemaining_;
+  uint8_t makeupEndNumber_;
 
   // Anything longer than this between two updates is a clock that moved
   // backwards, not a genuinely slow loop. Half the millis() range, so a real
