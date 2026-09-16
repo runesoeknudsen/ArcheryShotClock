@@ -781,10 +781,10 @@ test('hides the break countdown during Technical Control and shows remaining aft
   await page.getByRole('button', { name: 'Start Shoot CD' }).click();
   await page.getByRole('button', { name: 'Stop occupy' }).click();
 
-  await expect(page.getByRole('button', { name: 'Technical Control' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Technical Control', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Score' })).toHaveCount(0);
   await page.locator('#tcArrows').fill('1');
-  await page.getByRole('button', { name: 'Technical Control' }).click();
+  await page.getByRole('button', { name: 'Technical Control', exact: true }).click();
   await expect(page.locator('#headline')).toHaveText('Technical Control');
   await expect(page.locator('#clock')).toHaveText(/^\d{1,2}$/);
   await expect(page.locator('#phase')).toHaveText('OCCUPY');
