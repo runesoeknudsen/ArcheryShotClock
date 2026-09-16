@@ -12,6 +12,9 @@ ShotClock::ShotClock(Tracer& tracer)
       technicalControl_(false),
       technicalControlResolved_(false),
       savedArrowsPerEnd_(0),
+      makeupTotal_(0),
+      makeupRemaining_(0),
+      makeupEndNumber_(0),
       queueHead_(0),
       queueTail_(0) {
   for (uint8_t index = 0; index < QUEUE_SIZE; index++) queue_[index] = SignalCode::None;
@@ -133,6 +136,9 @@ void ShotClock::configure(uint32_t now, const SessionConfig& config) {
   technicalControl_ = false;
   technicalControlResolved_ = false;
   savedArrowsPerEnd_ = 0;
+  makeupTotal_ = 0;
+  makeupRemaining_ = 0;
+  makeupEndNumber_ = 0;
 
   state_.mode = config_.mode;
   state_.shootOff = config_.shootOff;
@@ -354,7 +360,10 @@ void ShotClock::lineClear(uint32_t now) {
     rejected(now, "line_clear");
     return;
   }
-  technicalControlResolved_ = true;
+  if (lastWaveOfRound() && !technicalControlResolved_) {
+    rejected(now, "line_clear");
+    return;
+  }
   const TraceField fields[] = {
       {"arrows_shot", state_.arrowsShot},
       {"arrows_per_end", state_.arrowsPerEnd},
@@ -373,11 +382,29 @@ void ShotClock::nextEnd(uint32_t now) {
     leaveBreak(now, false);
     return;
   }
+  if (makeupRemaining_ > 0 && state_.phase == Phase::Scoring) {
+    makeupRemaining_--;
+    if (makeupRemaining_ == 0) {
+      makeupTotal_ = 0;
+      makeupEndNumber_ = 0;
+      enterPhase(now, Phase::Scoring, 0);
+      refreshRoundState();
+      return;
+    }
+    makeupEndNumber_ = static_cast<uint8_t>(makeupTotal_ - makeupRemaining_ + 1);
+    lastWaveFinished_ = false;
+    state_.arrowsShot = 0;
+    setDetailForThisEnd();
+    state_.periodMs = totalPeriodMs();
+    enterPhase(now, Phase::Idle, state_.periodMs);
+    refreshRoundState();
+    return;
+  }
   if (state_.phase != Phase::Scoring && state_.phase != Phase::Finished) {
     rejected(now, "next_end");
     return;
   }
-  if (state_.phase == Phase::Scoring && breakDue()) {
+  if (state_.phase == Phase::Scoring && breakDue() && makeupRemaining_ == 0) {
     enterBreak(now);
     return;
   }
@@ -554,6 +581,36 @@ void ShotClock::startTechnicalControl(uint32_t now, uint8_t arrows) {
   emitSignal(now, SignalCode::OccupyLine, "11.3.1");
 }
 
+void ShotClock::skipTechnicalControl(uint32_t now) {
+  if (state_.phase != Phase::Finished || technicalControl_ || technicalControlResolved_ || !lastWaveOfRound()) {
+    rejected(now, "skip_technical_control");
+    return;
+  }
+  technicalControlResolved_ = true;
+  tracer_.rule(now, "session", "technical_control_skipped", nullptr, 0, "judge");
+  refreshRoundState();
+}
+
+void ShotClock::startMakeupEnds(uint32_t now, uint8_t ends) {
+  if (state_.phase != Phase::Scoring || !lastEndOfRound() || makeupRemaining_ > 0) {
+    rejected(now, "makeup_ends");
+    return;
+  }
+  if (ends < 1) ends = 1;
+  if (ends > 12) ends = 12;
+  makeupTotal_ = ends;
+  makeupRemaining_ = ends;
+  makeupEndNumber_ = 1;
+  lastWaveFinished_ = false;
+  state_.arrowsShot = 0;
+  setDetailForThisEnd();
+  state_.periodMs = totalPeriodMs();
+  const TraceField fields[] = {{"ends", ends}};
+  tracer_.rule(now, "session", "makeup_ends", fields, 1, "after qualification round");
+  enterPhase(now, Phase::Idle, state_.periodMs);
+  refreshRoundState();
+}
+
 void ShotClock::extendTime(uint32_t now, uint32_t extraMs) {
   if (!clockRunning() && state_.phase != Phase::Suspended) {
     rejected(now, "extend_time");
@@ -687,6 +744,9 @@ void ShotClock::refreshRoundState() {
   state_.breakCountdownVisible = state_.phase == Phase::Break;
   state_.technicalControl = technicalControl_;
   state_.technicalControlDone = technicalControlResolved_;
+  state_.makeupActive = makeupRemaining_ > 0;
+  state_.makeupEnds = makeupTotal_;
+  state_.makeupEnd = makeupEndNumber_;
 }
 
 void ShotClock::armRoundBreak(uint32_t now) {
@@ -733,11 +793,6 @@ void ShotClock::completeTechnicalControl(uint32_t now) {
       {"break_remaining_ms", static_cast<int32_t>(breakRemainingMs_)},
   };
   tracer_.rule(now, "session", "technical_control_done", fields, 1, nullptr);
-
-  if (breakArmed_ && breakRemainingMs_ > 0) {
-    enterBreak(now);
-    return;
-  }
   enterPhase(now, Phase::Finished, 0);
 }
 

@@ -298,6 +298,11 @@ int demo_control(const char* action, int32_t arg) {
   } else if (std::strcmp(action, "technical_control") == 0) {
     uint8_t arrows = arg > 0 ? static_cast<uint8_t>(arg) : H().clock.snapshot().arrowsPerEnd;
     H().clock.startTechnicalControl(now, arrows);
+  } else if (std::strcmp(action, "skip_technical_control") == 0) {
+    H().clock.skipTechnicalControl(now);
+  } else if (std::strcmp(action, "makeup_ends") == 0) {
+    uint8_t ends = arg > 0 ? static_cast<uint8_t>(arg) : 1;
+    H().clock.startMakeupEnds(now, ends);
   } else {
     return 1;
   }

@@ -217,6 +217,12 @@
       };
     }
     if (phase === 'IDLE') {
+      if (state.makeupActive) {
+        return {
+          headline: 'Make-up end ' + (state.makeupEnd || 1) + ' of ' + (state.makeupEnds || 1),
+          detail: 'Extra shooting after the round. The completed qualification order is left as it is.'
+        };
+      }
       return {
         headline: 'Ready',
         detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
@@ -254,16 +260,18 @@
     if (phase === 'FINISHED') {
       return {
         headline: 'End ' + (state.end || '') + ' is red',
-        detail: state.lastWaveOfRound
-          ? 'Score when the line is clear, or start Technical Control. Break time includes any Technical Control.'
+        detail: state.lastWaveOfRound && !state.technicalControlDone
+          ? 'Finish or skip Technical Control before scoring. Break time includes any Technical Control.'
           : 'Score when the line is clear — three sounds. Athletes may then collect arrows.'
       };
     }
     if (phase === 'SCORING') {
       return {
         headline: 'Scoring' + (state.end ? ' — end ' + state.end : ''),
-        detail: breakDue(state)
-          ? 'Start the break when scoring is finished.'
+        detail: state.makeupActive
+          ? 'Next make-up end, or finish make-up and start the break.'
+          : breakDue(state)
+          ? 'Start the break when scoring is finished, or run make-up ends first.'
           : 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + ' for the next end.'
       };
     }
@@ -295,8 +303,16 @@
     }
 
     if (phase === 'SCORING') {
-      if (breakDue(state)) {
+      if (state.makeupActive) {
+        list.push({
+          id: 'next',
+          label: state.makeupEnd < state.makeupEnds ? 'Next make-up end' : 'Finish make-up',
+          action: 'next_end',
+          primary: true
+        });
+      } else if (breakDue(state)) {
         list.push({ id: 'break', label: 'Start break', action: 'next_end', primary: true });
+        list.push({ id: 'makeup', label: 'Make-up ends', action: 'makeup_ends', ends: 1 });
       } else {
         list.push({
           id: 'start',
@@ -325,8 +341,13 @@
           action: 'technical_control',
           arrows: state.arrowsPerEnd || 3
         });
+        list.push({
+          id: 'skip_tc',
+          label: 'Skip Technical Control',
+          action: 'skip_technical_control'
+        });
       }
-      if (state.mode !== 'PRACTICE') {
+      if (state.mode !== 'PRACTICE' && (!state.lastWaveOfRound || state.technicalControlDone)) {
         list.push({ id: 'score', label: 'Score', action: 'line_clear', primary: true });
       }
       list.push({

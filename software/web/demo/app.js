@@ -178,7 +178,7 @@ try {
     return [
       state.phase, state.mode, state.detail, state.details, state.shooter,
       state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
-      state.technicalControl, state.lastWaveOfRound,
+      state.technicalControl, state.lastWaveOfRound, state.technicalControlDone, state.makeupActive,
       state.end, state.breakEnabled, state.breakAfterEnds
     ].join('|');
   }
@@ -192,7 +192,17 @@ try {
       window.Operator.renderActions($('actions'), state, runAction);
       const canExtend = window.Operator.renderAux($('aux'), state, runAction);
       $('extendBox').hidden = !canExtend;
+<<<<<<< HEAD
       $('extras').hidden = !canExtend && !$('aux').childElementCount;
+=======
+      const needTc = state.phase === 'FINISHED' && state.lastWaveOfRound &&
+        !state.technicalControl && !state.technicalControlDone;
+      $('tcBox').hidden = !needTc;
+      const needMakeup = state.phase === 'SCORING' && state.breakEnabled !== false &&
+        (state.breakAfterEnds || 0) > 0 && state.end % (state.breakAfterEnds || 1) === 0 &&
+        !state.makeupActive;
+      $('makeupBox').hidden = !needMakeup;
+>>>>>>> 0122b81 (Require Technical Control to be resolved before scoring, and add make-up ends.)
     }
     panel.draw();
     updateSize(panel);
@@ -216,7 +226,12 @@ try {
       return;
     }
     if (spec.action === 'technical_control') {
-      engine.control('technical_control', spec.arrows || 3);
+      engine.control('technical_control', +$('tcArrows').value || spec.arrows || 3);
+      refresh();
+      return;
+    }
+    if (spec.action === 'makeup_ends') {
+      engine.control('makeup_ends', +$('makeupEndsInput').value || spec.ends || 1);
       refresh();
       return;
     }

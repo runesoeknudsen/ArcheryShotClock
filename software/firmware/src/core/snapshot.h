@@ -108,6 +108,9 @@ struct StateSnapshot {
   bool technicalControl = false;
   uint8_t technicalControlArrows = 0;
   bool technicalControlDone = false;
+  bool makeupActive = false;
+  uint8_t makeupEnds = 0;
+  uint8_t makeupEnd = 0;
 
   bool running = false;
   bool finished = false;
@@ -129,7 +132,8 @@ struct StateSnapshot {
            breakCountdownVisible == other.breakCountdownVisible && lastWaveOfRound == other.lastWaveOfRound &&
            technicalControl == other.technicalControl &&
            technicalControlArrows == other.technicalControlArrows &&
-           technicalControlDone == other.technicalControlDone;
+           technicalControlDone == other.technicalControlDone && makeupActive == other.makeupActive &&
+           makeupEnds == other.makeupEnds && makeupEnd == other.makeupEnd;
   }
 };
 
