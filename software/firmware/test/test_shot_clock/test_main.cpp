@@ -363,6 +363,7 @@ void test_a_break_follows_scoring_after_the_configured_number_of_ends() {
   harness.clock.start(harness.now);
   harness.advanceSeconds(12);
   harness.clock.stop(harness.now);
+  harness.clock.skipTechnicalControl(harness.now);
   harness.clock.lineClear(harness.now);
   TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
 
@@ -413,6 +414,7 @@ void test_start_during_a_break_begins_the_next_end() {
   harness.clock.start(harness.now);
   harness.advanceSeconds(12);
   harness.clock.stop(harness.now);
+  harness.clock.skipTechnicalControl(harness.now);
   harness.clock.lineClear(harness.now);
   harness.clock.nextEnd(harness.now);
   TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
@@ -532,6 +534,10 @@ void test_round_break_with_no_technical_control_keeps_the_full_allowance() {
   TEST_ASSERT_FALSE(harness.clock.snapshot().breakCountdownVisible);
 
   harness.clock.lineClear(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Finished, harness.clock.snapshot().phase);
+
+  harness.clock.skipTechnicalControl(harness.now);
+  harness.clock.lineClear(harness.now);
   harness.clock.nextEnd(harness.now);
   TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
   TEST_ASSERT_TRUE(harness.clock.snapshot().breakCountdownVisible);
@@ -570,8 +576,15 @@ void test_partial_technical_control_is_deducted_from_the_round_break() {
   harness.advanceSeconds(15);
   harness.clock.stop(harness.now);
 
-  TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL(Core::Phase::Finished, harness.clock.snapshot().phase);
   TEST_ASSERT_FALSE(harness.clock.snapshot().technicalControl);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().technicalControlDone);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().breakCountdownVisible);
+  TEST_ASSERT_EQUAL_UINT32(35000, harness.clock.snapshot().breakRemainingMs);
+
+  harness.clock.lineClear(harness.now);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
   TEST_ASSERT_TRUE(harness.clock.snapshot().breakCountdownVisible);
   TEST_ASSERT_EQUAL_UINT32(35000, harness.clock.snapshot().remainingMs);
   TEST_ASSERT_EQUAL_UINT32(35000, harness.clock.snapshot().breakRemainingMs);
@@ -628,6 +641,72 @@ void test_two_wave_round_break_waits_for_the_last_wave() {
   TEST_ASSERT_TRUE(harness.clock.snapshot().lastWaveOfRound);
   TEST_ASSERT_EQUAL_UINT32(40000, harness.clock.snapshot().breakRemainingMs);
   TEST_ASSERT_FALSE(harness.clock.snapshot().breakCountdownVisible);
+}
+
+void test_scoring_waits_until_technical_control_is_resolved() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.abcdRotation = false;
+  config.breakEnabled = true;
+  config.breakAfterEnds = 1;
+  config.breakMs = 30000;
+  harness.clock.configure(harness.now, config);
+
+  finishOneDetailEnd(harness);
+  harness.clock.lineClear(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Finished, harness.clock.snapshot().phase);
+
+  harness.clock.skipTechnicalControl(harness.now);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().technicalControlDone);
+  harness.clock.lineClear(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
+}
+
+void test_makeup_ends_run_after_the_round_without_advancing_qualification() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.abcdRotation = false;
+  config.breakEnabled = true;
+  config.breakAfterEnds = 1;
+  config.breakMs = 30000;
+  harness.clock.configure(harness.now, config);
+
+  finishOneDetailEnd(harness);
+  harness.clock.skipTechnicalControl(harness.now);
+  harness.clock.lineClear(harness.now);
+  harness.clock.startMakeupEnds(harness.now, 2);
+
+  TEST_ASSERT_EQUAL(Core::Phase::Idle, harness.clock.snapshot().phase);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().makeupActive);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().makeupEnds);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().makeupEnd);
+  TEST_ASSERT_EQUAL_UINT16(1, harness.clock.snapshot().endNumber);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  harness.clock.lineClear(harness.now);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().makeupEnd);
+  TEST_ASSERT_EQUAL_UINT16(1, harness.clock.snapshot().endNumber);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  harness.clock.lineClear(harness.now);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().makeupActive);
+  TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT16(1, harness.clock.snapshot().endNumber);
+
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
 }
 
 void test_controls_that_the_phase_forbids_are_refused_and_logged() {
@@ -1242,6 +1321,8 @@ int main() {
   RUN_TEST(test_partial_technical_control_is_deducted_from_the_round_break);
   RUN_TEST(test_technical_control_that_fills_the_break_does_not_go_negative);
   RUN_TEST(test_two_wave_round_break_waits_for_the_last_wave);
+  RUN_TEST(test_scoring_waits_until_technical_control_is_resolved);
+  RUN_TEST(test_makeup_ends_run_after_the_round_without_advancing_qualification);
   RUN_TEST(test_controls_that_the_phase_forbids_are_refused_and_logged);
   RUN_TEST(test_a_clock_that_runs_backwards_cannot_swallow_the_ten_second_phase);
   RUN_TEST(test_the_ten_second_period_runs_its_full_length);
