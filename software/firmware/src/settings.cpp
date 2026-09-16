@@ -28,6 +28,7 @@ Settings SettingsStore::load() const {
   settings.abcdFollowTimer = preferences.getBool("abcd_follow", false);
   settings.abcdColour = preferences.getUInt("abcd_col", 0xFFFFFFu);
   settings.replayOccupyOnResume = preferences.getBool("resume_10s", true);
+  settings.recalculateOnResume = preferences.getBool("recalc_res", false);
   settings.firstShooter = preferences.getUChar("first", 1);
   settings.signalEachPeriod = preferences.getBool("sig_period", true);
   settings.abcdRotation = preferences.getBool("abcd", true);
@@ -94,6 +95,7 @@ void SettingsStore::save(const Settings& settings) const {
   preferences.putBool("abcd_follow", settings.abcdFollowTimer);
   preferences.putUInt("abcd_col", settings.abcdColour);
   preferences.putBool("resume_10s", settings.replayOccupyOnResume);
+  preferences.putBool("recalc_res", settings.recalculateOnResume);
   preferences.putUChar("first", settings.firstShooter);
   preferences.putBool("sig_period", settings.signalEachPeriod);
   preferences.putBool("abcd", settings.abcdRotation);
@@ -120,6 +122,7 @@ Core::SessionConfig sessionConfigFrom(const Settings& settings) {
   config.eventClass = static_cast<Rules::EventClass>(settings.eventClass);
   config.arrowsPerEnd = settings.arrowsPerEnd;
   config.replayOccupyOnResume = settings.replayOccupyOnResume;
+  config.recalculateOnResume = settings.recalculateOnResume;
   config.firstShooter = settings.firstShooter;
   config.signalEachAlternatingPeriod = settings.signalEachPeriod;
   config.abcdRotation = settings.abcdRotation;
@@ -151,6 +154,7 @@ void applySessionConfig(Settings& settings, const Core::SessionConfig& config) {
   settings.eventClass = static_cast<uint8_t>(config.eventClass);
   settings.arrowsPerEnd = config.arrowsPerEnd;
   settings.replayOccupyOnResume = config.replayOccupyOnResume;
+  settings.recalculateOnResume = config.recalculateOnResume;
   settings.firstShooter = config.firstShooter;
   settings.signalEachPeriod = config.signalEachAlternatingPeriod;
   settings.abcdRotation = config.abcdRotation;
