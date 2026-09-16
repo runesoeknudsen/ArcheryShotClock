@@ -146,6 +146,9 @@ void WebUi::handleControl() {
     clock_.nextEnd(now);
   } else if (action == "reset_end") {
     clock_.resetEnd(now);
+  } else if (action == "reset_session") {
+    clock_.resetSession(now);
+    match_.reset(now);
   } else if (action == "suspend") {
     clock_.suspend(now);
   } else if (action == "resume") {

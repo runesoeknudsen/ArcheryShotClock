@@ -278,6 +278,9 @@ int demo_control(const char* action, int32_t arg) {
     H().clock.nextEnd(now);
   } else if (std::strcmp(action, "reset_end") == 0) {
     H().clock.resetEnd(now);
+  } else if (std::strcmp(action, "reset_session") == 0) {
+    H().clock.resetSession(now);
+    H().match.reset(now);
   } else if (std::strcmp(action, "suspend") == 0) {
     H().clock.suspend(now);
   } else if (std::strcmp(action, "resume") == 0) {

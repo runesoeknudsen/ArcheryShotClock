@@ -210,7 +210,7 @@
     if (phase === 'IDLE') {
       return {
         headline: 'Ready',
-        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line.'
+        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
       };
     }
     if (phase === 'OCCUPY') {
@@ -352,6 +352,7 @@
       list.push({ id: 'reset', label: 'Reset this end', action: 'reset_end' });
     }
 
+    list.push({ id: 'reset_session', label: 'Restart session', action: 'reset_session' });
     list.push({ id: 'emergency', label: 'Emergency', action: 'emergency', danger: true });
     return list;
   }

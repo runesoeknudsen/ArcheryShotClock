@@ -97,6 +97,7 @@ public:
   void lineClear(uint32_t now);
   void nextEnd(uint32_t now);
   void resetEnd(uint32_t now);
+  void resetSession(uint32_t now);
   void suspend(uint32_t now);
   void resume(uint32_t now);
   void addArrow(uint32_t now);

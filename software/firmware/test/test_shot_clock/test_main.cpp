@@ -324,6 +324,30 @@ void test_art_10_1_next_end_advances_and_clears_the_arrow_count() {
   TEST_ASSERT_EQUAL_UINT32(90000, harness.clock.snapshot().remainingMs);
 }
 
+void test_reset_session_returns_to_end_one_ready() {
+  Harness harness;
+  harness.configure(Core::Mode::IndividualNonAlternating, Rules::EventClass::Announced, 3);
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.addArrow(harness.now);
+  harness.clock.stop(harness.now);
+  harness.clock.lineClear(harness.now);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL_UINT16(2, harness.clock.snapshot().endNumber);
+
+  harness.clock.start(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Occupy, harness.clock.snapshot().phase);
+  harness.clock.resetSession(harness.now);
+
+  TEST_ASSERT_EQUAL(Core::Phase::Idle, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT16(1, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_EQUAL_UINT8(0, harness.clock.snapshot().arrowsShot);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().detail);
+  TEST_ASSERT_EQUAL(Core::Light::Off, harness.clock.snapshot().light);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().running);
+  TEST_ASSERT_TRUE(harness.sink.contains("\"what\":\"reset_session\""));
+}
+
 void test_a_break_follows_scoring_after_the_configured_number_of_ends() {
   Harness harness;
   Core::SessionConfig config;
@@ -829,6 +853,7 @@ int main() {
   RUN_TEST(test_art_11_2_2_time_may_be_extended);
   RUN_TEST(test_art_11_3_3_emergency_gives_at_least_five_signals_from_any_phase);
   RUN_TEST(test_art_10_1_next_end_advances_and_clears_the_arrow_count);
+  RUN_TEST(test_reset_session_returns_to_end_one_ready);
   RUN_TEST(test_a_break_follows_scoring_after_the_configured_number_of_ends);
   RUN_TEST(test_next_end_from_finished_does_not_skip_into_the_break);
   RUN_TEST(test_start_during_a_break_begins_the_next_end);

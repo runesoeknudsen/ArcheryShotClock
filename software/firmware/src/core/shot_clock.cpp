@@ -362,6 +362,23 @@ void ShotClock::resetEnd(uint32_t now) {
   enterPhase(now, Phase::Idle, state_.periodMs);
 }
 
+void ShotClock::resetSession(uint32_t now) {
+  const TraceField fields[] = {
+      {"end", state_.endNumber},
+  };
+  tracer_.rule(now, "session", "reset_session", fields, 1, "restart from end 1");
+  queueHead_ = 0;
+  queueTail_ = 0;
+  pendingShootingMs_ = 0;
+  state_.endNumber = 1;
+  state_.setNumber = 0;
+  state_.score[0] = 0;
+  state_.score[1] = 0;
+  state_.setPoints[0] = 0;
+  state_.setPoints[1] = 0;
+  configure(now, config_);
+}
+
 void ShotClock::suspend(uint32_t now) {
   if (!clockRunning()) {
     rejected(now, "suspend");
