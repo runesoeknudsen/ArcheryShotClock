@@ -86,6 +86,28 @@ void test_browser_host_reset_session_returns_to_end_one() {
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"end\":1"));
 }
 
+void test_browser_host_exposes_round_break_and_technical_control() {
+  demo_init(0);
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"lastWaveOfRound\":false"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"technicalControl\":false"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakCountdownVisible\":false"));
+
+  TEST_ASSERT_EQUAL_INT(0, demo_session(
+      "{\"abcdRotation\":false,\"breakEnabled\":true,\"breakAfterEnds\":1,\"breakSeconds\":60,"
+      "\"eventClass\":\"ANNOUNCED\",\"arrowsPerEnd\":3}"));
+  TEST_ASSERT_EQUAL_INT(0, demo_control("start", 0));
+  demo_tick(12000);
+  TEST_ASSERT_EQUAL_INT(0, demo_control("stop", 0));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"lastWaveOfRound\":true"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakRemainingMs\":60000"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakCountdownVisible\":false"));
+
+  TEST_ASSERT_EQUAL_INT(0, demo_control("technical_control", 1));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"technicalControl\":true"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"phase\":\"OCCUPY\""));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakCountdownVisible\":false"));
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -98,5 +120,6 @@ int main() {
   RUN_TEST(test_browser_host_rotates_cd_first_on_the_second_end);
   RUN_TEST(test_browser_host_abcd_letters_default_white);
   RUN_TEST(test_browser_host_reset_session_returns_to_end_one);
+  RUN_TEST(test_browser_host_exposes_round_break_and_technical_control);
   return UNITY_END();
 }

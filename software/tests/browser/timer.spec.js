@@ -47,6 +47,12 @@ function mockApi(page) {
     breakEnabled: true,
     breakAfterEnds: 12,
     breakSeconds: 900,
+    breakRemainingMs: 0,
+    breakCountdownVisible: false,
+    lastWaveOfRound: false,
+    technicalControl: false,
+    technicalControlArrows: 0,
+    technicalControlDone: false,
     matchEnabled: false,
     division: 'RECURVE',
     scoring: 'SET_PLAY',
@@ -115,6 +121,38 @@ function mockApi(page) {
       state.light = 'RED';
       state.remainingMs = 0;
       state.panelText = state.showEndLabels !== false ? ('End ' + state.end) : '0';
+      const after = state.breakAfterEnds || 0;
+      if (state.technicalControl) {
+        state.technicalControl = false;
+        state.technicalControlDone = true;
+        state.phase = 'BREAK';
+        state.light = 'OFF';
+        const remaining = Math.max(0, (state.breakRemainingMs || 0) - 25000);
+        state.breakRemainingMs = remaining;
+        state.breakCountdownVisible = remaining > 0;
+        state.remainingMs = remaining;
+        state.panelText = String(Math.ceil(remaining / 1000));
+        if (remaining === 0) {
+          state.phase = 'FINISHED';
+          state.light = 'RED';
+          state.panelText = state.showEndLabels !== false ? ('End ' + state.end) : '0';
+        }
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify(state) });
+        return;
+      }
+      if (state.breakEnabled !== false && after > 0 && state.end % after === 0) {
+        state.lastWaveOfRound = true;
+        state.breakRemainingMs = (state.breakSeconds || 900) * 1000;
+        state.breakCountdownVisible = false;
+      }
+    }
+    if (body.action === 'technical_control') {
+      state.technicalControl = true;
+      state.technicalControlArrows = body.arrows || 3;
+      state.phase = 'OCCUPY';
+      state.light = 'RED';
+      state.remainingMs = 10000;
+      state.breakCountdownVisible = false;
     }
     if (body.action === 'line_clear') {
       state.phase = 'SCORING';
@@ -704,6 +742,28 @@ test('restart session returns to end 1 from later in the round', async ({ page }
   await expect(page.locator('#headline')).toHaveText('Ready');
   await expect(page.getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
   expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'reset_session' } });
+});
+
+test('hides the break countdown during Technical Control and shows remaining after', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#breakAfterEnds').fill('1');
+  await page.locator('#breakAfterEnds').dispatchEvent('change');
+  await page.getByRole('link', { name: 'Field' }).click();
+
+  await page.getByRole('button', { name: 'Start Shoot AB' }).click();
+  await page.getByRole('button', { name: 'Start Shoot CD' }).click();
+  await page.getByRole('button', { name: 'Stop occupy' }).click();
+
+  await expect(page.getByRole('button', { name: 'Technical Control' })).toBeVisible();
+  await page.getByRole('button', { name: 'Technical Control' }).click();
+  await expect(page.locator('#headline')).toHaveText('Technical Control');
+  await expect(page.locator('#clock')).toHaveText(/^\d{1,2}$/);
+  await expect(page.locator('#phase')).toHaveText('OCCUPY');
+
+  await page.getByRole('button', { name: 'Stop Technical Control' }).click();
+  await expect(page.locator('#phase')).toHaveText('BREAK');
+  await expect(page.locator('#headline')).toContainText('Break after end 1');
+  await expect(page.locator('#clock')).not.toHaveText('900');
 });
 
 test('reports a rejected command instead of failing silently', async ({ page }) => {
