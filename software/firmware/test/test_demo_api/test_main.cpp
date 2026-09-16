@@ -87,6 +87,18 @@ void test_browser_host_reset_session_returns_to_end_one() {
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"end\":1"));
 }
 
+void test_browser_host_accepts_qualification_structure() {
+  demo_init(0);
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"endsPerRound\":12"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"qualificationRounds\":2"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"round\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"endInRound\":1"));
+
+  TEST_ASSERT_EQUAL_INT(0, demo_session("{\"endsPerRound\":10,\"qualificationRounds\":1}"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"endsPerRound\":10"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"qualificationRounds\":1"));
+}
+
 void test_browser_host_accepts_one_two_and_three_waves() {
   demo_init(0);
   TEST_ASSERT_EQUAL_INT(0, demo_session("{\"waves\":1}"));
@@ -140,5 +152,6 @@ int main() {
   RUN_TEST(test_browser_host_accepts_one_two_and_three_waves);
   RUN_TEST(test_browser_host_accepts_break_length_in_minutes);
   RUN_TEST(test_browser_host_adjusts_upcoming_break_without_leaving_scoring);
+  RUN_TEST(test_browser_host_accepts_qualification_structure);
   return UNITY_END();
 }

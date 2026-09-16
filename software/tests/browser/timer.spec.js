@@ -4,6 +4,19 @@ const { test, expect } = require('@playwright/test');
 // rulebook state truthfully and that a control the current phase forbids
 // cannot be pressed at all.
 
+function applyQualification(state) {
+  const ends = Math.max(Number(state.endsPerRound) || 12, 1);
+  const rounds = Math.max(Number(state.qualificationRounds) || 2, 1);
+  const end = Math.max(Number(state.end) || 1, 1);
+  state.endsPerRound = ends;
+  state.qualificationRounds = rounds;
+  state.round = Math.floor((end - 1) / ends) + 1;
+  state.endInRound = ((end - 1) % ends) + 1;
+  state.lastEndOfRound = state.endInRound === ends;
+  state.lastEndOfQualification = state.lastEndOfRound && state.round === rounds;
+  state.qualificationComplete = end > ends * rounds;
+}
+
 function mockApi(page) {
   const state = {
     schema: 1,
@@ -49,6 +62,13 @@ function mockApi(page) {
     breakAfterEnds: 12,
     breakMinutes: 15,
     breakSeconds: 900,
+    endsPerRound: 12,
+    qualificationRounds: 2,
+    round: 1,
+    endInRound: 1,
+    lastEndOfRound: false,
+    lastEndOfQualification: false,
+    qualificationComplete: false,
     matchEnabled: false,
     division: 'RECURVE',
     scoring: 'SET_PLAY',
@@ -140,6 +160,7 @@ function mockApi(page) {
           state.detail = ((state.end - 1) % state.details) + 1;
         }
       }
+      applyQualification(state);
     }
     if (body.action === 'add_arrow') state.arrowsShot += 1;
     if (body.action === 'remove_arrow') state.arrowsShot -= 1;
@@ -197,6 +218,9 @@ function mockApi(page) {
       state.breakSeconds = body.breakSeconds;
       state.breakMinutes = Math.round(body.breakSeconds / 60);
     }
+    if (typeof body.endsPerRound === 'number') state.endsPerRound = body.endsPerRound;
+    if (typeof body.qualificationRounds === 'number') state.qualificationRounds = body.qualificationRounds;
+    applyQualification(state);
     state.eventClass = body.eventClass;
     state.arrowsPerEnd = body.arrowsPerEnd;
     state.perArrowMs = body.eventClass === 'ANNOUNCED' ? 30000 : 40000;
@@ -254,9 +278,27 @@ test.beforeEach(async ({ page }) => {
 test('shows the phase, end and what the panel is displaying', async ({ page }) => {
   await expect(page.locator('#phase')).toHaveText('IDLE');
   await expect(page.locator('#end')).toHaveText('1');
+  await expect(page.locator('#round')).toHaveText('1/2');
+  await expect(page.locator('#endInRound')).toHaveText('1/12');
   await expect(page.locator('#arrowsBox')).toBeHidden();
   await expect(page.locator('#perArrow')).toHaveText('40 s');
   await expect(page.locator('#panel')).toHaveText('120');
+});
+
+test('setup can change ends per round and qualification rounds', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await expect(page.locator('#endsPerRound')).toHaveValue('12');
+  await expect(page.locator('#qualificationRounds')).toHaveValue('2');
+  await expect(page.locator('#preview')).toContainText('2 rounds of 12 ends');
+  await page.locator('#endsPerRound').fill('10');
+  await page.locator('#endsPerRound').dispatchEvent('change');
+  await page.locator('#qualificationRounds').fill('1');
+  await page.locator('#qualificationRounds').dispatchEvent('change');
+  await expect(page.locator('#preview')).toContainText('1 round of 10 ends');
+  await page.getByRole('link', { name: 'Field' }).click();
+  await expect(page.locator('#round')).toHaveText('1/1');
+  await expect(page.locator('#endInRound')).toHaveText('1/10');
+  await expect(page.locator('#situation')).toContainText('Round 1 of 1, end 1 of 10');
 });
 
 test('lights the lamp matching the light state', async ({ page }) => {

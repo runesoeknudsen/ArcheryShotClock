@@ -168,3 +168,21 @@ test('three waves run A then B then C from the core', async ({ page }) => {
   await page.getByRole('button', { name: 'Start Shoot C' }).click();
   await expect(page.locator('#clockGroup')).toHaveText('C');
 });
+
+test('shows default qualification progress', async ({ page }) => {
+  await page.goto('/demo/');
+  await expect(page.locator('#round')).toHaveText('1/2');
+  await expect(page.locator('#endInRound')).toHaveText('1/12');
+  await expect(page.locator('#situation')).toContainText('Round 1 of 2, end 1 of 12');
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await expect(page.locator('#endsPerRound')).toHaveValue('12');
+  await expect(page.locator('#qualificationRounds')).toHaveValue('2');
+  await expect(page.locator('#preview')).toContainText('2 rounds of 12 ends');
+  await page.locator('#endsPerRound').fill('6');
+  await page.locator('#endsPerRound').dispatchEvent('change');
+  await page.locator('#qualificationRounds').fill('1');
+  await page.locator('#qualificationRounds').dispatchEvent('change');
+  await page.getByRole('link', { name: 'Field' }).click();
+  await expect(page.locator('#round')).toHaveText('1/1');
+  await expect(page.locator('#endInRound')).toHaveText('1/6');
+});

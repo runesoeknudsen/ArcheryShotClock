@@ -240,6 +240,10 @@ void test_snapshot_equality_detects_every_tracked_field() {
   right = left;
   right.display = Core::DisplayContent::Blank;
   TEST_ASSERT_FALSE(left.sameAs(right));
+
+  right = left;
+  right.roundNumber = 2;
+  TEST_ASSERT_FALSE(left.sameAs(right));
 }
 
 void setUp() {}
