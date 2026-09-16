@@ -297,6 +297,9 @@ int demo_control(const char* action, int32_t arg) {
     if (arg != 0) H().clock.extendTime(now, arg * 1000);
   } else if (std::strcmp(action, "adjust_break") == 0) {
     if (arg != 0) H().clock.adjustBreak(now, arg * 1000);
+  } else if (std::strcmp(action, "technical_control") == 0) {
+    uint8_t arrows = arg > 0 ? static_cast<uint8_t>(arg) : H().clock.snapshot().arrowsPerEnd;
+    H().clock.startTechnicalControl(now, arrows);
   } else {
     return 1;
   }
