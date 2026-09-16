@@ -10,6 +10,7 @@ ShotClock::ShotClock(Tracer& tracer)
   state_.endNumber = 1;
   state_.periodMs = Rules::periodMs(config_.arrowsPerEnd, perArrowMs());
   state_.remainingMs = state_.periodMs;
+  applyWaves();
   applyLight();
 }
 
@@ -113,6 +114,7 @@ void ShotClock::configure(uint32_t now, const SessionConfig& config) {
 
   if (config_.firstShooter != 1 && config_.firstShooter != 2) config_.firstShooter = 1;
   if (config_.details < 1) config_.details = 1;
+  if (config_.details > 4) config_.details = 4;
   if (config_.breakAfterEnds > 36) config_.breakAfterEnds = 36;
   if (config_.breakEnabled && config_.breakMs == 0) config_.breakMs = 15 * 60 * 1000;
 
@@ -122,7 +124,7 @@ void ShotClock::configure(uint32_t now, const SessionConfig& config) {
   state_.arrowsShot = 0;
   state_.sideArrows[0] = 0;
   state_.sideArrows[1] = 0;
-  state_.details = config_.abcdRotation ? config_.details : 1;
+  applyWaves();
   setDetailForThisEnd();
   state_.shooter = Rules::isAlternating(config_.mode) ? config_.firstShooter : 0;
 
@@ -655,5 +657,26 @@ bool ShotClock::moreDetailsThisEnd() const {
 }
 
 void ShotClock::setDetailForThisEnd() { state_.detail = firstDetailThisEnd(); }
+
+void ShotClock::applyWaves() {
+  if (config_.waves >= 1 && config_.waves <= 3) {
+    if (config_.waves == 1) {
+      config_.abcdRotation = false;
+      config_.details = 1;
+    } else {
+      config_.abcdRotation = true;
+      config_.details = config_.waves;
+    }
+  } else if (!config_.abcdRotation || config_.details <= 1) {
+    config_.waves = 1;
+  } else if (config_.details >= 3) {
+    config_.waves = 3;
+    config_.abcdRotation = true;
+  } else {
+    config_.waves = 2;
+  }
+  state_.waves = config_.waves;
+  state_.details = config_.abcdRotation ? config_.details : 1;
+}
 
 }  // namespace Core

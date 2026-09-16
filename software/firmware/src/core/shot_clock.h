@@ -59,6 +59,9 @@ struct SessionConfig {
   // leave and the next to occupy the line. Qualification defaults to this.
   bool abcdRotation = true;
   uint8_t details = 2;
+  // 0 = derive from abcdRotation/details. 1, 2 or 3 are the indoor wave
+  // layouts: one group, AB/CD, or A then B then C.
+  uint8_t waves = 0;
 
   // Art. 12.5: run this end as a shoot-off - one arrow for an individual,
   // one per athlete for a team - outside the normal end and set count.
@@ -144,6 +147,7 @@ private:
   uint8_t nextDetailAfter(uint8_t detail) const;
   bool moreDetailsThisEnd() const;
   void setDetailForThisEnd();
+  void applyWaves();
 
   Tracer& tracer_;
   SessionConfig config_;

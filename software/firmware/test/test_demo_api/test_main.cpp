@@ -43,6 +43,7 @@ void test_browser_host_defaults_to_abcd_rotation() {
   demo_init(0);
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"abcdRotation\":true"));
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"details\":2"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"waves\":2"));
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"detail\":1"));
 }
 
@@ -86,6 +87,23 @@ void test_browser_host_reset_session_returns_to_end_one() {
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"end\":1"));
 }
 
+void test_browser_host_accepts_one_two_and_three_waves() {
+  demo_init(0);
+  TEST_ASSERT_EQUAL_INT(0, demo_session("{\"waves\":1}"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"waves\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"details\":1"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"abcdRotation\":false"));
+
+  TEST_ASSERT_EQUAL_INT(0, demo_session("{\"waves\":2}"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"waves\":2"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"details\":2"));
+
+  TEST_ASSERT_EQUAL_INT(0, demo_session("{\"waves\":3}"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"waves\":3"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"details\":3"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"abcdRotation\":true"));
+}
+
 void test_browser_host_accepts_break_length_in_minutes() {
   demo_init(0);
   TEST_ASSERT_EQUAL_INT(0, demo_session("{\"breakMinutes\":20}"));
@@ -119,6 +137,7 @@ int main() {
   RUN_TEST(test_browser_host_rotates_cd_first_on_the_second_end);
   RUN_TEST(test_browser_host_abcd_letters_default_white);
   RUN_TEST(test_browser_host_reset_session_returns_to_end_one);
+  RUN_TEST(test_browser_host_accepts_one_two_and_three_waves);
   RUN_TEST(test_browser_host_accepts_break_length_in_minutes);
   RUN_TEST(test_browser_host_adjusts_upcoming_break_without_leaving_scoring);
   return UNITY_END();

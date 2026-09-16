@@ -179,14 +179,19 @@
       <div class="row">
         <div>
           <label for="abcdRotation">AB / CD rotation (Art. 11.2.3.1)</label>
-          <select id="abcdRotation" onchange="saveSession()">
+          <select id="abcdRotation" onchange="onAbcdRotationChange()">
             <option value="true">On — AB then CD, rotating each end</option>
             <option value="false">Off — one detail</option>
           </select>
         </div>
         <div>
-          <label for="details">Details on the line</label>
-          <input id="details" type="number" min="1" max="4" onchange="saveSession()">
+          <label for="waves">Shooting waves</label>
+          <select id="waves" onchange="onWavesChange()">
+            <option value="1">1 wave</option>
+            <option value="2" selected>2 waves — A/B then C/D</option>
+            <option value="3">3 waves — A, B, then C</option>
+          </select>
+          <input id="details" type="hidden" value="2">
         </div>
       </div>
       <div class="row">
@@ -462,7 +467,9 @@
       if (group) {
         const vertical = state.abcdVertical !== false;
         face.classList.toggle('under', !vertical);
-        $('clockGroup').textContent = vertical ? group.charAt(0) + '\n' + group.charAt(1) : group;
+        $('clockGroup').textContent = (vertical && group.length > 1)
+          ? group.charAt(0) + '\n' + group.charAt(1)
+          : group;
         $('clockGroup').style.color = Operator.groupColourCss(state);
       } else {
         face.classList.remove('under');
@@ -485,7 +492,8 @@
         firstShooter: +$('firstShooter').value,
         signalEachPeriod: $('signalEachPeriod').value === 'true',
         abcdRotation: $('abcdRotation').value === 'true',
-        details: $('abcdRotation').value === 'true' ? Math.max(+$('details').value, 2) : +$('details').value,
+        waves: +$('waves').value,
+        details: +$('waves').value === 1 ? 1 : +$('waves').value,
         shootOff: $('shootOff').value === 'true',
         practiceSeconds: +$('practiceSeconds').value,
         clockSeconds: $('clockSeconds').value === 'true',
@@ -531,6 +539,9 @@
       if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter);
       if (document.activeElement !== $('signalEachPeriod')) $('signalEachPeriod').value = String(state.signalEachPeriod);
       if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(state.abcdRotation);
+      if (document.activeElement !== $('waves')) {
+        $('waves').value = String(state.waves || (state.abcdRotation ? Math.min(state.details || 2, 3) : 1));
+      }
       if (document.activeElement !== $('details')) $('details').value = state.details;
       if (document.activeElement !== $('shootOff')) $('shootOff').value = String(state.shootOff);
       if (document.activeElement !== $('practiceSeconds')) $('practiceSeconds').value = state.practiceSeconds;
@@ -569,7 +580,7 @@
       $('headline').textContent = story.headline;
       $('situation').textContent = story.detail;
       view.renderFlow($('flow'), state);
-      const actionKey = [state.phase, state.mode, state.detail, state.details, state.shooter,
+      const actionKey = [state.phase, state.mode, state.detail, state.details, state.waves, state.shooter,
         state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
         state.end, state.breakEnabled, state.breakAfterEnds, state.breakMinutes].join('|');
       if (actionKey !== lastActionKey) {
@@ -625,7 +636,9 @@
 
     const control = action => post('/api/control', { action });
     const saveSession = () => {
-      if ($('abcdRotation').value === 'true' && +$('details').value < 2) $('details').value = '2';
+      const waves = +$('waves').value;
+      $('abcdRotation').value = waves === 1 ? 'false' : 'true';
+      $('details').value = String(waves === 1 ? 1 : waves);
       if (lastState) Operator.renderPreview($('preview'), draftFromForm(lastState));
       return post('/api/session', {
         mode: $('mode').value,
@@ -633,6 +646,7 @@
         arrowsPerEnd: +$('arrowsPerEnd').value,
         firstShooter: +$('firstShooter').value,
         details: +$('details').value,
+        waves: waves,
         practiceSeconds: +$('practiceSeconds').value,
         division: $('division').value,
         matchLogic: $('matchLogic').value === 'true',
@@ -644,6 +658,11 @@
         breakAfterEnds: +$('breakAfterEnds').value,
         breakMinutes: +$('breakMinutes').value
       });
+    };
+    window.onWavesChange = () => saveSession();
+    window.onAbcdRotationChange = () => {
+      $('waves').value = $('abcdRotation').value === 'false' ? '1' : '2';
+      return saveSession();
     };
     const saveDisplay = () => {
       if (lastState) Operator.renderPreview($('preview'), draftFromForm(lastState));
