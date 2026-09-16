@@ -159,6 +159,13 @@
             <option value="false">Straight back to shooting</option>
           </select>
         </div>
+        <div>
+          <label for="recalculateOnResume">Shot time on resume</label>
+          <select id="recalculateOnResume" onchange="saveSession()">
+            <option value="false">Keep remaining time</option>
+            <option value="true">Recalculate unshot arrows (Art. 11.2.4)</option>
+          </select>
+        </div>
       </div>
       <div class="row">
         <div>
@@ -482,6 +489,7 @@
         eventClass: $('eventClass').value,
         arrowsPerEnd: +$('arrowsPerEnd').value,
         resumeOccupy: $('resumeOccupy').value === 'true',
+        recalculateOnResume: $('recalculateOnResume').value === 'true',
         firstShooter: +$('firstShooter').value,
         signalEachPeriod: $('signalEachPeriod').value === 'true',
         abcdRotation: $('abcdRotation').value === 'true',
@@ -528,6 +536,9 @@
       if (document.activeElement !== $('eventClass')) $('eventClass').value = state.eventClass;
       if (document.activeElement !== $('arrowsPerEnd')) $('arrowsPerEnd').value = String(state.arrowsPerEnd);
       if (document.activeElement !== $('resumeOccupy')) $('resumeOccupy').value = String(state.resumeOccupy);
+      if (document.activeElement !== $('recalculateOnResume')) {
+        $('recalculateOnResume').value = String(state.recalculateOnResume === true);
+      }
       if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter);
       if (document.activeElement !== $('signalEachPeriod')) $('signalEachPeriod').value = String(state.signalEachPeriod);
       if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(state.abcdRotation);
@@ -631,6 +642,7 @@
         division: $('division').value,
         matchLogic: $('matchLogic').value === 'true',
         resumeOccupy: $('resumeOccupy').value === 'true',
+        recalculateOnResume: $('recalculateOnResume').value === 'true',
         signalEachPeriod: $('signalEachPeriod').value === 'true',
         abcdRotation: $('abcdRotation').value === 'true',
         shootOff: $('shootOff').value === 'true',

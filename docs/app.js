@@ -50,6 +50,7 @@ function draftFromForm(state) {
     eventClass: $('eventClass').value,
     arrowsPerEnd: +$('arrowsPerEnd').value,
     resumeOccupy: $('resumeOccupy').value === 'true',
+    recalculateOnResume: $('recalculateOnResume').value === 'true',
     firstShooter: +$('firstShooter').value,
     abcdRotation: $('abcdRotation').value === 'true',
     details: $('abcdRotation').value === 'true' ? Math.max(state.details || 0, 2) : 1,
@@ -88,6 +89,9 @@ function apply(state) {
   if (document.activeElement !== $('eventClass')) $('eventClass').value = state.eventClass;
   if (document.activeElement !== $('arrowsPerEnd')) $('arrowsPerEnd').value = String(state.arrowsPerEnd);
   if (document.activeElement !== $('resumeOccupy')) $('resumeOccupy').value = String(state.resumeOccupy);
+  if (document.activeElement !== $('recalculateOnResume')) {
+    $('recalculateOnResume').value = String(state.recalculateOnResume === true);
+  }
   if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter || 1);
   if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(!!state.abcdRotation);
   if (document.activeElement !== $('display')) $('display').value = state.display;
@@ -246,6 +250,7 @@ try {
       division: 'RECURVE',
       matchLogic: $('matchLogic').value === 'true',
       resumeOccupy: $('resumeOccupy').value === 'true',
+      recalculateOnResume: $('recalculateOnResume').value === 'true',
       signalEachPeriod: true,
       abcdRotation: $('abcdRotation').value === 'true',
       shootOff: false,
@@ -262,6 +267,7 @@ try {
   $('eventClass').onchange = session;
   $('arrowsPerEnd').onchange = session;
   $('resumeOccupy').onchange = session;
+  $('recalculateOnResume').onchange = session;
   $('firstShooter').onchange = session;
   $('abcdRotation').onchange = session;
   $('breakEnabled').onchange = session;
