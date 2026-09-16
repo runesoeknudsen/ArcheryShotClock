@@ -213,6 +213,13 @@ void WebUi::handleSession() {
   const int details = readJsonInteger(body, "details");
   if (details >= 1 && details <= 4) config.details = static_cast<uint8_t>(details);
 
+  if (body.indexOf("waves") >= 0) {
+    const int waves = readJsonInteger(body, "waves");
+    if (waves >= 1 && waves <= 3) config.waves = static_cast<uint8_t>(waves);
+  } else {
+    config.waves = 0;
+  }
+
   const int practiceSeconds = readJsonInteger(body, "practiceSeconds");
   if (practiceSeconds > 0) config.practiceMs = static_cast<uint32_t>(practiceSeconds) * 1000UL;
 

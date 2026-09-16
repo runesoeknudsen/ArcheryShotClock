@@ -1,19 +1,29 @@
 // Director-console helpers: shooter-facing names, the flow strip, and the
 // setup preview. Firmware and the browser demo share this file.
 (function (root) {
-  const GROUPS = ['AB', 'CD', 'EF', 'GH'];
+  const PAIR_GROUPS = ['AB', 'CD', 'EF', 'GH'];
+  const LETTER_GROUPS = ['A', 'B', 'C'];
 
-  function groupName(detail) {
+  function waveCount(state) {
+    if (state && state.waves >= 1) return Math.min(state.waves, 3);
+    if (state && state.abcdRotation && (state.details || 1) > 1) {
+      return Math.min(state.details, 3);
+    }
+    return 1;
+  }
+
+  function groupName(detail, state) {
     const index = Math.max(0, (detail || 1) - 1);
-    return GROUPS[index] || ('D' + (index + 1));
+    if (waveCount(state) === 3) return LETTER_GROUPS[index] || 'A';
+    return PAIR_GROUPS[index] || ('D' + (index + 1));
   }
 
   function usesAbcd(state) {
-    return !!(state && state.abcdRotation && (state.details || 1) > 1);
+    return waveCount(state) > 1;
   }
 
   function detailCount(state) {
-    return Math.min(Math.max(state && state.details ? state.details : 1, 1), 4);
+    return Math.min(Math.max(waveCount(state), 1), 3);
   }
 
   function firstDetailForEnd(state, end) {
@@ -102,7 +112,7 @@
   function groupOnClock(state) {
     if (!state || state.showAbcd === false || !usesAbcd(state)) return '';
     if (state.showEndLabels !== false && (state.phase === 'FINISHED' || state.phase === 'SCORING')) return '';
-    return groupName(state.detail || 1);
+    return groupName(state.detail || 1, state);
   }
 
   function programTitle(state) {
@@ -115,14 +125,18 @@
       PRACTICE: 'Practice'
     };
     let title = titles[state.mode] || state.mode || 'Shot clock';
-    if (usesAbcd(state)) title += ', ' + groupName(1) + ' then ' + groupName(2) + ', rotating each end';
+    if (usesAbcd(state)) {
+      const names = [];
+      for (let step = 1; step <= detailCount(state); step++) names.push(groupName(step, state));
+      title += ', ' + names.join(' then ') + ', rotating each end';
+    }
     if (state.shootOff) title += ' — shoot-off';
     return title;
   }
 
   function startShootLabel(state, detail) {
     if (state.mode === 'PRACTICE') return 'Start Practice';
-    if (usesAbcd(state)) return 'Start Shoot ' + groupName(detail || upcomingFirstDetail(state));
+    if (usesAbcd(state)) return 'Start Shoot ' + groupName(detail || upcomingFirstDetail(state), state);
     if (isAlternating(state)) return 'Start Shoot ' + sideName(state.firstShooter || 1, state);
     return 'Start Shoot';
   }
@@ -139,8 +153,8 @@
     add('ready', 'Ready');
     if (usesAbcd(state)) {
       detailOrder(state, state.end || 1).forEach(function (detail) {
-        add('occupy' + detail, 'Occupy ' + groupName(detail));
-        add('shoot' + detail, 'Shoot ' + groupName(detail));
+        add('occupy' + detail, 'Occupy ' + groupName(detail, state));
+        add('shoot' + detail, 'Shoot ' + groupName(detail, state));
       });
     } else if (isAlternating(state)) {
       add('occupy', 'Occupy line');
@@ -192,7 +206,7 @@
 
   function situation(state) {
     const phase = state.phase || 'IDLE';
-    const who = usesAbcd(state) ? groupName(state.detail || 1) : '';
+    const who = usesAbcd(state) ? groupName(state.detail || 1, state) : '';
     const shooter = isAlternating(state) ? sideName(state.shooter || state.firstShooter || 1, state) : '';
 
     if (phase === 'EMERGENCY') {
@@ -230,7 +244,7 @@
       if (moreDetails(state)) {
         return {
           headline: who + ' shooting',
-          detail: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details)) + ' when ' + who + ' has finished.'
+          detail: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details), state) + ' when ' + who + ' has finished.'
         };
       }
       if (state.mode === 'PRACTICE') {
@@ -328,13 +342,13 @@
     } else if (running(phase) && moreDetails(state)) {
       list.push({
         id: 'jump',
-        label: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details)),
+        label: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details), state),
         action: 'stop',
         primary: true
       });
     } else if (phase === 'SHOOTING' || phase === 'WARNING') {
       const label = state.mode === 'PRACTICE' ? 'Stop practice'
-        : usesAbcd(state) ? 'Stop shooting ' + groupName(state.detail || 1)
+        : usesAbcd(state) ? 'Stop shooting ' + groupName(state.detail || 1, state)
         : 'Stop shooting';
       list.push({ id: 'stop', label: label, action: 'stop', primary: true });
     } else if (phase === 'OCCUPY' && !moreDetails(state)) {
@@ -425,8 +439,8 @@
 
     if (usesAbcd(state)) {
       lines.push({
-        label: 'Details',
-        value: detailOrder(state, state.end || 1).map(groupName).join(' then ') +
+        label: 'Waves',
+        value: detailOrder(state, state.end || 1).map(function (detail) { return groupName(detail, state); }).join(' then ') +
           ', rotating each end · 10 s changeover'
       });
     }

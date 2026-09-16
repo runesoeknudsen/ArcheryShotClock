@@ -32,6 +32,7 @@ Settings SettingsStore::load() const {
   settings.signalEachPeriod = preferences.getBool("sig_period", true);
   settings.abcdRotation = preferences.getBool("abcd", true);
   settings.details = preferences.getUChar("details", 2);
+  settings.waves = preferences.getUChar("waves", 0);
   settings.shootOff = preferences.getBool("shoot_off", false);
   settings.practiceMs = preferences.getUInt("practice_ms", 300000);
   settings.division = preferences.getUChar("division", static_cast<uint8_t>(Core::Division::Recurve));
@@ -54,6 +55,7 @@ Settings SettingsStore::load() const {
   if (!validContent(settings.displayContent)) settings.displayContent = static_cast<uint8_t>(Core::DisplayContent::Clock);
   if (settings.firstShooter != 1 && settings.firstShooter != 2) settings.firstShooter = 1;
   if (settings.details < 1 || settings.details > 4) settings.details = 2;
+  if (settings.waves > 3) settings.waves = 0;
   if (settings.practiceMs == 0) settings.practiceMs = 300000;
   if (settings.division > static_cast<uint8_t>(Core::Division::Compound)) {
     settings.division = static_cast<uint8_t>(Core::Division::Recurve);
@@ -88,6 +90,7 @@ void SettingsStore::save(const Settings& settings) const {
   preferences.putBool("sig_period", settings.signalEachPeriod);
   preferences.putBool("abcd", settings.abcdRotation);
   preferences.putUChar("details", settings.details);
+  preferences.putUChar("waves", settings.waves);
   preferences.putBool("shoot_off", settings.shootOff);
   preferences.putUInt("practice_ms", settings.practiceMs);
   preferences.putUChar("division", settings.division);
@@ -111,6 +114,7 @@ Core::SessionConfig sessionConfigFrom(const Settings& settings) {
   config.signalEachAlternatingPeriod = settings.signalEachPeriod;
   config.abcdRotation = settings.abcdRotation;
   config.details = settings.details;
+  config.waves = settings.waves;
   config.shootOff = settings.shootOff;
   config.practiceMs = settings.practiceMs;
   config.breakEnabled = settings.breakEnabled;
@@ -139,6 +143,7 @@ void applySessionConfig(Settings& settings, const Core::SessionConfig& config) {
   settings.signalEachPeriod = config.signalEachAlternatingPeriod;
   settings.abcdRotation = config.abcdRotation;
   settings.details = config.details;
+  settings.waves = config.waves;
   settings.shootOff = config.shootOff;
   settings.practiceMs = config.practiceMs;
   settings.breakEnabled = config.breakEnabled;

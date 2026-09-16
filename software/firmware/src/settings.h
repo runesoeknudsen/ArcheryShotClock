@@ -30,6 +30,7 @@ struct Settings {
   bool signalEachPeriod;    // Art. 11.3.4
   bool abcdRotation;        // Art. 11.2.3.1, default on
   uint8_t details;
+  uint8_t waves;
   bool shootOff;            // Art. 12.5
   uint32_t practiceMs;      // Chapter 14
   uint8_t division;         // Core::Division, Art. 12.1.4
