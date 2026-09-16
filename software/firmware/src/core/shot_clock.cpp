@@ -3,7 +3,17 @@
 namespace Core {
 
 ShotClock::ShotClock(Tracer& tracer)
-    : tracer_(tracer), lastTick_(0), pendingShootingMs_(0), queueHead_(0), queueTail_(0) {
+    : tracer_(tracer),
+      lastTick_(0),
+      pendingShootingMs_(0),
+      breakRemainingMs_(0),
+      breakArmed_(false),
+      lastWaveFinished_(false),
+      technicalControl_(false),
+      technicalControlResolved_(false),
+      savedArrowsPerEnd_(0),
+      queueHead_(0),
+      queueTail_(0) {
   for (uint8_t index = 0; index < QUEUE_SIZE; index++) queue_[index] = SignalCode::None;
   state_.mode = config_.mode;
   state_.arrowsPerEnd = config_.arrowsPerEnd;
@@ -13,6 +23,7 @@ ShotClock::ShotClock(Tracer& tracer)
   applyWaves();
   applyProgress();
   applyLight();
+  refreshRoundState();
 }
 
 uint32_t ShotClock::perArrowMs() const { return Rules::perArrowMs(config_.mode, config_.eventClass); }
@@ -93,6 +104,7 @@ void ShotClock::enterPhase(uint32_t now, Phase phase, uint32_t durationMs) {
   state_.remainingMs = durationMs;
   lastTick_ = now;
   applyLight();
+  refreshRoundState();
 }
 
 void ShotClock::configure(uint32_t now, const SessionConfig& config) {
@@ -124,6 +136,12 @@ void ShotClock::configure(uint32_t now, const SessionConfig& config) {
   if (config_.qualificationRounds < 1) config_.qualificationRounds = 2;
   if (config_.qualificationRounds > 8) config_.qualificationRounds = 8;
   if (config_.breakEnabled && config_.breakMs == 0) config_.breakMs = 15 * 60 * 1000;
+
+  clearRoundBreak();
+  lastWaveFinished_ = false;
+  technicalControl_ = false;
+  technicalControlResolved_ = false;
+  savedArrowsPerEnd_ = 0;
 
   state_.mode = config_.mode;
   state_.shootOff = config_.shootOff;
@@ -192,6 +210,7 @@ void ShotClock::start(uint32_t now) {
 }
 
 void ShotClock::beginEnd(uint32_t now) {
+  lastWaveFinished_ = false;
   state_.arrowsShot = 0;
   state_.sideArrows[0] = 0;
   state_.sideArrows[1] = 0;
@@ -289,6 +308,11 @@ void ShotClock::finish(uint32_t now, const char* reason) {
   enterPhase(now, Phase::Finished, 0);
   emitSignal(now, SignalCode::Stop, "11.3.1");
 
+  if (technicalControl_) {
+    completeTechnicalControl(now);
+    return;
+  }
+
   // Art. 11.2.3.1: with AB/CD rotation the next detail has ten seconds to take
   // the line, and the whole sequence repeats until every athlete has shot.
   // Odd ends start AB then CD; even ends reverse to CD then AB.
@@ -305,7 +329,11 @@ void ShotClock::finish(uint32_t now, const char* reason) {
     state_.periodMs = pendingShootingMs_;
     enterPhase(now, Phase::Occupy, Rules::OCCUPY_LINE_MS);
     emitSignal(now, SignalCode::OccupyLine, "11.3.1");
+    return;
   }
+
+  lastWaveFinished_ = true;
+  if (lastEndOfRound()) armRoundBreak(now);
 }
 
 void ShotClock::beginShooting(uint32_t now, uint32_t durationMs, const char* article, const char* what) {
@@ -332,10 +360,11 @@ void ShotClock::lineClear(uint32_t now) {
   // Art. 11.3.1: the three signals for scoring follow the red light, so the
   // clock must already have stopped. Art. 11.3.2 makes the line being clear the
   // director's judgement, which is why this is a control and not a timeout.
-  if (state_.phase != Phase::Finished) {
+  if (state_.phase != Phase::Finished || technicalControl_) {
     rejected(now, "line_clear");
     return;
   }
+  technicalControlResolved_ = true;
   const TraceField fields[] = {
       {"arrows_shot", state_.arrowsShot},
       {"arrows_per_end", state_.arrowsPerEnd},
@@ -346,6 +375,10 @@ void ShotClock::lineClear(uint32_t now) {
 }
 
 void ShotClock::nextEnd(uint32_t now) {
+  if (technicalControl_) {
+    rejected(now, "next_end");
+    return;
+  }
   if (state_.phase == Phase::Break) {
     leaveBreak(now, false);
     return;
@@ -358,6 +391,9 @@ void ShotClock::nextEnd(uint32_t now) {
     enterBreak(now);
     return;
   }
+  if (state_.phase == Phase::Finished) clearRoundBreak();
+  technicalControlResolved_ = false;
+  lastWaveFinished_ = false;
   state_.endNumber++;
   state_.arrowsShot = 0;
   setDetailForThisEnd();
@@ -367,9 +403,16 @@ void ShotClock::nextEnd(uint32_t now) {
 }
 
 void ShotClock::resetEnd(uint32_t now) {
+  technicalControl_ = false;
+  if (savedArrowsPerEnd_ != 0) {
+    state_.arrowsPerEnd = savedArrowsPerEnd_;
+    savedArrowsPerEnd_ = 0;
+  }
+  state_.technicalControlArrows = 0;
+  lastWaveFinished_ = false;
   state_.arrowsShot = 0;
   setDetailForThisEnd();
-  state_.periodMs = Rules::periodMs(state_.arrowsPerEnd, perArrowMs());
+  state_.periodMs = Rules::periodMs(effectiveArrowsPerEnd(), perArrowMs());
   enterPhase(now, Phase::Idle, state_.periodMs);
 }
 
@@ -488,6 +531,40 @@ void ShotClock::removeArrow(uint32_t now) {
   tracer_.config(now, "arrows_shot", state_.arrowsShot + 1, state_.arrowsShot);
 }
 
+void ShotClock::startTechnicalControl(uint32_t now, uint8_t arrows) {
+  if (state_.phase != Phase::Finished || technicalControl_ || technicalControlResolved_) {
+    rejected(now, "technical_control");
+    return;
+  }
+  if (!lastWaveOfRound()) {
+    rejected(now, "technical_control");
+    return;
+  }
+  if (arrows < 1) arrows = effectiveArrowsPerEnd();
+  if (arrows > Rules::ARROWS_PER_END_LONG) arrows = Rules::ARROWS_PER_END_LONG;
+
+  if (config_.breakEnabled) armRoundBreak(now);
+
+  technicalControl_ = true;
+  savedArrowsPerEnd_ = state_.arrowsPerEnd == 0 ? effectiveArrowsPerEnd() : state_.arrowsPerEnd;
+  state_.technicalControlArrows = arrows;
+  state_.arrowsPerEnd = arrows;
+  state_.arrowsShot = 0;
+  pendingShootingMs_ = Rules::periodMs(arrows, perArrowMs());
+  state_.periodMs = pendingShootingMs_;
+
+  const TraceField fields[] = {
+      {"arrows", arrows},
+      {"break_remaining_ms", static_cast<int32_t>(breakRemainingMs_)},
+  };
+  tracer_.rule(now, "session", "technical_control", fields, 2, "after last wave");
+
+  const TraceField occupyFields[] = {{"occupy_ms", static_cast<int32_t>(Rules::OCCUPY_LINE_MS)}};
+  tracer_.rule(now, "11.3.1", "occupy_line", occupyFields, 1, "technical_control");
+  enterPhase(now, Phase::Occupy, Rules::OCCUPY_LINE_MS);
+  emitSignal(now, SignalCode::OccupyLine, "11.3.1");
+}
+
 void ShotClock::extendTime(uint32_t now, int32_t extraMs) {
   if (!clockRunning() && state_.phase != Phase::Suspended && state_.phase != Phase::Break) {
     rejected(now, "extend_time");
@@ -521,6 +598,16 @@ void ShotClock::adjustBreak(uint32_t now, int32_t extraMs) {
   if (next > kMaxMs) next = kMaxMs;
   const uint32_t before = config_.breakMs;
   config_.breakMs = static_cast<uint32_t>(next);
+  // The round break is armed when the last wave stops, before scoring. A
+  // length change before Start break has to move that armed remainder by the
+  // same amount, so Technical Control time already deducted is kept.
+  if (breakArmed_ && state_.phase != Phase::Break) {
+    const int32_t delta = static_cast<int32_t>(config_.breakMs) - static_cast<int32_t>(before);
+    int32_t remaining = static_cast<int32_t>(breakRemainingMs_) + delta;
+    if (remaining < 0) remaining = 0;
+    breakRemainingMs_ = static_cast<uint32_t>(remaining);
+    refreshRoundState();
+  }
   const TraceField fields[] = {
       {"before_ms", static_cast<int32_t>(before)},
       {"added_ms", extraMs},
@@ -571,6 +658,8 @@ void ShotClock::update(uint32_t now) {
     }
     lastTick_ = now;
     state_.remainingMs = elapsed >= state_.remainingMs ? 0 : state_.remainingMs - elapsed;
+    breakRemainingMs_ = state_.remainingMs;
+    refreshRoundState();
     if (state_.remainingMs == 0) leaveBreak(now, false);
     return;
   }
@@ -596,6 +685,7 @@ void ShotClock::update(uint32_t now) {
 
   lastTick_ = now;
   state_.remainingMs = elapsed >= state_.remainingMs ? 0 : state_.remainingMs - elapsed;
+  if (technicalControl_) consumeBreakTime(elapsed);
 
   if (state_.phase == Phase::Occupy) {
     if (state_.remainingMs == 0) beginShootingPeriod(now);
@@ -628,17 +718,96 @@ bool ShotClock::breakDue() const {
   return state_.endNumber > 0 && (state_.endNumber % config_.breakAfterEnds) == 0;
 }
 
-void ShotClock::enterBreak(uint32_t now) {
+bool ShotClock::lastEndOfRound() const {
+  if (config_.breakAfterEnds == 0) return false;
+  return state_.endNumber > 0 && (state_.endNumber % config_.breakAfterEnds) == 0;
+}
+
+bool ShotClock::lastWaveOfRound() const { return lastWaveFinished_ && lastEndOfRound(); }
+
+void ShotClock::refreshRoundState() {
+  state_.lastWaveOfRound = lastWaveOfRound();
+  state_.breakRemainingMs = breakRemainingMs_;
+  state_.breakCountdownVisible = state_.phase == Phase::Break;
+  state_.technicalControl = technicalControl_;
+  state_.technicalControlDone = technicalControlResolved_;
+}
+
+void ShotClock::armRoundBreak(uint32_t now) {
+  if (breakArmed_ || !config_.breakEnabled || config_.breakAfterEnds == 0) return;
+  breakArmed_ = true;
+  breakRemainingMs_ = config_.breakMs;
   const TraceField fields[] = {
       {"after_end", state_.endNumber},
       {"break_ms", static_cast<int32_t>(config_.breakMs)},
+      {"detail", state_.detail},
   };
-  tracer_.rule(now, "session", "break", fields, 2, "after scoring");
-  state_.periodMs = config_.breakMs;
-  enterPhase(now, Phase::Break, config_.breakMs);
+  tracer_.rule(now, "session", "round_break_armed", fields, 3, "after last wave");
+  refreshRoundState();
+}
+
+void ShotClock::clearRoundBreak() {
+  breakArmed_ = false;
+  breakRemainingMs_ = 0;
+  state_.breakRemainingMs = 0;
+  state_.breakCountdownVisible = false;
+}
+
+void ShotClock::consumeBreakTime(uint32_t elapsed) {
+  if (!breakArmed_ || state_.phase == Phase::Break) return;
+  if (elapsed >= breakRemainingMs_) breakRemainingMs_ = 0;
+  else breakRemainingMs_ -= elapsed;
+  refreshRoundState();
+}
+
+void ShotClock::completeTechnicalControl(uint32_t now) {
+  if (!technicalControl_) return;
+  technicalControl_ = false;
+  technicalControlResolved_ = true;
+  if (savedArrowsPerEnd_ != 0) {
+    state_.arrowsPerEnd = savedArrowsPerEnd_;
+    savedArrowsPerEnd_ = 0;
+  } else {
+    state_.arrowsPerEnd = effectiveArrowsPerEnd();
+  }
+  state_.technicalControlArrows = 0;
+  state_.arrowsShot = 0;
+
+  const TraceField fields[] = {
+      {"break_remaining_ms", static_cast<int32_t>(breakRemainingMs_)},
+  };
+  tracer_.rule(now, "session", "technical_control_done", fields, 1, nullptr);
+
+  if (breakArmed_ && breakRemainingMs_ > 0) {
+    enterBreak(now);
+    return;
+  }
+  enterPhase(now, Phase::Finished, 0);
+}
+
+void ShotClock::enterBreak(uint32_t now) {
+  if (!breakArmed_) armRoundBreak(now);
+  const uint32_t remaining = breakArmed_ ? breakRemainingMs_ : config_.breakMs;
+  if (remaining == 0) {
+    const TraceField skipFields[] = {{"after_end", state_.endNumber}};
+    tracer_.rule(now, "session", "break", skipFields, 1, "consumed");
+    leaveBreak(now, false);
+    return;
+  }
+  const TraceField fields[] = {
+      {"after_end", state_.endNumber},
+      {"break_ms", static_cast<int32_t>(config_.breakMs)},
+      {"remaining_ms", static_cast<int32_t>(remaining)},
+  };
+  tracer_.rule(now, "session", "break", fields, 3, "after last wave");
+  state_.periodMs = remaining;
+  enterPhase(now, Phase::Break, remaining);
 }
 
 void ShotClock::leaveBreak(uint32_t now, bool startShooting) {
+  clearRoundBreak();
+  technicalControlResolved_ = false;
+  lastWaveFinished_ = false;
   state_.endNumber++;
   state_.arrowsShot = 0;
   setDetailForThisEnd();
