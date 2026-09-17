@@ -86,6 +86,13 @@ void test_browser_host_reset_session_returns_to_end_one() {
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"end\":1"));
 }
 
+void test_browser_host_accepts_break_length_in_minutes() {
+  demo_init(0);
+  TEST_ASSERT_EQUAL_INT(0, demo_session("{\"breakMinutes\":20}"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakMinutes\":20"));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakSeconds\":1200"));
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -98,5 +105,6 @@ int main() {
   RUN_TEST(test_browser_host_rotates_cd_first_on_the_second_end);
   RUN_TEST(test_browser_host_abcd_letters_default_white);
   RUN_TEST(test_browser_host_reset_session_returns_to_end_one);
+  RUN_TEST(test_browser_host_accepts_break_length_in_minutes);
   return UNITY_END();
 }

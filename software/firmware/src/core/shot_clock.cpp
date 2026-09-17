@@ -477,22 +477,28 @@ void ShotClock::removeArrow(uint32_t now) {
   tracer_.config(now, "arrows_shot", state_.arrowsShot + 1, state_.arrowsShot);
 }
 
-void ShotClock::extendTime(uint32_t now, uint32_t extraMs) {
-  if (!clockRunning() && state_.phase != Phase::Suspended) {
+void ShotClock::extendTime(uint32_t now, int32_t extraMs) {
+  if (!clockRunning() && state_.phase != Phase::Suspended && state_.phase != Phase::Break) {
     rejected(now, "extend_time");
     return;
   }
+  if (extraMs == 0) return;
   const uint32_t before = state_.remainingMs;
-  state_.remainingMs += extraMs;
-  state_.periodMs += extraMs;
+  if (extraMs < 0) {
+    const uint32_t cut = static_cast<uint32_t>(-extraMs);
+    state_.remainingMs = cut >= before ? 0 : before - cut;
+  } else {
+    state_.remainingMs += static_cast<uint32_t>(extraMs);
+    state_.periodMs += static_cast<uint32_t>(extraMs);
+  }
   const TraceField fields[] = {
       {"before_ms", static_cast<int32_t>(before)},
-      {"added_ms", static_cast<int32_t>(extraMs)},
+      {"added_ms", extraMs},
       {"after_ms", static_cast<int32_t>(state_.remainingMs)},
   };
-  // Art. 11.2.2 permits an extension "in exceptional circumstances" without
-  // bounding it, so the system records the decision rather than limiting it.
-  tracer_.rule(now, "11.2.2", "extend_time", fields, 3, "director");
+  tracer_.rule(now, state_.phase == Phase::Break ? "session" : "11.2.2", "extend_time", fields, 3,
+               state_.phase == Phase::Break ? "break" : "director");
+  if (state_.phase == Phase::Break && state_.remainingMs == 0) leaveBreak(now, false);
 }
 
 void ShotClock::emergency(uint32_t now) {

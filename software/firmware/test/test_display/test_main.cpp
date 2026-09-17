@@ -99,6 +99,26 @@ void test_clock_can_show_seconds_only() {
   TEST_ASSERT_EQUAL_STRING("120", DisplayLogic::renderFrame(request, frame).text);
 }
 
+void test_break_uses_minutes_and_seconds_even_when_the_clock_is_seconds_only() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Off;
+  request.clockSeconds = true;
+  request.phase = Core::Phase::Break;
+  request.remainingMs = 15 * 60 * 1000;
+  TEST_ASSERT_EQUAL_STRING("15:00", DisplayLogic::renderFrame(request, frame).text);
+
+  request.remainingMs = 90 * 1000;
+  TEST_ASSERT_EQUAL_STRING("01:30", DisplayLogic::renderFrame(request, frame).text);
+
+  request.details = 2;
+  request.detail = 1;
+  request.showAbcd = true;
+  request.abcdVertical = true;
+  TEST_ASSERT_EQUAL_STRING("01:30", DisplayLogic::renderFrame(request, frame).text);
+  TEST_ASSERT_EQUAL_UINT32(0, pixelAt(1, 2));
+}
+
 void test_clock_rounds_up_so_zero_means_time_is_over() {
   // Any part of a second left still reads as that second, and the panel only
   // shows 00:00 when the period has genuinely expired.
@@ -307,6 +327,7 @@ int main() {
   RUN_TEST(test_idle_cannot_be_mistaken_for_the_warning_colour);
   RUN_TEST(test_clock_shows_minutes_and_seconds);
   RUN_TEST(test_clock_can_show_seconds_only);
+  RUN_TEST(test_break_uses_minutes_and_seconds_even_when_the_clock_is_seconds_only);
   RUN_TEST(test_clock_seconds_are_right_aligned);
   RUN_TEST(test_abcd_sits_with_the_seconds_clock);
   RUN_TEST(test_abcd_letters_can_follow_the_timer_or_use_a_fixed_colour);

@@ -89,18 +89,30 @@
     return String(minutes) + ':' + String(seconds).padStart(2, '0');
   }
 
+  function mmss(ms) {
+    const total = Math.ceil(Math.max(ms || 0, 0) / 1000);
+    return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+  }
+
+  function configuredBreakMinutes(state) {
+    if (state && typeof state.breakMinutes === 'number') return state.breakMinutes;
+    return Math.round((state && state.breakSeconds ? state.breakSeconds : 900) / 60);
+  }
+
   function clockFace(state, ms) {
     if (state && state.showEndLabels !== false) {
       if (state.phase === 'FINISHED') return 'End ' + (state.end || '');
       if (state.phase === 'SCORING') return 'Scoring ' + (state.end || '');
     }
+    if (state && state.phase === 'BREAK') return mmss(ms);
     const total = Math.ceil(Math.max(ms || 0, 0) / 1000);
     if (!state || state.clockSeconds !== false) return String(total);
-    return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    return mmss(ms);
   }
 
   function groupOnClock(state) {
     if (!state || state.showAbcd === false || !usesAbcd(state)) return '';
+    if (state.phase === 'BREAK') return '';
     if (state.showEndLabels !== false && (state.phase === 'FINISHED' || state.phase === 'SCORING')) return '';
     return groupName(state.detail || 1);
   }
@@ -259,7 +271,7 @@
     if (phase === 'BREAK') {
       return {
         headline: 'Break after end ' + (state.end || ''),
-        detail: 'Start Shoot when the break is over.'
+        detail: 'The board shows minutes:seconds. Add or remove a minute if the field needs more or less time.'
       };
     }
     return { headline: phase, detail: '' };
@@ -388,6 +400,10 @@
     if (running(phase) || phase === 'SUSPENDED') {
       extras.push({ id: 'extend', label: 'Add time', action: 'extend' });
     }
+    if (phase === 'BREAK') {
+      extras.push({ id: 'add_minute', label: 'Add 1 min', action: 'extend', seconds: 60 });
+      extras.push({ id: 'remove_minute', label: 'Remove 1 min', action: 'extend', seconds: -60 });
+    }
     if (phase === 'IDLE' || phase === 'FINISHED' || phase === 'SCORING' || phase === 'BREAK') {
       extras.push({ id: 'reset', label: 'Reset this end', action: 'reset_end' });
     }
@@ -458,7 +474,7 @@
     if (state.breakEnabled !== false && (state.breakAfterEnds || 0) > 0) {
       lines.push({
         label: 'Break',
-        value: 'After every ' + state.breakAfterEnds + ' ends, ' + (state.breakSeconds || 900) + ' s, after scoring'
+        value: 'After every ' + state.breakAfterEnds + ' ends, ' + configuredBreakMinutes(state) + ' min, after scoring'
       });
     }
     return lines;
@@ -511,7 +527,7 @@
     host.replaceChildren();
     const extras = auxActions(state);
     extras.forEach(function (spec) {
-      if (spec.action === 'extend') return;
+      if (spec.action === 'extend' && spec.seconds == null) return;
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = spec.label;
@@ -519,7 +535,7 @@
       button.onclick = function () { onAction(spec); };
       host.appendChild(button);
     });
-    return extras.some(function (spec) { return spec.action === 'extend'; });
+    return extras.some(function (spec) { return spec.action === 'extend' && spec.seconds == null; });
   }
 
   root.Operator = {

@@ -46,6 +46,7 @@ function mockApi(page) {
     practiceSeconds: 300,
     breakEnabled: true,
     breakAfterEnds: 12,
+    breakMinutes: 15,
     breakSeconds: 900,
     matchEnabled: false,
     division: 'RECURVE',
@@ -128,7 +129,7 @@ function mockApi(page) {
         state.remainingMs = state.periodMs;
       } else if (state.phase === 'SCORING' && state.breakEnabled !== false && after > 0 && state.end % after === 0) {
         state.phase = 'BREAK';
-        state.remainingMs = (state.breakSeconds || 900) * 1000;
+        state.remainingMs = ((state.breakMinutes != null ? state.breakMinutes * 60 : (state.breakSeconds || 900))) * 1000;
         state.light = 'OFF';
       } else if (state.phase === 'SCORING' || state.phase === 'FINISHED') {
         state.end += 1;
@@ -143,7 +144,14 @@ function mockApi(page) {
     if (body.action === 'remove_arrow') state.arrowsShot -= 1;
     if (body.action === 'suspend') state.phase = 'SUSPENDED';
     if (body.action === 'resume') state.phase = 'SHOOTING';
-    if (body.action === 'extend') state.remainingMs += body.seconds * 1000;
+    if (body.action === 'extend') {
+      state.remainingMs = Math.max(0, state.remainingMs + body.seconds * 1000);
+      if (state.phase === 'BREAK' && state.remainingMs === 0) {
+        state.end += 1;
+        state.phase = 'IDLE';
+        state.remainingMs = state.periodMs;
+      }
+    }
     if (body.action === 'reset_session') {
       state.end = 1;
       state.detail = 1;
@@ -171,7 +179,13 @@ function mockApi(page) {
     if (typeof body.firstShooter === 'number') state.firstShooter = body.firstShooter;
     if (typeof body.breakEnabled === 'boolean') state.breakEnabled = body.breakEnabled;
     if (typeof body.breakAfterEnds === 'number') state.breakAfterEnds = body.breakAfterEnds;
-    if (typeof body.breakSeconds === 'number') state.breakSeconds = body.breakSeconds;
+    if (typeof body.breakMinutes === 'number') {
+      state.breakMinutes = body.breakMinutes;
+      state.breakSeconds = body.breakMinutes * 60;
+    } else if (typeof body.breakSeconds === 'number') {
+      state.breakSeconds = body.breakSeconds;
+      state.breakMinutes = Math.round(body.breakSeconds / 60);
+    }
     state.eventClass = body.eventClass;
     state.arrowsPerEnd = body.arrowsPerEnd;
     state.perArrowMs = body.eventClass === 'ANNOUNCED' ? 30000 : 40000;
@@ -685,7 +699,28 @@ test('starts a break after scoring the configured number of ends', async ({ page
 
   await expect(page.locator('#phase')).toHaveText('BREAK');
   await expect(page.locator('#headline')).toContainText('Break after end 1');
+  await expect(page.locator('#clock')).toHaveText('15:00');
+  await expect(page.locator('#clockGroup')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Start Shoot CD' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add 1 min' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove 1 min' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add 1 min' }).click();
+  await expect(page.locator('#clock')).toHaveText('16:00');
+  expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'extend', seconds: 60 } });
+
+  await page.getByRole('button', { name: 'Remove 1 min' }).click();
+  await expect(page.locator('#clock')).toHaveText('15:00');
+});
+
+test('saves break length in minutes', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#breakMinutes').fill('20');
+  await page.locator('#breakMinutes').dispatchEvent('change');
+
+  const session = page.mock.requests.find(request => request.path === '/api/session');
+  expect(session.body.breakMinutes).toBe(20);
+  expect(session.body.breakSeconds).toBeUndefined();
 });
 
 test('restart session returns to end 1 from later in the round', async ({ page }) => {

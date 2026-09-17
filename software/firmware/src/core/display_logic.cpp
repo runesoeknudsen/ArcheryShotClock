@@ -23,7 +23,9 @@ const char* groupLetters(uint8_t detail) {
 }
 
 bool showGroup(const RenderRequest& request) {
-  return request.showAbcd && request.details > 1;
+  // MM:SS during a break uses the same columns as vertical AB/CD, so the group
+  // letters have to come off the panel while that timer is showing.
+  return request.showAbcd && request.details > 1 && request.phase != Core::Phase::Break;
 }
 
 bool endLabelPhase(Core::Phase phase) {
@@ -283,7 +285,7 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
   const char* letters = groupLetters(request.detail);
   const uint8_t top = (group && !request.abcdVertical) ? 0 : DIGIT_TOP;
 
-  if (request.clockSeconds) {
+  if (request.clockSeconds && request.phase != Core::Phase::Break) {
     drawRightSeconds(totalSeconds, top, colour, pixels, result, 0);
   } else {
     drawMmSs(totalSeconds, colour, pixels, result);
