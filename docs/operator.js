@@ -155,6 +155,7 @@
       add('warn', 'Yellow');
     }
     if (state.mode !== 'PRACTICE') add('score', 'Score');
+    if (state.lastWaveOfRound || state.technicalControl) add('tc', 'Technical Control');
     if (state.breakEnabled !== false && (state.breakAfterEnds || 12) > 0) add('break', 'Break');
 
     let current = 'ready';
@@ -176,6 +177,7 @@
       current = 'emergency';
       add('emergency', 'Emergency');
     }
+    if (state.technicalControl && running(phase)) current = 'tc';
 
     let seen = false;
     for (let index = 0; index < steps.length; index++) {
@@ -199,6 +201,13 @@
       return {
         headline: 'Emergency — all shooting stopped',
         detail: 'Five or more sounds. Clear Emergency when the field is safe.'
+      };
+    }
+    if (state.technicalControl && (phase === 'OCCUPY' || phase === 'SHOOTING' || phase === 'WARNING' ||
+        phase === 'SUSPENDED')) {
+      return {
+        headline: 'Technical Control',
+        detail: 'Shoot the remaining arrows. Displays hide the break countdown until this finishes.'
       };
     }
     if (phase === 'SUSPENDED') {
@@ -245,7 +254,9 @@
     if (phase === 'FINISHED') {
       return {
         headline: 'End ' + (state.end || '') + ' is red',
-        detail: 'Score when the line is clear — three sounds. Athletes may then collect arrows.'
+        detail: state.lastWaveOfRound
+          ? 'Score when the line is clear, or start Technical Control. Break time includes any Technical Control.'
+          : 'Score when the line is clear — three sounds. Athletes may then collect arrows.'
       };
     }
     if (phase === 'SCORING') {
@@ -259,7 +270,7 @@
     if (phase === 'BREAK') {
       return {
         headline: 'Break after end ' + (state.end || ''),
-        detail: 'Start Shoot when the break is over.'
+        detail: 'Start Shoot when the break is over. Remaining time already excludes Technical Control.'
       };
     }
     return { headline: phase, detail: '' };
@@ -307,6 +318,14 @@
     }
 
     if (phase === 'FINISHED') {
+      if (state.lastWaveOfRound && !state.technicalControl && !state.technicalControlDone) {
+        list.push({
+          id: 'tc',
+          label: 'Technical Control',
+          action: 'technical_control',
+          arrows: state.arrowsPerEnd || 3
+        });
+      }
       if (state.mode !== 'PRACTICE') {
         list.push({ id: 'score', label: 'Score', action: 'line_clear', primary: true });
       }
@@ -333,12 +352,17 @@
         primary: true
       });
     } else if (phase === 'SHOOTING' || phase === 'WARNING') {
-      const label = state.mode === 'PRACTICE' ? 'Stop practice'
+      const label = state.technicalControl ? 'Stop Technical Control'
+        : state.mode === 'PRACTICE' ? 'Stop practice'
         : usesAbcd(state) ? 'Stop shooting ' + groupName(state.detail || 1)
         : 'Stop shooting';
       list.push({ id: 'stop', label: label, action: 'stop', primary: true });
     } else if (phase === 'OCCUPY' && !moreDetails(state)) {
-      list.push({ id: 'stop', label: 'Stop occupy', action: 'stop' });
+      list.push({
+        id: 'stop',
+        label: state.technicalControl ? 'Stop Technical Control' : 'Stop occupy',
+        action: 'stop'
+      });
     }
 
     if (running(phase)) {
@@ -458,7 +482,8 @@
     if (state.breakEnabled !== false && (state.breakAfterEnds || 0) > 0) {
       lines.push({
         label: 'Break',
-        value: 'After every ' + state.breakAfterEnds + ' ends, ' + (state.breakSeconds || 900) + ' s, after scoring'
+        value: 'After the last wave of every ' + state.breakAfterEnds +
+          ' ends, ' + (state.breakSeconds || 900) + ' s, including Technical Control time'
       });
     }
     return lines;

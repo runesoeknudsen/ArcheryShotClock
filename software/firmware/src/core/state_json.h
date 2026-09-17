@@ -18,7 +18,7 @@
 namespace Core {
 
 // Comfortably larger than the longest response, including six arrows a side.
-constexpr uint16_t STATE_JSON_BYTES = 1536;
+constexpr uint16_t STATE_JSON_BYTES = 2048;
 
 struct StateView {
   const StateSnapshot* snapshot = nullptr;

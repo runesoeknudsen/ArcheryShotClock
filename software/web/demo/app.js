@@ -178,6 +178,7 @@ try {
     return [
       state.phase, state.mode, state.detail, state.details, state.shooter,
       state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
+      state.technicalControl, state.lastWaveOfRound,
       state.end, state.breakEnabled, state.breakAfterEnds
     ].join('|');
   }
@@ -211,6 +212,11 @@ try {
     }
     if (spec.action === 'extend') {
       engine.control('extend', +$('extendSeconds').value);
+      refresh();
+      return;
+    }
+    if (spec.action === 'technical_control') {
+      engine.control('technical_control', spec.arrows || 3);
       refresh();
       return;
     }

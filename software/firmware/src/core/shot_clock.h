@@ -16,8 +16,10 @@
 //                                              line clear (Art. 11.3.2) v
 //                                                                   SCORING --next end--> IDLE
 //                                                                      |
-//                                              optional break after N ends v
+//                                              optional break after last wave of a round v
 //                                                                     BREAK --end / timeout--> IDLE
+//                                                                      ^
+//                                              Technical Control may consume part of that break
 //
 // SUSPENDED (Art. 11.2.4) and EMERGENCY (Art. 11.3.3) can be entered from any
 // running phase and return through their own transitions.
@@ -68,9 +70,10 @@ struct SessionConfig {
   // start and a stop, so its length is the director's to set.
   uint32_t practiceMs = 300000;
 
-  // Optional pause after scoring. On by default: after every N ends the
-  // director gets a timed break before the next end can start. Zero ends
-  // disables it even when the flag is on.
+  // Optional pause after the last wave of a round. On by default: after every
+  // N ends (the round length) the director gets a timed break before the next
+  // round can start. Technical Control shooting after that last wave is taken
+  // from this allowance. Zero ends disables it even when the flag is on.
   bool breakEnabled = true;
   uint8_t breakAfterEnds = 12;
   uint32_t breakMs = 15 * 60 * 1000;
@@ -103,6 +106,10 @@ public:
   void addArrow(uint32_t now);
   void removeArrow(uint32_t now);
   void extendTime(uint32_t now, uint32_t extraMs);
+  // After the last wave of a round and before scoring: a judge-run session so
+  // missing arrows can be shot. Its elapsed time is deducted from the armed
+  // round-end break, and the break countdown stays hidden until it finishes.
+  void startTechnicalControl(uint32_t now, uint8_t arrows);
   void emergency(uint32_t now);
   void clearEmergency(uint32_t now);
   void setDisplayContent(uint32_t now, DisplayContent content);
@@ -133,8 +140,15 @@ private:
   uint8_t unshotArrows() const;
   bool clockRunning() const;
   bool breakDue() const;
+  bool lastWaveOfRound() const;
+  bool lastEndOfRound() const;
+  void refreshRoundState();
+  void armRoundBreak(uint32_t now);
+  void clearRoundBreak();
+  void consumeBreakTime(uint32_t elapsed);
   void enterBreak(uint32_t now);
   void leaveBreak(uint32_t now, bool startShooting);
+  void completeTechnicalControl(uint32_t now);
   uint8_t firstDetailThisEnd() const;
   uint8_t nextDetailAfter(uint8_t detail) const;
   bool moreDetailsThisEnd() const;
@@ -145,6 +159,12 @@ private:
   StateSnapshot state_;
   uint32_t lastTick_;
   uint32_t pendingShootingMs_;
+  uint32_t breakRemainingMs_;
+  bool breakArmed_;
+  bool lastWaveFinished_;
+  bool technicalControl_;
+  bool technicalControlResolved_;
+  uint8_t savedArrowsPerEnd_;
 
   // Anything longer than this between two updates is a clock that moved
   // backwards, not a genuinely slow loop. Half the millis() range, so a real
