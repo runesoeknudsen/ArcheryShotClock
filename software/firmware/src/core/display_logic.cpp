@@ -23,7 +23,9 @@ const char* groupLetters(uint8_t detail) {
 }
 
 bool showGroup(const RenderRequest& request) {
-  return request.showAbcd && request.details > 1;
+  // MM:SS during a break uses the same columns as vertical AB/CD, so the group
+  // letters have to come off the panel while that timer is showing.
+  return request.showAbcd && request.details > 1 && request.phase != Core::Phase::Break;
 }
 
 bool endLabelPhase(Core::Phase phase) {

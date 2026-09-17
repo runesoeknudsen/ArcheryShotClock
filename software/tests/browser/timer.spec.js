@@ -701,6 +701,7 @@ test('starts a break after scoring the configured number of ends', async ({ page
   await expect(page.locator('#phase')).toHaveText('BREAK');
   await expect(page.locator('#headline')).toContainText('Break after end 1');
   await expect(page.locator('#clock')).toHaveText('15:00');
+  await expect(page.locator('#clockGroup')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Start Shoot CD' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add 1 min' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove 1 min' })).toBeVisible();

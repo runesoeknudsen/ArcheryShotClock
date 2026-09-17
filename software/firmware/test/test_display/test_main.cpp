@@ -110,6 +110,13 @@ void test_break_uses_minutes_and_seconds_even_when_the_clock_is_seconds_only() {
 
   request.remainingMs = 90 * 1000;
   TEST_ASSERT_EQUAL_STRING("01:30", DisplayLogic::renderFrame(request, frame).text);
+
+  request.details = 2;
+  request.detail = 1;
+  request.showAbcd = true;
+  request.abcdVertical = true;
+  TEST_ASSERT_EQUAL_STRING("01:30", DisplayLogic::renderFrame(request, frame).text);
+  TEST_ASSERT_EQUAL_UINT32(0, pixelAt(1, 2));
 }
 
 void test_clock_rounds_up_so_zero_means_time_is_over() {

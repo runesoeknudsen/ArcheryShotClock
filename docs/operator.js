@@ -112,6 +112,7 @@
 
   function groupOnClock(state) {
     if (!state || state.showAbcd === false || !usesAbcd(state)) return '';
+    if (state.phase === 'BREAK') return '';
     if (state.showEndLabels !== false && (state.phase === 'FINISHED' || state.phase === 'SCORING')) return '';
     return groupName(state.detail || 1);
   }
