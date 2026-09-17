@@ -192,6 +192,7 @@ try {
       window.Operator.renderActions($('actions'), state, runAction);
       const canExtend = window.Operator.renderAux($('aux'), state, runAction);
       $('extendBox').hidden = !canExtend;
+      $('extras').hidden = !canExtend && !$('aux').childElementCount;
       const needTc = state.phase === 'FINISHED' && state.lastWaveOfRound &&
         !state.technicalControl && !state.technicalControlDone;
       $('tcBox').hidden = !needTc;
