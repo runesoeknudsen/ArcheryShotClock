@@ -247,7 +247,12 @@ test('lights the lamp matching the light state', async ({ page }) => {
 test('offers only the controls the current phase allows', async ({ page }) => {
   // Idle: the next press is Start Shoot AB. Stop, Score and Resume are absent.
   await expect(page.getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await expect(page.locator('#actions').getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
+  await expect(page.locator('#actions').getByRole('button', { name: 'Restart session' })).toHaveCount(0);
+  await expect(page.locator('#actions').getByRole('button', { name: 'Reset this end' })).toHaveCount(0);
+  await expect(page.locator('#aux').getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await expect(page.locator('#aux').getByRole('button', { name: 'Reset this end' })).toBeVisible();
+  await expect(page.locator('#extras')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Stop occupy' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Score' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Resume remaining arrows' })).toHaveCount(0);
@@ -356,6 +361,9 @@ test('shows the detail number when AB/CD rotation is on', async ({ page }) => {
 
 test('sends the extension in seconds and reports the new time', async ({ page }) => {
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
+  await expect(page.locator('#extras').getByRole('button', { name: 'Add time' })).toBeVisible();
+  await expect(page.locator('#extras').getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await expect(page.locator('#actions').getByRole('button', { name: 'Restart session' })).toHaveCount(0);
   await page.locator('#extendSeconds').fill('45');
   await page.getByRole('button', { name: 'Add time' }).click();
 
@@ -688,8 +696,8 @@ test('restart session returns to end 1 from later in the round', async ({ page }
   await page.goto('/');
 
   await expect(page.locator('#end')).toHaveText('4');
-  await expect(page.getByRole('button', { name: 'Restart session' })).toBeVisible();
-  await page.getByRole('button', { name: 'Restart session' }).click();
+  await expect(page.locator('#aux').getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await page.locator('#aux').getByRole('button', { name: 'Restart session' }).click();
 
   await expect(page.locator('#phase')).toHaveText('IDLE');
   await expect(page.locator('#end')).toHaveText('1');
