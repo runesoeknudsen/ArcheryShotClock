@@ -47,6 +47,15 @@ function mockApi(page) {
     breakEnabled: true,
     breakAfterEnds: 12,
     breakSeconds: 900,
+    breakRemainingMs: 0,
+    breakCountdownVisible: false,
+    lastWaveOfRound: false,
+    technicalControl: false,
+    technicalControlArrows: 0,
+    technicalControlDone: false,
+    makeupActive: false,
+    makeupEnds: 0,
+    makeupEnd: 0,
     matchEnabled: false,
     division: 'RECURVE',
     scoring: 'SET_PLAY',
@@ -115,8 +124,49 @@ function mockApi(page) {
       state.light = 'RED';
       state.remainingMs = 0;
       state.panelText = state.showEndLabels !== false ? ('End ' + state.end) : '0';
+      const after = state.breakAfterEnds || 0;
+      if (state.technicalControl) {
+        state.technicalControl = false;
+        state.technicalControlDone = true;
+        state.phase = 'FINISHED';
+        state.light = 'RED';
+        const remaining = Math.max(0, (state.breakRemainingMs || 0) - 25000);
+        state.breakRemainingMs = remaining;
+        state.breakCountdownVisible = false;
+        state.remainingMs = 0;
+        state.panelText = state.showEndLabels !== false ? ('End ' + state.end) : '0';
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify(state) });
+        return;
+      }
+      if (state.breakEnabled !== false && after > 0 && state.end % after === 0) {
+        state.lastWaveOfRound = true;
+        state.breakRemainingMs = (state.breakSeconds || 900) * 1000;
+        state.breakCountdownVisible = false;
+      }
+    }
+    if (body.action === 'technical_control') {
+      state.technicalControl = true;
+      state.technicalControlArrows = body.arrows || 3;
+      state.phase = 'OCCUPY';
+      state.light = 'RED';
+      state.remainingMs = 10000;
+      state.breakCountdownVisible = false;
+    }
+    if (body.action === 'skip_technical_control') {
+      state.technicalControlDone = true;
+    }
+    if (body.action === 'makeup_ends') {
+      state.makeupActive = true;
+      state.makeupEnds = body.ends || 1;
+      state.makeupEnd = 1;
+      state.phase = 'IDLE';
+      state.remainingMs = state.periodMs;
     }
     if (body.action === 'line_clear') {
+      if (state.lastWaveOfRound && !state.technicalControlDone) {
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify(state) });
+        return;
+      }
       state.phase = 'SCORING';
       if (state.showEndLabels !== false) state.panelText = 'Scoring ' + state.end;
     }
@@ -126,6 +176,17 @@ function mockApi(page) {
         state.end += 1;
         state.phase = 'IDLE';
         state.remainingMs = state.periodMs;
+      } else if (state.phase === 'SCORING' && state.makeupActive) {
+        if (state.makeupEnd < state.makeupEnds) {
+          state.makeupEnd += 1;
+          state.phase = 'IDLE';
+          state.remainingMs = state.periodMs;
+        } else {
+          state.makeupActive = false;
+          state.makeupEnds = 0;
+          state.makeupEnd = 0;
+          state.phase = 'SCORING';
+        }
       } else if (state.phase === 'SCORING' && state.breakEnabled !== false && after > 0 && state.end % after === 0) {
         state.phase = 'BREAK';
         state.remainingMs = (state.breakSeconds || 900) * 1000;
@@ -679,8 +740,12 @@ test('starts a break after scoring the configured number of ends', async ({ page
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
   await page.getByRole('button', { name: 'Start Shoot CD' }).click();
   await page.getByRole('button', { name: 'Stop occupy' }).click();
+  await expect(page.getByRole('button', { name: 'Skip Technical Control' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Score' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Skip Technical Control' }).click();
   await page.getByRole('button', { name: 'Score' }).click();
   await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Make-up ends' })).toBeVisible();
   await page.getByRole('button', { name: 'Start break' }).click();
 
   await expect(page.locator('#phase')).toHaveText('BREAK');
@@ -704,6 +769,51 @@ test('restart session returns to end 1 from later in the round', async ({ page }
   await expect(page.locator('#headline')).toHaveText('Ready');
   await expect(page.getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
   expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'reset_session' } });
+});
+
+test('hides the break countdown during Technical Control and shows remaining after', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#breakAfterEnds').fill('1');
+  await page.locator('#breakAfterEnds').dispatchEvent('change');
+  await page.getByRole('link', { name: 'Field' }).click();
+
+  await page.getByRole('button', { name: 'Start Shoot AB' }).click();
+  await page.getByRole('button', { name: 'Start Shoot CD' }).click();
+  await page.getByRole('button', { name: 'Stop occupy' }).click();
+
+  await expect(page.getByRole('button', { name: 'Technical Control', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Score' })).toHaveCount(0);
+  await page.locator('#tcArrows').fill('1');
+  await page.getByRole('button', { name: 'Technical Control', exact: true }).click();
+  await expect(page.locator('#headline')).toHaveText('Technical Control');
+  await expect(page.locator('#clock')).toHaveText(/^\d{1,2}$/);
+  await expect(page.locator('#phase')).toHaveText('OCCUPY');
+  expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'technical_control', arrows: 1 } });
+
+  await page.getByRole('button', { name: 'Stop Technical Control' }).click();
+  await expect(page.locator('#phase')).toHaveText('FINISHED');
+  await expect(page.getByRole('button', { name: 'Score' })).toBeVisible();
+  await page.getByRole('button', { name: 'Score' }).click();
+  await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible();
+});
+
+test('runs make-up ends after the round without changing the completed order', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#breakAfterEnds').fill('1');
+  await page.locator('#breakAfterEnds').dispatchEvent('change');
+  await page.getByRole('link', { name: 'Field' }).click();
+
+  await page.getByRole('button', { name: 'Start Shoot AB' }).click();
+  await page.getByRole('button', { name: 'Start Shoot CD' }).click();
+  await page.getByRole('button', { name: 'Stop occupy' }).click();
+  await page.getByRole('button', { name: 'Skip Technical Control' }).click();
+  await page.getByRole('button', { name: 'Score' }).click();
+  await page.locator('#makeupEndsInput').fill('2');
+  await page.getByRole('button', { name: 'Make-up ends' }).click();
+
+  await expect(page.locator('#headline')).toContainText('Make-up end 1 of 2');
+  await expect(page.locator('#end')).toHaveText('1');
+  expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'makeup_ends', ends: 2 } });
 });
 
 test('reports a rejected command instead of failing silently', async ({ page }) => {
