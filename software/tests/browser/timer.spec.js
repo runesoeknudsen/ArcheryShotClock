@@ -144,7 +144,6 @@ function mockApi(page) {
     if (body.action === 'remove_arrow') state.arrowsShot -= 1;
     if (body.action === 'suspend') state.phase = 'SUSPENDED';
     if (body.action === 'resume') state.phase = 'SHOOTING';
-<<<<<<< HEAD
     if (body.action === 'extend') {
       state.remainingMs = Math.max(0, state.remainingMs + body.seconds * 1000);
       if (state.phase === 'BREAK' && state.remainingMs === 0) {
