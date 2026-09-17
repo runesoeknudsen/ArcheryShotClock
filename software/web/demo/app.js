@@ -192,9 +192,7 @@ try {
       window.Operator.renderActions($('actions'), state, runAction);
       const canExtend = window.Operator.renderAux($('aux'), state, runAction);
       $('extendBox').hidden = !canExtend;
-<<<<<<< HEAD
       $('extras').hidden = !canExtend && !$('aux').childElementCount;
-=======
       const needTc = state.phase === 'FINISHED' && state.lastWaveOfRound &&
         !state.technicalControl && !state.technicalControlDone;
       $('tcBox').hidden = !needTc;
@@ -202,7 +200,6 @@ try {
         (state.breakAfterEnds || 0) > 0 && state.end % (state.breakAfterEnds || 1) === 0 &&
         !state.makeupActive;
       $('makeupBox').hidden = !needMakeup;
->>>>>>> 0122b81 (Require Technical Control to be resolved before scoring, and add make-up ends.)
     }
     panel.draw();
     updateSize(panel);

@@ -589,12 +589,9 @@
       if (actionKey !== lastActionKey) {
         lastActionKey = actionKey;
         view.renderActions($('actions'), state, runAction);
-<<<<<<< HEAD
         const canExtend = view.renderAux($('aux'), state, runAction);
         $('extendBox').hidden = !canExtend;
         $('extras').hidden = !canExtend && !$('aux').childElementCount;
-=======
-        $('extendBox').hidden = !view.renderAux($('aux'), state, runAction);
         const needTc = state.phase === 'FINISHED' && state.lastWaveOfRound &&
           !state.technicalControl && !state.technicalControlDone;
         $('tcBox').hidden = !needTc;
@@ -602,7 +599,6 @@
           (state.breakAfterEnds || 0) > 0 && state.end % (state.breakAfterEnds || 1) === 0 &&
           !state.makeupActive;
         $('makeupBox').hidden = !needMakeup;
->>>>>>> 0122b81 (Require Technical Control to be resolved before scoring, and add make-up ends.)
       }
       view.renderPreview($('preview'), draftFromForm(state));
     }
