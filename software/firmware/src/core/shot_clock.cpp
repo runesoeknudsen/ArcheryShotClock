@@ -10,6 +10,7 @@ ShotClock::ShotClock(Tracer& tracer)
   state_.endNumber = 1;
   state_.periodMs = Rules::periodMs(config_.arrowsPerEnd, perArrowMs());
   state_.remainingMs = state_.periodMs;
+  applyProgress();
   applyLight();
 }
 
@@ -114,6 +115,12 @@ void ShotClock::configure(uint32_t now, const SessionConfig& config) {
   if (config_.firstShooter != 1 && config_.firstShooter != 2) config_.firstShooter = 1;
   if (config_.details < 1) config_.details = 1;
   if (config_.breakAfterEnds > 36) config_.breakAfterEnds = 36;
+  if (config_.endsPerRound < 1) {
+    config_.endsPerRound = config_.breakAfterEnds > 0 ? config_.breakAfterEnds : 12;
+  }
+  if (config_.endsPerRound > 36) config_.endsPerRound = 36;
+  if (config_.qualificationRounds < 1) config_.qualificationRounds = 2;
+  if (config_.qualificationRounds > 8) config_.qualificationRounds = 8;
   if (config_.breakEnabled && config_.breakMs == 0) config_.breakMs = 15 * 60 * 1000;
 
   state_.mode = config_.mode;
@@ -155,6 +162,7 @@ void ShotClock::configure(uint32_t now, const SessionConfig& config) {
     state_.sideRemainingMs[1] = state_.periodMs;
   }
 
+  applyProgress();
   enterPhase(now, Phase::Idle, state_.periodMs);
 }
 
@@ -352,6 +360,7 @@ void ShotClock::nextEnd(uint32_t now) {
   state_.arrowsShot = 0;
   setDetailForThisEnd();
   state_.periodMs = Rules::periodMs(state_.arrowsPerEnd, perArrowMs());
+  applyProgress();
   enterPhase(now, Phase::Idle, state_.periodMs);
 }
 
@@ -609,6 +618,7 @@ void ShotClock::leaveBreak(uint32_t now, bool startShooting) {
   state_.arrowsShot = 0;
   setDetailForThisEnd();
   state_.periodMs = totalPeriodMs();
+  applyProgress();
   if (startShooting) {
     beginEnd(now);
     return;
@@ -632,5 +642,21 @@ bool ShotClock::moreDetailsThisEnd() const {
 }
 
 void ShotClock::setDetailForThisEnd() { state_.detail = firstDetailThisEnd(); }
+
+void ShotClock::applyProgress() {
+  uint8_t endsPerRound = config_.endsPerRound;
+  if (endsPerRound < 1) endsPerRound = 12;
+  uint8_t rounds = config_.qualificationRounds;
+  if (rounds < 1) rounds = 2;
+  state_.endsPerRound = endsPerRound;
+  state_.qualificationRounds = rounds;
+  const uint16_t end = state_.endNumber == 0 ? 1 : state_.endNumber;
+  state_.roundNumber = static_cast<uint8_t>(((end - 1) / endsPerRound) + 1);
+  state_.endInRound = static_cast<uint8_t>(((end - 1) % endsPerRound) + 1);
+  state_.lastEndOfRound = state_.endInRound == endsPerRound;
+  state_.lastEndOfQualification = state_.lastEndOfRound && state_.roundNumber == rounds;
+  const uint16_t total = static_cast<uint16_t>(endsPerRound) * static_cast<uint16_t>(rounds);
+  state_.qualificationComplete = end > total;
+}
 
 }  // namespace Core

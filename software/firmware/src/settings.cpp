@@ -40,6 +40,8 @@ Settings SettingsStore::load() const {
   settings.breakEnabled = preferences.getBool("brk_on", true);
   settings.breakAfterEnds = preferences.getUChar("brk_ends", 12);
   settings.breakMs = preferences.getUInt("brk_ms", 15 * 60 * 1000);
+  settings.endsPerRound = preferences.getUChar("ends_rnd", settings.breakAfterEnds);
+  settings.qualificationRounds = preferences.getUChar("qual_rnds", 2);
   settings.beepMs = preferences.getUShort("beep_ms", Core::DEFAULT_BEEP_MS);
   settings.gapMs = preferences.getUShort("gap_ms", Core::DEFAULT_GAP_MS);
   preferences.end();
@@ -62,6 +64,12 @@ Settings SettingsStore::load() const {
     settings.traceLevel = static_cast<uint8_t>(Core::TraceLevel::Off);
   }
   if (settings.breakAfterEnds > 36) settings.breakAfterEnds = 12;
+  if (settings.endsPerRound < 1 || settings.endsPerRound > 36) {
+    settings.endsPerRound = settings.breakAfterEnds > 0 ? settings.breakAfterEnds : 12;
+  }
+  if (settings.qualificationRounds < 1 || settings.qualificationRounds > 8) {
+    settings.qualificationRounds = 2;
+  }
   if (settings.breakEnabled && settings.breakMs == 0) settings.breakMs = 15 * 60 * 1000;
   if (settings.beepMs == 0) settings.beepMs = Core::DEFAULT_BEEP_MS;
   if (settings.gapMs == 0) settings.gapMs = Core::DEFAULT_GAP_MS;
@@ -96,6 +104,8 @@ void SettingsStore::save(const Settings& settings) const {
   preferences.putBool("brk_on", settings.breakEnabled);
   preferences.putUChar("brk_ends", settings.breakAfterEnds);
   preferences.putUInt("brk_ms", settings.breakMs);
+  preferences.putUChar("ends_rnd", settings.endsPerRound);
+  preferences.putUChar("qual_rnds", settings.qualificationRounds);
   preferences.putUShort("beep_ms", settings.beepMs);
   preferences.putUShort("gap_ms", settings.gapMs);
   preferences.end();
@@ -116,6 +126,8 @@ Core::SessionConfig sessionConfigFrom(const Settings& settings) {
   config.breakEnabled = settings.breakEnabled;
   config.breakAfterEnds = settings.breakAfterEnds;
   config.breakMs = settings.breakMs;
+  config.endsPerRound = settings.endsPerRound;
+  config.qualificationRounds = settings.qualificationRounds;
   return config;
 }
 
@@ -144,4 +156,6 @@ void applySessionConfig(Settings& settings, const Core::SessionConfig& config) {
   settings.breakEnabled = config.breakEnabled;
   settings.breakAfterEnds = config.breakAfterEnds;
   settings.breakMs = config.breakMs;
+  settings.endsPerRound = config.endsPerRound;
+  settings.qualificationRounds = config.qualificationRounds;
 }

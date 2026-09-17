@@ -19,6 +19,11 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
     json.unsigned32("remainingMs", state.remainingMs);
     json.unsigned32("periodMs", state.periodMs);
     json.unsigned32("end", state.endNumber);
+    json.unsigned32("round", state.roundNumber);
+    json.unsigned32("endInRound", state.endInRound);
+    json.boolean("lastEndOfRound", state.lastEndOfRound);
+    json.boolean("lastEndOfQualification", state.lastEndOfQualification);
+    json.boolean("qualificationComplete", state.qualificationComplete);
     json.unsigned32("arrowsShot", state.arrowsShot);
     json.unsigned32("arrowsPerEnd", state.arrowsPerEnd);
     json.unsigned32("shooter", state.shooter);
@@ -42,6 +47,8 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
     json.boolean("breakEnabled", session.breakEnabled);
     json.unsigned32("breakAfterEnds", session.breakAfterEnds);
     json.unsigned32("breakSeconds", session.breakMs / 1000);
+    json.unsigned32("endsPerRound", session.endsPerRound);
+    json.unsigned32("qualificationRounds", session.qualificationRounds);
   }
 
   json.unsigned32("perArrowMs", view.perArrowMs);

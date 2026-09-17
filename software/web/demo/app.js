@@ -49,6 +49,8 @@ function draftFromForm(state) {
     mode: $('mode').value,
     eventClass: $('eventClass').value,
     arrowsPerEnd: +$('arrowsPerEnd').value,
+    endsPerRound: +$('endsPerRound').value,
+    qualificationRounds: +$('qualificationRounds').value,
     resumeOccupy: $('resumeOccupy').value === 'true',
     firstShooter: +$('firstShooter').value,
     abcdRotation: $('abcdRotation').value === 'true',
@@ -70,6 +72,8 @@ function apply(state) {
   paintClock(state, state.remainingMs);
   $('phase').textContent = state.phase;
   $('end').textContent = state.end;
+  $('round').textContent = (state.round || 1) + '/' + (state.qualificationRounds || 2);
+  $('endInRound').textContent = (state.endInRound || 1) + '/' + (state.endsPerRound || 12);
   $('arrows').textContent = state.arrowsShot + '/' + state.arrowsPerEnd;
   $('arrowsBox').hidden = !window.Operator.tracksLiveArrows(state);
   $('perArrow').textContent = (state.perArrowMs / 1000) + ' s';
@@ -87,6 +91,12 @@ function apply(state) {
   if (document.activeElement !== $('mode')) $('mode').value = state.mode;
   if (document.activeElement !== $('eventClass')) $('eventClass').value = state.eventClass;
   if (document.activeElement !== $('arrowsPerEnd')) $('arrowsPerEnd').value = String(state.arrowsPerEnd);
+  if (document.activeElement !== $('endsPerRound') && (state.endsPerRound != null || state.breakAfterEnds != null)) {
+    $('endsPerRound').value = String(state.endsPerRound || state.breakAfterEnds);
+  }
+  if (document.activeElement !== $('qualificationRounds') && state.qualificationRounds != null) {
+    $('qualificationRounds').value = String(state.qualificationRounds);
+  }
   if (document.activeElement !== $('resumeOccupy')) $('resumeOccupy').value = String(state.resumeOccupy);
   if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter || 1);
   if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(!!state.abcdRotation);
@@ -178,7 +188,8 @@ try {
     return [
       state.phase, state.mode, state.detail, state.details, state.shooter,
       state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
-      state.end, state.breakEnabled, state.breakAfterEnds
+      state.end, state.round, state.endInRound, state.breakEnabled, state.breakAfterEnds,
+      state.endsPerRound, state.qualificationRounds
     ].join('|');
   }
 
@@ -251,7 +262,9 @@ try {
       shootOff: false,
       breakEnabled: $('breakEnabled').value === 'true',
       breakAfterEnds: +$('breakAfterEnds').value,
-      breakSeconds: +$('breakSeconds').value
+      breakSeconds: +$('breakSeconds').value,
+      endsPerRound: +$('endsPerRound').value,
+      qualificationRounds: +$('qualificationRounds').value
     });
     $('note').textContent = code === 2 ? 'Mode not implemented' : '';
     refresh();
@@ -261,6 +274,8 @@ try {
   $('mode').onchange = session;
   $('eventClass').onchange = session;
   $('arrowsPerEnd').onchange = session;
+  $('endsPerRound').onchange = session;
+  $('qualificationRounds').onchange = session;
   $('resumeOccupy').onchange = session;
   $('firstShooter').onchange = session;
   $('abcdRotation').onchange = session;

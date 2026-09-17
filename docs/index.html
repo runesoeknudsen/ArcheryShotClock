@@ -115,6 +115,8 @@
       <div id="situation"></div>
       <span id="phase" hidden></span>
       <div class="meta">
+        <span>Round <b id="round">-</b></span>
+        <span>End of round <b id="endInRound">-</b></span>
         <span>End <b id="end">-</b></span>
         <span id="arrowsBox" hidden>Arrows <b id="arrows">-</b></span>
         <span>Per arrow <b id="perArrow">-</b></span>
@@ -172,6 +174,16 @@
         <div>
           <label for="arrowsPerEnd">Arrows per end (Art. 10.1)</label>
           <select id="arrowsPerEnd"><option value="3">3</option><option value="6">6</option></select>
+        </div>
+        <div>
+          <label for="endsPerRound">Ends in a round</label>
+          <input id="endsPerRound" type="number" min="1" max="36" value="12">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="qualificationRounds">Rounds in the qualification</label>
+          <input id="qualificationRounds" type="number" min="1" max="8" value="2">
         </div>
         <div>
           <label for="resumeOccupy">Resume after a hold</label>

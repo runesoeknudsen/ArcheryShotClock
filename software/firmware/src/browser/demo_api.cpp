@@ -342,6 +342,18 @@ int demo_session(const char* json) {
   config.abcdRotation = readBool(json, "abcdRotation", config.abcdRotation);
   config.shootOff = readBool(json, "shootOff", config.shootOff);
   config.breakEnabled = readBool(json, "breakEnabled", config.breakEnabled);
+  if (json && std::strstr(json, "endsPerRound")) {
+    const int endsPerRound = readInt(json, "endsPerRound", config.endsPerRound);
+    if (endsPerRound >= 1 && endsPerRound <= 36) {
+      config.endsPerRound = static_cast<uint8_t>(endsPerRound);
+    }
+  }
+  if (json && std::strstr(json, "qualificationRounds")) {
+    const int qualificationRounds = readInt(json, "qualificationRounds", config.qualificationRounds);
+    if (qualificationRounds >= 1 && qualificationRounds <= 8) {
+      config.qualificationRounds = static_cast<uint8_t>(qualificationRounds);
+    }
+  }
   if (json && std::strstr(json, "breakAfterEnds")) {
     const int breakAfterEnds = readInt(json, "breakAfterEnds", config.breakAfterEnds);
     if (breakAfterEnds >= 0 && breakAfterEnds <= 36) {

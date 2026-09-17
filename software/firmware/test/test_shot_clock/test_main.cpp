@@ -834,6 +834,111 @@ void test_art_11_1_4_1_the_director_chooses_who_shoots_first() {
   TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().shooter);
 }
 
+void shootOneEnd(Harness& harness) {
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  harness.clock.lineClear(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
+}
+
+void test_qualification_defaults_are_twelve_ends_and_two_rounds() {
+  Harness harness;
+  harness.configure(Core::Mode::IndividualNonAlternating, Rules::EventClass::Announced, 3);
+
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.config().arrowsPerEnd);
+  TEST_ASSERT_EQUAL_UINT8(12, harness.clock.config().endsPerRound);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.config().qualificationRounds);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().roundNumber);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().endInRound);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().lastEndOfRound);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().lastEndOfQualification);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().qualificationComplete);
+}
+
+void test_qualification_advances_end_then_round_then_completes() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.abcdRotation = false;
+  config.breakEnabled = true;
+  config.breakAfterEnds = 2;
+  config.endsPerRound = 2;
+  config.qualificationRounds = 2;
+  config.breakMs = 1000;
+  harness.clock.configure(harness.now, config);
+
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().roundNumber);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().endInRound);
+
+  shootOneEnd(harness);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Idle, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT16(2, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().roundNumber);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().endInRound);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().lastEndOfRound);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().lastEndOfQualification);
+
+  shootOneEnd(harness);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT16(2, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().lastEndOfRound);
+
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Idle, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT16(3, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().roundNumber);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().endInRound);
+  TEST_ASSERT_FALSE(harness.clock.snapshot().lastEndOfRound);
+
+  shootOneEnd(harness);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL_UINT16(4, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().roundNumber);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().endInRound);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().lastEndOfQualification);
+
+  shootOneEnd(harness);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().lastEndOfQualification);
+
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL_UINT16(5, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.snapshot().roundNumber);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().endInRound);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().qualificationComplete);
+}
+
+void test_a_one_round_qualification_completes_on_its_last_end() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.abcdRotation = false;
+  config.breakEnabled = false;
+  config.endsPerRound = 3;
+  config.qualificationRounds = 1;
+  harness.clock.configure(harness.now, config);
+
+  for (uint8_t end = 1; end <= 3; end++) {
+    TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().roundNumber);
+    TEST_ASSERT_EQUAL_UINT8(end, harness.clock.snapshot().endInRound);
+    TEST_ASSERT_EQUAL(end == 3, harness.clock.snapshot().lastEndOfRound);
+    TEST_ASSERT_EQUAL(end == 3, harness.clock.snapshot().lastEndOfQualification);
+    shootOneEnd(harness);
+    harness.clock.nextEnd(harness.now);
+  }
+
+  TEST_ASSERT_EQUAL_UINT16(4, harness.clock.snapshot().endNumber);
+  TEST_ASSERT_TRUE(harness.clock.snapshot().qualificationComplete);
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -875,5 +980,8 @@ int main() {
   RUN_TEST(test_chapter_14_practice_is_a_plain_start_and_stop);
   RUN_TEST(test_art_12_5_a_shoot_off_is_one_arrow_each_and_marked_as_its_own_end);
   RUN_TEST(test_art_11_1_4_1_the_director_chooses_who_shoots_first);
+  RUN_TEST(test_qualification_defaults_are_twelve_ends_and_two_rounds);
+  RUN_TEST(test_qualification_advances_end_then_round_then_completes);
+  RUN_TEST(test_a_one_round_qualification_completes_on_its_last_end);
   return UNITY_END();
 }
