@@ -61,6 +61,7 @@ struct RenderRequest {
   uint8_t shooter = 0;
   uint8_t detail = 1;
   uint8_t details = 1;
+  uint8_t waves = 1;
   bool clockSeconds = false;
   bool showAbcd = true;
   bool abcdVertical = true;

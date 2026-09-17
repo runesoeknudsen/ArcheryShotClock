@@ -236,6 +236,25 @@ void test_abcd_sits_with_the_seconds_clock() {
   TEST_ASSERT_EQUAL_STRING("CD 20", DisplayLogic::renderFrame(request, frame).text);
 }
 
+void test_three_waves_draw_single_letters() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Green;
+  request.clockSeconds = true;
+  request.remainingMs = 20000;
+  request.details = 3;
+  request.waves = 3;
+  request.detail = 1;
+  request.showAbcd = true;
+  request.abcdVertical = true;
+
+  TEST_ASSERT_EQUAL_STRING("A 20", DisplayLogic::renderFrame(request, frame).text);
+  request.detail = 2;
+  TEST_ASSERT_EQUAL_STRING("B 20", DisplayLogic::renderFrame(request, frame).text);
+  request.detail = 3;
+  TEST_ASSERT_EQUAL_STRING("C 20", DisplayLogic::renderFrame(request, frame).text);
+}
+
 void test_abcd_letters_can_follow_the_timer_or_use_a_fixed_colour() {
   DisplayLogic::RenderRequest request;
   request.content = Core::DisplayContent::Clock;
@@ -309,6 +328,7 @@ int main() {
   RUN_TEST(test_clock_can_show_seconds_only);
   RUN_TEST(test_clock_seconds_are_right_aligned);
   RUN_TEST(test_abcd_sits_with_the_seconds_clock);
+  RUN_TEST(test_three_waves_draw_single_letters);
   RUN_TEST(test_abcd_letters_can_follow_the_timer_or_use_a_fixed_colour);
   RUN_TEST(test_css_colour_round_trips);
   RUN_TEST(test_finished_and_scoring_show_the_end_that_just_ran);

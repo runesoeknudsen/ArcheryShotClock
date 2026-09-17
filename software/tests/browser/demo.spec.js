@@ -153,3 +153,18 @@ test('LED panel uses a custom AB CD colour from settings', async ({ page }) => {
   expect(await panelPixel(page, 2, 2)).toEqual([51, 102, 204]);
   expect(await panelPixel(page, 26, 2)).toEqual([255, 24, 8]);
 });
+
+test('three waves run A then B then C from the core', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#waves').selectOption('3');
+  await expect(page.locator('#preview')).toContainText('A then B then C');
+  await page.getByRole('link', { name: 'Field' }).click();
+  await expect(page.getByRole('button', { name: 'Start Shoot A' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start Shoot A' }).click();
+  await expect(page.locator('#clockGroup')).toHaveText('A');
+  await page.getByRole('button', { name: 'Start Shoot B' }).click();
+  await expect(page.locator('#clockGroup')).toHaveText('B');
+  await page.getByRole('button', { name: 'Start Shoot C' }).click();
+  await expect(page.locator('#clockGroup')).toHaveText('C');
+});

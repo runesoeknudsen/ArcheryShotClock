@@ -13,8 +13,15 @@ constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
 constexpr uint8_t GROUP_LEFT = 1;
 constexpr uint8_t LETTER_GAP = 1;
 
-const char* groupLetters(uint8_t detail) {
-  switch (detail) {
+const char* groupLetters(const RenderRequest& request) {
+  if (request.waves == 3) {
+    switch (request.detail) {
+      case 2: return "B";
+      case 3: return "C";
+      default: return "A";
+    }
+  }
+  switch (request.detail) {
     case 2: return "CD";
     case 3: return "EF";
     case 4: return "GH";
@@ -105,11 +112,20 @@ void drawWideWord(const char* word, uint8_t top, uint32_t colour, uint32_t* pixe
 }
 
 void drawGroupVertical(const char* letters, uint32_t colour, uint32_t* pixels) {
+  if (letters[1] == '\0') {
+    drawNarrowLetter(letters[0], GROUP_LEFT, 5, colour, pixels);
+    return;
+  }
   drawNarrowLetter(letters[0], GROUP_LEFT, 2, colour, pixels);
   drawNarrowLetter(letters[1], GROUP_LEFT, 9, colour, pixels);
 }
 
 void drawGroupUnder(const char* letters, uint32_t colour, uint32_t* pixels) {
+  if (letters[1] == '\0') {
+    const uint8_t left = static_cast<uint8_t>(CLOCK_ONES_LEFT + DIGIT_WIDTH - SmallFont::NARROW_WIDTH);
+    drawNarrowLetter(letters[0], left, 11, colour, pixels);
+    return;
+  }
   const uint8_t width =
       static_cast<uint8_t>(SmallFont::NARROW_WIDTH * 2 + LETTER_GAP);
   const uint8_t left = static_cast<uint8_t>(CLOCK_ONES_LEFT + DIGIT_WIDTH - width);
@@ -235,10 +251,11 @@ void prefixGroupText(RenderResult& result, const char* letters) {
     index++;
   }
   rest[index] = '\0';
-  result.text[0] = letters[0];
-  result.text[1] = letters[1];
-  result.text[2] = ' ';
-  uint8_t out = 3;
+  const bool pair = letters[0] != '\0' && letters[1] != '\0';
+  uint8_t out = 0;
+  result.text[out++] = letters[0];
+  if (pair) result.text[out++] = letters[1];
+  result.text[out++] = ' ';
   for (uint8_t cursor = 0; rest[cursor] != '\0' && out < sizeof(result.text) - 1; cursor++) {
     result.text[out++] = rest[cursor];
   }
@@ -280,7 +297,7 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
 
   const uint32_t totalSeconds = (request.remainingMs + 999) / 1000;
   const bool group = showGroup(request);
-  const char* letters = groupLetters(request.detail);
+  const char* letters = groupLetters(request);
   const uint8_t top = (group && !request.abcdVertical) ? 0 : DIGIT_TOP;
 
   if (request.clockSeconds) {
@@ -393,6 +410,7 @@ void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state) 
   request.shooter = state.shooter;
   request.detail = state.detail;
   request.details = state.details;
+  request.waves = state.waves;
 }
 
 RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {

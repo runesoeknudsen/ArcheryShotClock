@@ -34,7 +34,7 @@ void test_boot_record_is_self_describing() {
   TEST_ASSERT_TRUE(sink.lastContains("\"r\":\"BOOT\""));
   TEST_ASSERT_TRUE(sink.lastContains("\"t\":12"));
   TEST_ASSERT_TRUE(sink.lastContains("\"seq\":1"));
-  TEST_ASSERT_TRUE(sink.lastContains("\"schema\":3"));
+  TEST_ASSERT_TRUE(sink.lastContains("\"schema\":4"));
   TEST_ASSERT_TRUE(sink.lastContains("\"fw\":\"test\""));
   TEST_ASSERT_TRUE(sink.lastContains("\"level\":\"NORMAL\""));
 }

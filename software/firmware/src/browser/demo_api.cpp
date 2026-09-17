@@ -331,6 +331,13 @@ int demo_session(const char* json) {
   const int details = readInt(json, "details", 0);
   if (details >= 1 && details <= 4) config.details = static_cast<uint8_t>(details);
 
+  if (json && std::strstr(json, "waves")) {
+    const int waves = readInt(json, "waves", 0);
+    if (waves >= 1 && waves <= 3) config.waves = static_cast<uint8_t>(waves);
+  } else {
+    config.waves = 0;
+  }
+
   const int practiceSeconds = readInt(json, "practiceSeconds", 0);
   if (practiceSeconds > 0) config.practiceMs = static_cast<uint32_t>(practiceSeconds) * 1000UL;
 

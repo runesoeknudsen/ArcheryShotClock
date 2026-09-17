@@ -37,7 +37,9 @@ function paintClock(state, ms) {
   if (group) {
     const vertical = state.abcdVertical !== false;
     face.classList.toggle('under', !vertical);
-    $('clockGroup').textContent = vertical ? group.charAt(0) + '\n' + group.charAt(1) : group;
+    $('clockGroup').textContent = (vertical && group.length > 1)
+      ? group.charAt(0) + '\n' + group.charAt(1)
+      : group;
     $('clockGroup').style.color = window.Operator.groupColourCss(state);
   } else {
     face.classList.remove('under');
@@ -52,7 +54,8 @@ function draftFromForm(state) {
     resumeOccupy: $('resumeOccupy').value === 'true',
     firstShooter: +$('firstShooter').value,
     abcdRotation: $('abcdRotation').value === 'true',
-    details: $('abcdRotation').value === 'true' ? Math.max(state.details || 0, 2) : 1,
+    waves: +$('waves').value,
+    details: +$('waves').value === 1 ? 1 : +$('waves').value,
     clockSeconds: $('clockSeconds').value === 'true',
     showAbcd: $('showAbcd').value === 'true',
     abcdVertical: $('abcdVertical').value === 'true',
@@ -90,6 +93,9 @@ function apply(state) {
   if (document.activeElement !== $('resumeOccupy')) $('resumeOccupy').value = String(state.resumeOccupy);
   if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter || 1);
   if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(!!state.abcdRotation);
+  if (document.activeElement !== $('waves')) {
+    $('waves').value = String(state.waves || (state.abcdRotation ? Math.min(state.details || 2, 3) : 1));
+  }
   if (document.activeElement !== $('display')) $('display').value = state.display;
   if (document.activeElement !== $('clockSeconds')) $('clockSeconds').value = String(state.clockSeconds !== false);
   if (document.activeElement !== $('showAbcd')) $('showAbcd').value = String(state.showAbcd !== false);
@@ -176,7 +182,7 @@ try {
 
   function actionKey(state) {
     return [
-      state.phase, state.mode, state.detail, state.details, state.shooter,
+      state.phase, state.mode, state.detail, state.details, state.waves, state.shooter,
       state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
       state.end, state.breakEnabled, state.breakAfterEnds
     ].join('|');
@@ -232,22 +238,22 @@ try {
   }
 
   function session() {
-    if ($('abcdRotation').value === 'true' && (!lastState || (lastState.details || 1) < 2)) {
-      lastState = Object.assign({}, lastState || {}, { details: 2 });
-    }
+    const waves = +$('waves').value;
+    $('abcdRotation').value = waves === 1 ? 'false' : 'true';
     if (lastState) window.Operator.renderPreview($('preview'), draftFromForm(lastState));
     const code = engine.session({
       mode: $('mode').value,
       eventClass: $('eventClass').value,
       arrowsPerEnd: +$('arrowsPerEnd').value,
       firstShooter: +$('firstShooter').value,
-      details: 2,
+      details: waves === 1 ? 1 : waves,
+      waves: waves,
       practiceSeconds: 300,
       division: 'RECURVE',
       matchLogic: $('matchLogic').value === 'true',
       resumeOccupy: $('resumeOccupy').value === 'true',
       signalEachPeriod: true,
-      abcdRotation: $('abcdRotation').value === 'true',
+      abcdRotation: waves !== 1,
       shootOff: false,
       breakEnabled: $('breakEnabled').value === 'true',
       breakAfterEnds: +$('breakAfterEnds').value,
@@ -263,7 +269,11 @@ try {
   $('arrowsPerEnd').onchange = session;
   $('resumeOccupy').onchange = session;
   $('firstShooter').onchange = session;
-  $('abcdRotation').onchange = session;
+  $('abcdRotation').onchange = () => {
+    $('waves').value = $('abcdRotation').value === 'false' ? '1' : '2';
+    session();
+  };
+  $('waves').onchange = session;
   $('breakEnabled').onchange = session;
   $('breakAfterEnds').onchange = session;
   $('breakSeconds').onchange = session;

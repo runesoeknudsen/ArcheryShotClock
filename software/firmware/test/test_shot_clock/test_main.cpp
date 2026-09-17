@@ -656,6 +656,7 @@ void test_abcd_rotation_is_on_in_a_default_session() {
 
   TEST_ASSERT_TRUE(harness.clock.config().abcdRotation);
   TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().details);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().waves);
   TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().detail);
 
   harness.clock.start(harness.now);
@@ -834,6 +835,70 @@ void test_art_11_1_4_1_the_director_chooses_who_shoots_first() {
   TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().shooter);
 }
 
+void test_one_wave_runs_a_single_shooting_group() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.waves = 1;
+  harness.clock.configure(harness.now, config);
+
+  TEST_ASSERT_FALSE(harness.clock.config().abcdRotation);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().waves);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().details);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+
+  TEST_ASSERT_EQUAL(Core::Phase::Finished, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().detail);
+}
+
+void test_three_waves_use_a_then_b_then_c() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.waves = 3;
+  harness.clock.configure(harness.now, config);
+
+  TEST_ASSERT_TRUE(harness.clock.config().abcdRotation);
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.snapshot().waves);
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.snapshot().details);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().detail);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Occupy, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().detail);
+
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Occupy, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.snapshot().detail);
+
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Finished, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.snapshot().detail);
+
+  harness.clock.lineClear(harness.now);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL_UINT8(2, harness.clock.snapshot().detail);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  TEST_ASSERT_EQUAL_UINT8(3, harness.clock.snapshot().detail);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  TEST_ASSERT_EQUAL_UINT8(1, harness.clock.snapshot().detail);
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -875,5 +940,7 @@ int main() {
   RUN_TEST(test_chapter_14_practice_is_a_plain_start_and_stop);
   RUN_TEST(test_art_12_5_a_shoot_off_is_one_arrow_each_and_marked_as_its_own_end);
   RUN_TEST(test_art_11_1_4_1_the_director_chooses_who_shoots_first);
+  RUN_TEST(test_one_wave_runs_a_single_shooting_group);
+  RUN_TEST(test_three_waves_use_a_then_b_then_c);
   return UNITY_END();
 }
