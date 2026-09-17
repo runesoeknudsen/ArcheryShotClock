@@ -15,9 +15,6 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,7 +25,7 @@ jobs:
           mkdir -p _site
           cp -a software/web/demo/. _site/
           touch _site/.nojekyll
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: browser-demo
           path: _site

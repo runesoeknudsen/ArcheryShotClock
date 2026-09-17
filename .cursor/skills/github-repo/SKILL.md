@@ -87,7 +87,7 @@ This job does not flash a board.
 ### Job `browser`
 
 1. Check out the repo.
-2. Install Node.js 22.
+2. Install Node.js 24.
 3. Run `npm ci`.
 4. Install Chromium.
 5. Run `npm test` (Playwright).
