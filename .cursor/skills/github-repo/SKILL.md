@@ -42,7 +42,7 @@ If PR creation fails with `unauthenticated`:
 ## Always
 
 1. Work on a branch. When starting a new job, always branch from `main`. Do not commit straight to `main` unless the user says so.
-2. Write a short commit message that says what changed and why.
+2. Write a short commit message that says what changed and why. If the work addresses a GitHub issue, name it in that message (`Fixes #6`). See [github-issues](../github-issues/SKILL.md).
 3. Push the same branch you committed.
 4. Keep `.github/workflows/ci.yml` able to run with no secrets and no extra hardware.
 5. If you change how tests run, change the workflow in the same commit.
@@ -102,9 +102,13 @@ Save your work:
 ```text
 git status
 git add -A
-git commit -m "Short description of the change."
+git commit -m "Short description of the change.
+
+Fixes #N."
 git push -u origin BRANCH_NAME
 ```
+
+If the commit is for a GitHub issue, the message must include `Fixes #N` (or `Closes` / `Resolves`). See [github-issues](../github-issues/SKILL.md). Omit the issue line when the work is not for an issue.
 
 Run the same checks GitHub will run:
 
