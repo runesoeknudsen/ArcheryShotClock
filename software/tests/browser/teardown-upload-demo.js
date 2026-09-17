@@ -7,5 +7,5 @@ module.exports = async () => {
   const root = path.join(__dirname, '..', '..', '..');
   const dest = path.join(root, 'test-results', 'browser-demo');
   fs.mkdirSync(dest, { recursive: true });
-  fs.cpSync(path.join(root, 'web', 'demo'), dest, { recursive: true });
+  fs.cpSync(path.join(root, 'software', 'web', 'demo'), dest, { recursive: true });
 };

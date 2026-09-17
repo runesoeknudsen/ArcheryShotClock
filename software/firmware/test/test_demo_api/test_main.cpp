@@ -78,6 +78,14 @@ void test_browser_host_abcd_letters_default_white() {
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixels[2 * 32 + 2]);
 }
 
+void test_browser_host_reset_session_returns_to_end_one() {
+  demo_init(0);
+  TEST_ASSERT_EQUAL_INT(0, demo_control("start", 0));
+  TEST_ASSERT_EQUAL_INT(0, demo_control("reset_session", 0));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"phase\":\"IDLE\""));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"end\":1"));
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -89,5 +97,6 @@ int main() {
   RUN_TEST(test_browser_host_defaults_to_abcd_rotation);
   RUN_TEST(test_browser_host_rotates_cd_first_on_the_second_end);
   RUN_TEST(test_browser_host_abcd_letters_default_white);
+  RUN_TEST(test_browser_host_reset_session_returns_to_end_one);
   return UNITY_END();
 }

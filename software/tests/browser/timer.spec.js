@@ -144,6 +144,17 @@ function mockApi(page) {
     if (body.action === 'suspend') state.phase = 'SUSPENDED';
     if (body.action === 'resume') state.phase = 'SHOOTING';
     if (body.action === 'extend') state.remainingMs += body.seconds * 1000;
+    if (body.action === 'reset_session') {
+      state.end = 1;
+      state.detail = 1;
+      state.arrowsShot = 0;
+      state.phase = 'IDLE';
+      state.light = 'OFF';
+      state.running = false;
+      state.finished = false;
+      state.remainingMs = state.periodMs;
+      state.panelText = String(Math.ceil(state.periodMs / 1000));
+    }
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(state) });
   });
 
@@ -236,6 +247,12 @@ test('lights the lamp matching the light state', async ({ page }) => {
 test('offers only the controls the current phase allows', async ({ page }) => {
   // Idle: the next press is Start Shoot AB. Stop, Score and Resume are absent.
   await expect(page.getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
+  await expect(page.locator('#actions').getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
+  await expect(page.locator('#actions').getByRole('button', { name: 'Restart session' })).toHaveCount(0);
+  await expect(page.locator('#actions').getByRole('button', { name: 'Reset this end' })).toHaveCount(0);
+  await expect(page.locator('#aux').getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await expect(page.locator('#aux').getByRole('button', { name: 'Reset this end' })).toBeVisible();
+  await expect(page.locator('#extras')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Stop occupy' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Score' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Resume remaining arrows' })).toHaveCount(0);
@@ -344,6 +361,9 @@ test('shows the detail number when AB/CD rotation is on', async ({ page }) => {
 
 test('sends the extension in seconds and reports the new time', async ({ page }) => {
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
+  await expect(page.locator('#extras').getByRole('button', { name: 'Add time' })).toBeVisible();
+  await expect(page.locator('#extras').getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await expect(page.locator('#actions').getByRole('button', { name: 'Restart session' })).toHaveCount(0);
   await page.locator('#extendSeconds').fill('45');
   await page.getByRole('button', { name: 'Add time' }).click();
 
@@ -666,6 +686,24 @@ test('starts a break after scoring the configured number of ends', async ({ page
   await expect(page.locator('#phase')).toHaveText('BREAK');
   await expect(page.locator('#headline')).toContainText('Break after end 1');
   await expect(page.getByRole('button', { name: 'Start Shoot CD' })).toBeVisible();
+});
+
+test('restart session returns to end 1 from later in the round', async ({ page }) => {
+  page.mock.state.end = 4;
+  page.mock.state.detail = 2;
+  page.mock.state.phase = 'SCORING';
+  page.mock.state.arrowsShot = 3;
+  await page.goto('/');
+
+  await expect(page.locator('#end')).toHaveText('4');
+  await expect(page.locator('#aux').getByRole('button', { name: 'Restart session' })).toBeVisible();
+  await page.locator('#aux').getByRole('button', { name: 'Restart session' }).click();
+
+  await expect(page.locator('#phase')).toHaveText('IDLE');
+  await expect(page.locator('#end')).toHaveText('1');
+  await expect(page.locator('#headline')).toHaveText('Ready');
+  await expect(page.getByRole('button', { name: 'Start Shoot AB' })).toBeVisible();
+  expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'reset_session' } });
 });
 
 test('reports a rejected command instead of failing silently', async ({ page }) => {
