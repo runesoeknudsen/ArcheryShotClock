@@ -29,6 +29,7 @@
     .meta{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;color:var(--dim);font-size:.85rem}
     .meta b{color:var(--ink);font-weight:600}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+    #extras{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
     button{font:inherit;padding:14px 10px;border-radius:4px;border:1px solid #52606b;background:#d8e0e5;color:#161616;font-weight:600;cursor:pointer}
     button.primary{background:var(--accent)}
     button.danger{background:#e0402c;color:#fff;border-color:#e0402c}
@@ -130,16 +131,19 @@
     <section>
       <h2>Next action</h2>
       <div id="actions" class="grid"></div>
-      <div id="aux" class="grid" style="margin-top:10px"></div>
-      <div id="extendBox" class="row" style="margin-top:10px" hidden>
-        <div>
-          <label for="extendSeconds">Add time (Art. 11.2.2)</label>
-          <input id="extendSeconds" type="number" min="1" max="600" value="30">
+      <div id="extras">
+        <h2>Extra</h2>
+        <div id="extendBox" class="row" hidden>
+          <div>
+            <label for="extendSeconds">Add time (Art. 11.2.2)</label>
+            <input id="extendSeconds" type="number" min="1" max="600" value="30">
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button type="button" id="btnExtend">Add time</button>
+          </div>
         </div>
-        <div>
-          <label>&nbsp;</label>
-          <button type="button" id="btnExtend">Add time</button>
-        </div>
+        <div id="aux" class="grid" style="margin-top:10px"></div>
       </div>
     </section>
   </div>

@@ -202,6 +202,7 @@ try {
       window.Operator.renderActions($('actions'), state, runAction);
       const canExtend = window.Operator.renderAux($('aux'), state, runAction);
       $('extendBox').hidden = !canExtend;
+      $('extras').hidden = !canExtend && !$('aux').childElementCount;
     }
     panel.draw();
     updateSize(panel);
