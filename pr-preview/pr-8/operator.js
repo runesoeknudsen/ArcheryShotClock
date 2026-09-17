@@ -112,6 +112,7 @@
 
   function groupOnClock(state) {
     if (!state || state.showAbcd === false || !usesAbcd(state)) return '';
+    if (state.phase === 'BREAK') return '';
     if (state.showEndLabels !== false && (state.phase === 'FINISHED' || state.phase === 'SCORING')) return '';
     return groupName(state.detail || 1);
   }
@@ -221,7 +222,7 @@
     if (phase === 'IDLE') {
       return {
         headline: 'Ready',
-        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line.'
+        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
       };
     }
     if (phase === 'OCCUPY') {
@@ -359,10 +360,6 @@
       list.push({ id: 'resume', label: 'Resume remaining arrows', action: 'resume', primary: true });
     }
 
-    if (phase === 'IDLE' || phase === 'FINISHED' || phase === 'SCORING' || phase === 'BREAK') {
-      list.push({ id: 'reset', label: 'Reset this end', action: 'reset_end' });
-    }
-
     list.push({ id: 'emergency', label: 'Emergency', action: 'emergency', danger: true });
     return list;
   }
@@ -389,6 +386,8 @@
   function auxActions(state) {
     const phase = state.phase || 'IDLE';
     const extras = [];
+    if (phase === 'EMERGENCY') return extras;
+
     const cap = isAlternating(state) ? (state.arrowsPerEnd || 0) * 2 : (state.arrowsPerEnd || 0);
     if (tracksLiveArrows(state)) {
       if ((state.arrowsShot || 0) > 0) {
@@ -405,6 +404,10 @@
       extras.push({ id: 'add_minute', label: 'Add 1 min', action: 'extend', seconds: 60 });
       extras.push({ id: 'remove_minute', label: 'Remove 1 min', action: 'extend', seconds: -60 });
     }
+    if (phase === 'IDLE' || phase === 'FINISHED' || phase === 'SCORING' || phase === 'BREAK') {
+      extras.push({ id: 'reset', label: 'Reset this end', action: 'reset_end' });
+    }
+    extras.push({ id: 'reset_session', label: 'Restart session', action: 'reset_session' });
     return extras;
   }
 
