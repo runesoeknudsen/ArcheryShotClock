@@ -35,6 +35,7 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
     const SessionConfig& session = *view.session;
     json.text("eventClass", Rules::name(session.eventClass));
     json.boolean("resumeOccupy", session.replayOccupyOnResume);
+    json.boolean("recalculateOnResume", session.recalculateOnResume);
     json.unsigned32("firstShooter", session.firstShooter);
     json.boolean("signalEachPeriod", session.signalEachAlternatingPeriod);
     json.boolean("abcdRotation", session.abcdRotation);

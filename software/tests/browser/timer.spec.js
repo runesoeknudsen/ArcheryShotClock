@@ -27,6 +27,7 @@ function mockApi(page) {
     running: false,
     finished: false,
     resumeOccupy: true,
+    recalculateOnResume: false,
     brightness: 16,
     beepMs: 250,
     gapMs: 200,
@@ -172,6 +173,7 @@ function mockApi(page) {
     if (typeof body.breakEnabled === 'boolean') state.breakEnabled = body.breakEnabled;
     if (typeof body.breakAfterEnds === 'number') state.breakAfterEnds = body.breakAfterEnds;
     if (typeof body.breakSeconds === 'number') state.breakSeconds = body.breakSeconds;
+    if (typeof body.recalculateOnResume === 'boolean') state.recalculateOnResume = body.recalculateOnResume;
     state.eventClass = body.eventClass;
     state.arrowsPerEnd = body.arrowsPerEnd;
     state.perArrowMs = body.eventClass === 'ANNOUNCED' ? 30000 : 40000;
@@ -255,7 +257,7 @@ test('offers only the controls the current phase allows', async ({ page }) => {
   await expect(page.locator('#extras')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Stop occupy' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Score' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Resume remaining arrows' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Resume remaining time' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Emergency' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
@@ -318,6 +320,14 @@ test('changing the event class changes the per-arrow time', async ({ page }) => 
   await expect(page.locator('#clock')).toHaveText('90');
   const session = page.mock.requests.filter(entry => entry.path === '/api/session').pop();
   expect(session.body).toMatchObject({ mode: 'IND_NONALT', eventClass: 'ANNOUNCED', arrowsPerEnd: 3 });
+});
+
+test('keeps remaining shot time on resume unless Art 11.2.4 recalc is enabled', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await expect(page.locator('#recalculateOnResume')).toHaveValue('false');
+  await page.locator('#recalculateOnResume').selectOption('true');
+  const session = page.mock.requests.filter(entry => entry.path === '/api/session').pop();
+  expect(session.body).toMatchObject({ recalculateOnResume: true });
 });
 
 test('six-arrow ends double the period', async ({ page }) => {

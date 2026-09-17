@@ -26,6 +26,7 @@ struct Settings {
   uint8_t arrowsPerEnd;     // Art. 10.1: three or six
   uint8_t displayContent;   // Core::DisplayContent
   bool replayOccupyOnResume;
+  bool recalculateOnResume;
   uint8_t firstShooter;     // Art. 11.1.4.1 / 11.1.4.3
   bool signalEachPeriod;    // Art. 11.3.4
   bool abcdRotation;        // Art. 11.2.3.1, default on

@@ -178,6 +178,7 @@ void test_art_11_2_4_1_individual_resume_is_a_flat_per_arrow_allowance() {
   harness.configure(Core::Mode::IndividualNonAlternating, Rules::EventClass::Announced, 3);
   Core::SessionConfig config = harness.clock.config();
   config.replayOccupyOnResume = false;
+  config.recalculateOnResume = true;
   harness.clock.configure(harness.now, config);
 
   harness.clock.start(harness.now);
@@ -208,6 +209,7 @@ void test_art_11_2_4_2_team_resume_keeps_a_clock_that_beats_the_floor() {
   config.arrowsPerEnd = 6;
   config.abcdRotation = false;
   config.replayOccupyOnResume = false;
+  config.recalculateOnResume = true;
   harness.clock.configure(harness.now, config);
 
   harness.clock.start(harness.now);
@@ -235,6 +237,7 @@ void test_art_11_2_4_2_team_resume_lifts_a_clock_below_the_floor() {
   config.arrowsPerEnd = 6;
   config.abcdRotation = false;
   config.replayOccupyOnResume = false;
+  config.recalculateOnResume = true;
   harness.clock.configure(harness.now, config);
 
   harness.clock.start(harness.now);
@@ -256,6 +259,9 @@ void test_art_11_2_4_2_team_resume_lifts_a_clock_below_the_floor() {
 void test_art_11_2_4_resume_replays_the_ten_second_period_by_default() {
   Harness harness;
   harness.configure(Core::Mode::IndividualNonAlternating, Rules::EventClass::Announced, 3);
+  Core::SessionConfig config = harness.clock.config();
+  config.recalculateOnResume = true;
+  harness.clock.configure(harness.now, config);
   harness.clock.start(harness.now);
   harness.advanceSeconds(10);
   harness.advanceSeconds(10);
@@ -273,6 +279,34 @@ void test_art_11_2_4_resume_replays_the_ten_second_period_by_default() {
   harness.advanceSeconds(10);
   TEST_ASSERT_EQUAL(Core::Phase::Shooting, harness.clock.snapshot().phase);
   TEST_ASSERT_EQUAL_UINT32(90000, harness.clock.snapshot().remainingMs);
+}
+
+void test_suspend_then_resume_keeps_the_remaining_shot_time() {
+  Harness harness;
+  harness.configure(Core::Mode::IndividualNonAlternating, Rules::EventClass::Announced, 3);
+  Core::SessionConfig config = harness.clock.config();
+  config.replayOccupyOnResume = false;
+  harness.clock.configure(harness.now, config);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(10);
+  harness.advanceSeconds(20);
+  TEST_ASSERT_EQUAL_UINT32(70000, harness.clock.snapshot().remainingMs);
+
+  harness.clock.suspend(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Suspended, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT32(70000, harness.clock.snapshot().remainingMs);
+
+  harness.clock.resume(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Shooting, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT32(70000, harness.clock.snapshot().remainingMs);
+  TEST_ASSERT_EQUAL_UINT32(70000, harness.clock.snapshot().periodMs);
+
+  harness.advanceSeconds(15);
+  TEST_ASSERT_EQUAL_UINT32(55000, harness.clock.snapshot().remainingMs);
+  harness.clock.suspend(harness.now);
+  harness.clock.resume(harness.now);
+  TEST_ASSERT_EQUAL_UINT32(55000, harness.clock.snapshot().remainingMs);
 }
 
 void test_art_11_2_2_time_may_be_extended() {
@@ -850,6 +884,7 @@ int main() {
   RUN_TEST(test_art_11_2_4_2_team_resume_keeps_a_clock_that_beats_the_floor);
   RUN_TEST(test_art_11_2_4_2_team_resume_lifts_a_clock_below_the_floor);
   RUN_TEST(test_art_11_2_4_resume_replays_the_ten_second_period_by_default);
+  RUN_TEST(test_suspend_then_resume_keeps_the_remaining_shot_time);
   RUN_TEST(test_art_11_2_2_time_may_be_extended);
   RUN_TEST(test_art_11_3_3_emergency_gives_at_least_five_signals_from_any_phase);
   RUN_TEST(test_art_10_1_next_end_advances_and_clears_the_arrow_count);
