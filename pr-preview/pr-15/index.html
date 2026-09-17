@@ -1,0 +1,321 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Archery shot clock — browser demo</title>
+  <style>
+    :root{--bg:#10151b;--panel:#18212a;--line:#39434c;--ink:#f4f0e8;--dim:#b8c5ce;--accent:#ff9638}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--ink);max-width:920px;margin:0 auto;padding:16px}
+    h1{font-size:1.1rem;margin:0;color:var(--accent)}
+    h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 8px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+    nav{display:flex;gap:6px}
+    nav a{color:var(--dim);text-decoration:none;padding:8px 12px;border:1px solid var(--line);border-radius:4px;font-weight:600}
+    nav a.on{background:var(--accent);color:#161616;border-color:var(--accent)}
+    .banner{border:1px solid #5a4630;background:#2a2116;color:#f4e0c4;padding:10px 12px;margin-bottom:12px;font-size:.9rem}
+    section{border:1px solid var(--line);background:var(--panel);padding:14px;margin-bottom:12px}
+    #stage{display:flex;justify-content:center;overflow:auto;padding:8px;background:#05070a;border:1px solid var(--line)}
+    #panel{display:block;image-rendering:pixelated}
+    #clockFace{display:flex;align-items:center;justify-content:center;gap:14px;margin:8px auto 4px;max-width:22rem}
+    #clockFace.under{flex-direction:column;gap:2px}
+    #clockGroup{font-size:1.4rem;font-weight:700;letter-spacing:.06em;line-height:1.05;text-align:center;white-space:pre;min-width:1.6em}
+    #clock{font-size:3.4rem;text-align:right;font-variant-numeric:tabular-nums;margin:0;line-height:1;min-width:4.4ch}
+    #lights{display:flex;gap:8px;justify-content:center;margin-bottom:8px}
+    .lamp{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#222}
+    .lamp.on[data-colour=RED]{background:#ff1808}.lamp.on[data-colour=GREEN]{background:#00c81e}
+    .lamp.on[data-colour=YELLOW]{background:#ffb400}
+    .meta{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;color:var(--dim);font-size:.85rem}
+    .meta b{color:var(--ink);font-weight:600}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+    button{font:inherit;padding:14px 10px;border-radius:4px;border:1px solid #52606b;background:#d8e0e5;color:#161616;font-weight:600;cursor:pointer}
+    button.primary{background:var(--accent)}
+    button.danger{background:#e0402c;color:#fff;border-color:#e0402c}
+    label{display:block;margin:10px 0 4px;color:var(--dim);font-size:.85rem}
+    select,input{font:inherit;width:100%;padding:9px;border-radius:4px;border:1px solid #52606b;background:#0d1217;color:var(--ink)}
+    input[type=color]{height:42px;padding:4px;cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:640px){.row{grid-template-columns:1fr}}
+    #log{height:170px;overflow:auto;background:#0d1217;border:1px solid var(--line);padding:8px;font-family:ui-monospace,monospace;font-size:.7rem;white-space:pre-wrap;color:var(--dim)}
+    #note{color:var(--accent);min-height:1.2em;font-size:.85rem;text-align:center}
+    #headline{text-align:center;font-size:1.15rem;font-weight:700;margin:8px 0 4px}
+    #situation{text-align:center;color:var(--dim);font-size:.9rem;margin:0 0 8px}
+    .flow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 4px}
+    .step{padding:7px 8px;border:1px solid var(--line);border-radius:4px;font-size:.72rem;color:var(--dim);text-align:center;min-width:4.4rem}
+    .step.now{background:var(--accent);color:#161616;border-color:var(--accent);font-weight:700}
+    .step.done{border-color:#4a6;color:#cfe}
+    #preview{display:grid;gap:8px}
+    .preview-row{display:grid;grid-template-columns:9.5rem 1fr;gap:8px;align-items:start;font-size:.9rem;color:var(--dim)}
+    .preview-row b{color:var(--ink);font-weight:600}
+    #sizeReadout{color:var(--dim);font-size:.85rem;margin-top:10px}
+    #sizeReadout b{color:var(--ink)}
+    #error{color:#ff8a80}
+    .page[hidden]{display:none}
+  </style>
+</head>
+<body>
+  <div class="banner">
+    Browser demo of the same C++ shot-clock core the ESP32 runs. No board, no Wi-Fi.
+    The LED grid is the firmware 32×16 frame. Size controls below are for the
+    “how big should the panel be?” conversation — they do not change the firmware yet.
+  </div>
+  <header>
+    <h1>Archery shot clock — browser demo</h1>
+    <nav>
+      <a href="#field" id="navField">Field</a>
+      <a href="#setup" id="navSetup">Setup</a>
+    </nav>
+  </header>
+  <p id="error" hidden>The WASM core failed to load. Serve this folder over HTTP and run <code>scripts/build_wasm.sh</code>.</p>
+
+  <div id="pageField" class="page">
+    <section>
+      <h2>Athlete-facing panel</h2>
+      <div id="stage"><canvas id="panel" width="400" height="200"></canvas></div>
+      <div class="row">
+        <div>
+          <label for="ledPx">On-screen LED size <output id="ledPxValue">12</output> px</label>
+          <input id="ledPx" type="range" min="4" max="22" value="12">
+        </div>
+        <div>
+          <label for="pitchMm">Module pitch <output id="pitchMmValue">5</output> mm</label>
+          <input id="pitchMm" type="range" min="2" max="10" step="0.5" value="5">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="previewSize">What-if panel size</label>
+          <select id="previewSize">
+            <option value="32x16">32×16 — firmware today (two 8×32 modules)</option>
+            <option value="64x16">64×16 — four modules in a row</option>
+            <option value="64x32">64×32 — eight modules, twice as tall</option>
+          </select>
+        </div>
+        <div>
+          <label>Physical size at this pitch</label>
+          <div id="sizeReadout">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div id="lights">
+        <span class="lamp" id="lampRed" data-colour="RED"></span>
+        <span class="lamp" id="lampGreen" data-colour="GREEN"></span>
+        <span class="lamp" id="lampYellow" data-colour="YELLOW"></span>
+      </div>
+      <div id="clockFace">
+        <div id="clockGroup" hidden></div>
+        <div id="clock">-</div>
+      </div>
+      <div id="flow" class="flow"></div>
+      <div id="headline">Ready</div>
+      <div id="situation"></div>
+      <span id="phase" hidden></span>
+      <div class="meta">
+        <span>End <b id="end">-</b></span>
+        <span id="arrowsBox" hidden>Arrows <b id="arrows">-</b></span>
+        <span>Per arrow <b id="perArrow">-</b></span>
+        <span id="shooterBox" hidden>Shooting <b id="shooter">-</b></span>
+        <span id="detailBox" hidden>Detail <b id="detail">-</b></span>
+        <span id="shootOffBox" hidden><b>Shoot-off</b></span>
+        <span>Panel <b id="panelText">-</b></span>
+      </div>
+      <div id="note"></div>
+    </section>
+
+    <section>
+      <h2>Next action</h2>
+      <div id="actions" class="grid"></div>
+      <div id="aux" class="grid" style="margin-top:10px"></div>
+      <div id="extendBox" class="row" style="margin-top:10px" hidden>
+        <div>
+          <label for="extendSeconds">Add time (Art. 11.2.2)</label>
+          <input id="extendSeconds" type="number" min="1" max="600" value="30">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" id="btnExtend">Add time</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="pageSetup" class="page" hidden>
+    <section>
+      <h2>This is what the field will run</h2>
+      <div id="preview"></div>
+    </section>
+
+    <section>
+      <h2>Program</h2>
+      <div class="row">
+        <div>
+          <label for="mode">Timing program</label>
+          <select id="mode"></select>
+        </div>
+        <div>
+          <label for="eventClass">Event class</label>
+          <select id="eventClass">
+            <option value="ANNOUNCED">Announced / ranking - 30 s (Art. 11.2.1.1)</option>
+            <option value="OTHER">Other events - 40 s (Art. 11.2.1.2)</option>
+            <option value="OTHER_REDUCED">Other, reduced - 30 s (Art. 11.2.1.2)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="arrowsPerEnd">Arrows per end (Art. 10.1)</label>
+          <select id="arrowsPerEnd"><option value="3">3</option><option value="6">6</option></select>
+        </div>
+        <div>
+          <label for="resumeOccupy">Resume after a hold</label>
+          <select id="resumeOccupy">
+            <option value="true">Replay the 10 s occupy (Art. 11.2.4)</option>
+            <option value="false">Straight back to shooting</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="firstShooter">Shoots first (Art. 11.1.4.1)</label>
+          <select id="firstShooter">
+            <option value="1">A</option>
+            <option value="2">B</option>
+          </select>
+        </div>
+        <div>
+          <label for="abcdRotation">AB / CD rotation (Art. 11.2.3.1)</label>
+          <select id="abcdRotation">
+            <option value="true">On — AB then CD, rotating each end</option>
+            <option value="false">Off — one detail</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="breakEnabled">Break after scoring</label>
+          <select id="breakEnabled">
+            <option value="true">On — pause after N ends</option>
+            <option value="false">Off</option>
+          </select>
+        </div>
+        <div>
+          <label for="breakAfterEnds">Break after how many ends</label>
+          <input id="breakAfterEnds" type="number" min="1" max="36" value="12">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="breakSeconds">Break length (seconds)</label>
+          <input id="breakSeconds" type="number" min="10" max="3600" value="900">
+        </div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="display">Panel shows</label>
+          <select id="display">
+            <option value="CLOCK">Clock</option>
+            <option value="CLOCK_END">End number</option>
+            <option value="ARROWS">Arrows shot</option>
+            <option value="SCORE">Score</option>
+            <option value="SET_POINTS">Set points</option>
+            <option value="SHOOTER">Shooting side</option>
+            <option value="BLANK">Blank</option>
+          </select>
+        </div>
+        <div>
+          <label for="clockSeconds">Clock format</label>
+          <select id="clockSeconds">
+            <option value="true">Seconds only, right aligned</option>
+            <option value="false">Minutes and seconds (02:00)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="showAbcd">AB / CD with the time</label>
+          <select id="showAbcd">
+            <option value="true">On — show the shooting group</option>
+            <option value="false">Off — time only</option>
+          </select>
+        </div>
+        <div>
+          <label for="abcdVertical">AB / CD placement</label>
+          <select id="abcdVertical">
+            <option value="true">Vertical, left of the time</option>
+            <option value="false">Horizontal, under the time</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="showEndLabels">End and scoring on the panel</label>
+          <select id="showEndLabels">
+            <option value="true">On — End N, then Scoring N</option>
+            <option value="false">Off — keep showing the clock</option>
+          </select>
+        </div>
+        <div>
+          <label for="abcdFollowTimer">AB / CD colour</label>
+          <select id="abcdFollowTimer">
+            <option value="false">Fixed colour (default white)</option>
+            <option value="true">Follow the timer</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="abcdColour">AB / CD custom colour</label>
+          <input id="abcdColour" type="color" value="#ffffff">
+        </div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="volume">Speaker volume <output id="volumeValue"></output></label>
+          <input id="volume" type="range" min="0" max="100" value="60">
+        </div>
+        <div>
+          <label for="matchLogic">Match scoring</label>
+          <select id="matchLogic">
+            <option value="false">Off - shot clock only</option>
+            <option value="true">On - track ends and scores</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" id="btnTestSound">Test sound</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Log</h2>
+      <div class="row">
+        <div>
+          <label for="traceLevel">Testing mode</label>
+          <select id="traceLevel">
+            <option value="OFF">Off</option>
+            <option value="MINIMAL">On - evidence trail</option>
+            <option value="NORMAL">On, with input</option>
+            <option value="VERBOSE">Verbose</option>
+          </select>
+        </div>
+        <div>
+          <label>Core</label>
+          <div class="meta" style="justify-content:flex-start"><span>WASM <b>same C++ as firmware</b></span></div>
+        </div>
+      </div>
+      <div id="log" style="margin-top:10px"></div>
+    </section>
+  </div>
+
+  <script src="./operator.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
