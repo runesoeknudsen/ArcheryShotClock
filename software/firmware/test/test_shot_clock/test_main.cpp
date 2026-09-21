@@ -453,6 +453,37 @@ void test_break_time_can_be_lengthened_and_shortened() {
   TEST_ASSERT_EQUAL(Core::Phase::Idle, harness.clock.snapshot().phase);
 }
 
+void test_break_length_can_be_set_before_the_break_starts() {
+  Harness harness;
+  Core::SessionConfig config;
+  config.mode = Core::Mode::IndividualNonAlternating;
+  config.eventClass = Rules::EventClass::Announced;
+  config.arrowsPerEnd = 3;
+  config.abcdRotation = false;
+  config.breakEnabled = true;
+  config.breakAfterEnds = 1;
+  config.breakMs = 15 * 60 * 1000;
+  harness.clock.configure(harness.now, config);
+
+  harness.clock.start(harness.now);
+  harness.advanceSeconds(12);
+  harness.clock.stop(harness.now);
+  harness.clock.lineClear(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
+
+  harness.clock.adjustBreak(harness.now, 60 * 1000);
+  TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT32(16 * 60 * 1000, harness.clock.config().breakMs);
+
+  harness.clock.adjustBreak(harness.now, -60 * 1000);
+  TEST_ASSERT_EQUAL_UINT32(15 * 60 * 1000, harness.clock.config().breakMs);
+
+  harness.clock.adjustBreak(harness.now, 60 * 1000);
+  harness.clock.nextEnd(harness.now);
+  TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
+  TEST_ASSERT_EQUAL_UINT32(16 * 60 * 1000, harness.clock.snapshot().remainingMs);
+}
+
 void test_controls_that_the_phase_forbids_are_refused_and_logged() {
   Harness harness;
   harness.configure(Core::Mode::IndividualNonAlternating, Rules::EventClass::Announced, 3);
@@ -889,6 +920,7 @@ int main() {
   RUN_TEST(test_next_end_from_finished_does_not_skip_into_the_break);
   RUN_TEST(test_start_during_a_break_begins_the_next_end);
   RUN_TEST(test_break_time_can_be_lengthened_and_shortened);
+  RUN_TEST(test_break_length_can_be_set_before_the_break_starts);
   RUN_TEST(test_controls_that_the_phase_forbids_are_refused_and_logged);
   RUN_TEST(test_a_clock_that_runs_backwards_cannot_swallow_the_ten_second_phase);
   RUN_TEST(test_the_ten_second_period_runs_its_full_length);

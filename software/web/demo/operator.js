@@ -104,7 +104,7 @@
       if (state.phase === 'FINISHED') return 'End ' + (state.end || '');
       if (state.phase === 'SCORING') return 'Scoring ' + (state.end || '');
     }
-    if (state && state.phase === 'BREAK') return mmss(ms);
+    if (state && state.phase === 'BREAK') return 'BREAK ' + mmss(ms);
     const total = Math.ceil(Math.max(ms || 0, 0) / 1000);
     if (!state || state.clockSeconds !== false) return String(total);
     return mmss(ms);
@@ -264,14 +264,15 @@
       return {
         headline: 'Scoring' + (state.end ? ' — end ' + state.end : ''),
         detail: breakDue(state)
-          ? 'Start the break when scoring is finished.'
+          ? 'Break will run for ' + configuredBreakMinutes(state) +
+            ' min. Add or remove a minute, then start the break when scoring is finished.'
           : 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + ' for the next end.'
       };
     }
     if (phase === 'BREAK') {
       return {
         headline: 'Break after end ' + (state.end || ''),
-        detail: 'The board shows minutes:seconds. Add or remove a minute if the field needs more or less time.'
+        detail: 'The board shows BREAK and minutes:seconds, with a one-LED gap between them. Add or remove a minute if the field needs more or less time.'
       };
     }
     return { headline: phase, detail: '' };
@@ -399,6 +400,10 @@
     }
     if (running(phase) || phase === 'SUSPENDED') {
       extras.push({ id: 'extend', label: 'Add time', action: 'extend' });
+    }
+    if (phase === 'SCORING' && breakDue(state)) {
+      extras.push({ id: 'add_minute', label: 'Add 1 min', action: 'adjust_break', seconds: 60 });
+      extras.push({ id: 'remove_minute', label: 'Remove 1 min', action: 'adjust_break', seconds: -60 });
     }
     if (phase === 'BREAK') {
       extras.push({ id: 'add_minute', label: 'Add 1 min', action: 'extend', seconds: 60 });

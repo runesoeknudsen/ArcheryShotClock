@@ -295,6 +295,8 @@ int demo_control(const char* action, int32_t arg) {
     H().clock.clearEmergency(now);
   } else if (std::strcmp(action, "extend") == 0) {
     if (arg != 0) H().clock.extendTime(now, arg * 1000);
+  } else if (std::strcmp(action, "adjust_break") == 0) {
+    if (arg != 0) H().clock.adjustBreak(now, arg * 1000);
   } else {
     return 1;
   }

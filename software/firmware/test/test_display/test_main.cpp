@@ -106,17 +106,19 @@ void test_break_uses_minutes_and_seconds_even_when_the_clock_is_seconds_only() {
   request.clockSeconds = true;
   request.phase = Core::Phase::Break;
   request.remainingMs = 15 * 60 * 1000;
-  TEST_ASSERT_EQUAL_STRING("15:00", DisplayLogic::renderFrame(request, frame).text);
+  TEST_ASSERT_EQUAL_STRING("BREAK 15:00", DisplayLogic::renderFrame(request, frame).text);
 
   request.remainingMs = 90 * 1000;
-  TEST_ASSERT_EQUAL_STRING("01:30", DisplayLogic::renderFrame(request, frame).text);
+  const DisplayLogic::RenderResult labelled = DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_EQUAL_STRING("BREAK 01:30", labelled.text);
 
   request.details = 2;
   request.detail = 1;
   request.showAbcd = true;
   request.abcdVertical = true;
-  TEST_ASSERT_EQUAL_STRING("01:30", DisplayLogic::renderFrame(request, frame).text);
-  TEST_ASSERT_EQUAL_UINT32(0, pixelAt(1, 2));
+  TEST_ASSERT_EQUAL_STRING("BREAK 01:30", DisplayLogic::renderFrame(request, frame).text);
+  TEST_ASSERT_EQUAL_UINT32(0, pixelAt(0, 9));
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
 }
 
 void test_clock_rounds_up_so_zero_means_time_is_over() {
@@ -242,7 +244,7 @@ void test_abcd_sits_with_the_seconds_clock() {
 
   DisplayLogic::RenderResult result = DisplayLogic::renderFrame(request, frame);
   TEST_ASSERT_EQUAL_STRING("AB 20", result.text);
-  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixelAt(2, 2));
+  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixelAt(1, 2));
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(26, 2));
 
   request.abcdVertical = false;
@@ -269,13 +271,13 @@ void test_abcd_letters_can_follow_the_timer_or_use_a_fixed_colour() {
 
   request.abcdFollowTimer = true;
   DisplayLogic::renderFrame(request, frame);
-  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(2, 2));
+  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(1, 2));
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(26, 2));
 
   request.abcdFollowTimer = false;
   request.abcdColour = 0x3366CCu;
   DisplayLogic::renderFrame(request, frame);
-  TEST_ASSERT_EQUAL_HEX32(0x3366CCu, pixelAt(2, 2));
+  TEST_ASSERT_EQUAL_HEX32(0x3366CCu, pixelAt(1, 2));
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(26, 2));
 }
 
@@ -317,6 +319,61 @@ void test_frame_clears_pixels_not_used_by_digits() {
   TEST_ASSERT_EQUAL_UINT32(0, pixelAt(7, 8));
 }
 
+void test_distinct_panel_elements_leave_one_led_unused_between_them() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Green;
+  request.remainingMs = 20000;
+  request.endNumber = 12;
+  request.details = 2;
+  request.detail = 1;
+  request.showAbcd = true;
+
+  request.clockSeconds = true;
+  request.abcdVertical = true;
+  request.phase = Core::Phase::Shooting;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+
+  request.abcdVertical = false;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+
+  request.clockSeconds = false;
+  request.abcdVertical = true;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+
+  request.abcdVertical = false;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+
+  request.clockSeconds = true;
+  request.abcdVertical = true;
+  request.remainingMs = 9999 * 1000;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+
+  request.phase = Core::Phase::Break;
+  request.remainingMs = 15 * 60 * 1000;
+  request.showAbcd = true;
+  request.abcdVertical = true;
+  TEST_ASSERT_EQUAL_STRING("BREAK 15:00", DisplayLogic::renderFrame(request, frame).text);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(2, 0));
+  TEST_ASSERT_EQUAL_UINT32(0, pixelAt(2, 5));
+
+  request.phase = Core::Phase::Finished;
+  request.showEndLabels = true;
+  request.endNumber = 12;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+
+  request.phase = Core::Phase::Scoring;
+  DisplayLogic::renderFrame(request, frame);
+  TEST_ASSERT_TRUE(DisplayLogic::lastFrameDistinctElementsSeparated());
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -341,5 +398,6 @@ int main() {
   RUN_TEST(test_scores_beyond_two_digits_are_clamped_rather_than_wrapped);
   RUN_TEST(test_checksum_distinguishes_frames_and_repeats_for_identical_ones);
   RUN_TEST(test_frame_clears_pixels_not_used_by_digits);
+  RUN_TEST(test_distinct_panel_elements_leave_one_led_unused_between_them);
   return UNITY_END();
 }

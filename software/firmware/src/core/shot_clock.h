@@ -104,6 +104,10 @@ public:
   void removeArrow(uint32_t now);
   // extraMs may be negative. A break that reaches zero ends immediately.
   void extendTime(uint32_t now, int32_t extraMs);
+  // Change the configured break length without leaving the current phase.
+  // Clamped to 1–99 minutes. Used before Start break so the upcoming
+  // countdown is the time the director just set.
+  void adjustBreak(uint32_t now, int32_t extraMs);
   void emergency(uint32_t now);
   void clearEmergency(uint32_t now);
   void setDisplayContent(uint32_t now, DisplayContent content);

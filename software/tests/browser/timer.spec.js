@@ -152,6 +152,11 @@ function mockApi(page) {
         state.remainingMs = state.periodMs;
       }
     }
+    if (body.action === 'adjust_break') {
+      const next = Math.max(1, Math.min(99, (state.breakMinutes || 15) + body.seconds / 60));
+      state.breakMinutes = next;
+      state.breakSeconds = next * 60;
+    }
     if (body.action === 'reset_session') {
       state.end = 1;
       state.detail = 1;
@@ -695,22 +700,30 @@ test('starts a break after scoring the configured number of ends', async ({ page
   await page.getByRole('button', { name: 'Stop occupy' }).click();
   await page.getByRole('button', { name: 'Score' }).click();
   await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add 1 min' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove 1 min' })).toBeVisible();
+  await expect(page.locator('#situation')).toContainText('Break will run for 15 min');
+
+  await page.getByRole('button', { name: 'Add 1 min' }).click();
+  expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'adjust_break', seconds: 60 } });
+  await expect(page.locator('#situation')).toContainText('Break will run for 16 min');
+
   await page.getByRole('button', { name: 'Start break' }).click();
 
   await expect(page.locator('#phase')).toHaveText('BREAK');
   await expect(page.locator('#headline')).toContainText('Break after end 1');
-  await expect(page.locator('#clock')).toHaveText('15:00');
+  await expect(page.locator('#clock')).toHaveText('BREAK 16:00');
   await expect(page.locator('#clockGroup')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Start Shoot CD' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add 1 min' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove 1 min' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add 1 min' }).click();
-  await expect(page.locator('#clock')).toHaveText('16:00');
+  await expect(page.locator('#clock')).toHaveText('BREAK 17:00');
   expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'extend', seconds: 60 } });
 
   await page.getByRole('button', { name: 'Remove 1 min' }).click();
-  await expect(page.locator('#clock')).toHaveText('15:00');
+  await expect(page.locator('#clock')).toHaveText('BREAK 16:00');
 });
 
 test('saves break length in minutes', async ({ page }) => {

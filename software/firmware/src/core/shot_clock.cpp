@@ -501,6 +501,23 @@ void ShotClock::extendTime(uint32_t now, int32_t extraMs) {
   if (state_.phase == Phase::Break && state_.remainingMs == 0) leaveBreak(now, false);
 }
 
+void ShotClock::adjustBreak(uint32_t now, int32_t extraMs) {
+  if (extraMs == 0) return;
+  constexpr int32_t kMinMs = 60 * 1000;
+  constexpr int32_t kMaxMs = 99 * 60 * 1000;
+  int32_t next = static_cast<int32_t>(config_.breakMs) + extraMs;
+  if (next < kMinMs) next = kMinMs;
+  if (next > kMaxMs) next = kMaxMs;
+  const uint32_t before = config_.breakMs;
+  config_.breakMs = static_cast<uint32_t>(next);
+  const TraceField fields[] = {
+      {"before_ms", static_cast<int32_t>(before)},
+      {"added_ms", extraMs},
+      {"after_ms", static_cast<int32_t>(config_.breakMs)},
+  };
+  tracer_.rule(now, "session", "adjust_break", fields, 3, "upcoming break length");
+}
+
 void ShotClock::emergency(uint32_t now) {
   const TraceField fields[] = {{"signals", Rules::SIGNALS_EMERGENCY_MINIMUM}};
   tracer_.rule(now, "11.3.3", "emergency", fields, 1, nullptr);

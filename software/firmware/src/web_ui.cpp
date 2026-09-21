@@ -164,6 +164,9 @@ void WebUi::handleControl() {
   } else if (action == "extend") {
     const int seconds = readJsonInteger(body, "seconds");
     if (seconds != 0) clock_.extendTime(now, seconds * 1000);
+  } else if (action == "adjust_break") {
+    const int seconds = readJsonInteger(body, "seconds");
+    if (seconds != 0) clock_.adjustBreak(now, seconds * 1000);
   } else {
     server_.send(400, "application/json", "{\"error\":\"unknown action\"}");
     return;

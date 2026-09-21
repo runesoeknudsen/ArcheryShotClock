@@ -75,7 +75,7 @@ void test_browser_host_abcd_letters_default_white() {
       "{\"showAbcd\":true,\"abcdVertical\":true,\"abcdFollowTimer\":false,\"abcdColour\":\"#ffffff\"}"));
 
   const uint32_t* pixels = demo_logical_pixels();
-  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixels[2 * 32 + 2]);
+  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixels[2 * 32 + 1]);
 }
 
 void test_browser_host_reset_session_returns_to_end_one() {
@@ -93,6 +93,20 @@ void test_browser_host_accepts_break_length_in_minutes() {
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakSeconds\":1200"));
 }
 
+void test_browser_host_adjusts_upcoming_break_without_leaving_scoring() {
+  demo_init(0);
+  TEST_ASSERT_EQUAL_INT(0, demo_session(
+      "{\"abcdRotation\":false,\"breakEnabled\":true,\"breakAfterEnds\":1,\"breakMinutes\":15,\"eventClass\":\"ANNOUNCED\",\"arrowsPerEnd\":3}"));
+  TEST_ASSERT_EQUAL_INT(0, demo_control("start", 0));
+  demo_tick(12000);
+  TEST_ASSERT_EQUAL_INT(0, demo_control("stop", 0));
+  TEST_ASSERT_EQUAL_INT(0, demo_control("line_clear", 0));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"phase\":\"SCORING\""));
+  TEST_ASSERT_EQUAL_INT(0, demo_control("adjust_break", 60));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"phase\":\"SCORING\""));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"breakMinutes\":16"));
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -106,5 +120,6 @@ int main() {
   RUN_TEST(test_browser_host_abcd_letters_default_white);
   RUN_TEST(test_browser_host_reset_session_returns_to_end_one);
   RUN_TEST(test_browser_host_accepts_break_length_in_minutes);
+  RUN_TEST(test_browser_host_adjusts_upcoming_break_without_leaving_scoring);
   return UNITY_END();
 }
