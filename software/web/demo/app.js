@@ -132,8 +132,8 @@ function layoutHint(preset) {
   return ({
     P5_64X32: 'one horizontal P5',
     P5_64X64: 'two P5 stood on end',
-    P5_96X64: 'three P5 stood on end',
-    P5_128X64: 'four P5 stood on end',
+    P5_96X64: 'three P5 in a U (top → right 90° → bottom)',
+    P5_128X64: 'four P5 in a 2×2',
     P5_160X64: 'five P5 stood on end'
   })[preset] || '';
 }
