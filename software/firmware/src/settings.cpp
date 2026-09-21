@@ -3,6 +3,7 @@
 #include <Preferences.h>
 
 #include "config.h"
+#include "core/display_geometry.h"
 #include "core/volume.h"
 
 namespace {
@@ -21,6 +22,13 @@ Settings SettingsStore::load() const {
   settings.eventClass = preferences.getUChar("event_class", static_cast<uint8_t>(Rules::EventClass::Other));
   settings.arrowsPerEnd = preferences.getUChar("arrows", Rules::ARROWS_PER_END_SHORT);
   settings.displayContent = preferences.getUChar("display", static_cast<uint8_t>(Core::DisplayContent::Clock));
+  settings.panelPreset = preferences.getUChar("preset", static_cast<uint8_t>(DisplayLogic::DEFAULT_PRESET));
+  settings.orientation = preferences.getUChar("orient", static_cast<uint8_t>(DisplayLogic::Orientation::Landscape));
+  settings.lineCount = preferences.getUChar("nlines", 0);
+  const size_t lineBytes = preferences.getBytes("lines", settings.lines, sizeof(settings.lines));
+  if (lineBytes < sizeof(settings.lines)) {
+    for (uint8_t index = 0; index < 8; index++) settings.lines[index] = 0;
+  }
   settings.clockSeconds = preferences.getBool("clk_sec", true);
   settings.showAbcd = preferences.getBool("show_abcd", true);
   settings.abcdVertical = preferences.getBool("abcd_vert", true);
@@ -55,6 +63,31 @@ Settings SettingsStore::load() const {
     settings.arrowsPerEnd = Rules::ARROWS_PER_END_SHORT;
   }
   if (!validContent(settings.displayContent)) settings.displayContent = static_cast<uint8_t>(Core::DisplayContent::Clock);
+  if (!DisplayLogic::validPreset(settings.panelPreset)) {
+    settings.panelPreset = static_cast<uint8_t>(DisplayLogic::DEFAULT_PRESET);
+  }
+  if (!DisplayLogic::validOrientation(settings.orientation)) {
+    settings.orientation = static_cast<uint8_t>(DisplayLogic::Orientation::Landscape);
+  }
+  {
+    const DisplayLogic::Geometry geometry = DisplayLogic::geometryFor(
+        static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
+        static_cast<DisplayLogic::Orientation>(settings.orientation));
+    const uint8_t maxLines = DisplayLogic::maxLinesFor(geometry);
+    if (settings.lineCount == 0 || settings.lineCount > maxLines) {
+      Core::DisplayContent lines[DisplayLogic::MAX_CONTENT_LINES] = {};
+      settings.lineCount = DisplayLogic::defaultLines(geometry, lines, maxLines);
+      for (uint8_t index = 0; index < settings.lineCount; index++) {
+        settings.lines[index] = static_cast<uint8_t>(lines[index]);
+      }
+    }
+    for (uint8_t index = 0; index < settings.lineCount; index++) {
+      if (!validContent(settings.lines[index])) {
+        settings.lines[index] = static_cast<uint8_t>(Core::DisplayContent::Clock);
+      }
+    }
+    settings.displayContent = settings.lines[0];
+  }
   if (settings.firstShooter != 1 && settings.firstShooter != 2) settings.firstShooter = 1;
   if (settings.details < 1 || settings.details > 4) settings.details = 2;
   if (settings.waves > 3) settings.waves = 0;
@@ -87,6 +120,10 @@ void SettingsStore::save(const Settings& settings) const {
   preferences.putUChar("event_class", settings.eventClass);
   preferences.putUChar("arrows", settings.arrowsPerEnd);
   preferences.putUChar("display", settings.displayContent);
+  preferences.putUChar("preset", settings.panelPreset);
+  preferences.putUChar("orient", settings.orientation);
+  preferences.putUChar("nlines", settings.lineCount);
+  preferences.putBytes("lines", settings.lines, sizeof(settings.lines));
   preferences.putBool("clk_sec", settings.clockSeconds);
   preferences.putBool("show_abcd", settings.showAbcd);
   preferences.putBool("abcd_vert", settings.abcdVertical);

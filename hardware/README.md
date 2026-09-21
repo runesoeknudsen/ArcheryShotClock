@@ -35,4 +35,44 @@ Buttons are wired to ground and use the ESP32 internal pull-ups. The emergency s
 
 Do not power the speaker amplifier from the ESP32 3.3 V pin. Pin and panel defaults are defined in `software/firmware/src/config.h`.
 
+## Waveshare ESP32-S3 HUB75
+
+Build `waveshare_s3_hub75` for the Waveshare ESP32-S3 RGB Matrix Driver Board. The HUB75 ribbon pins are fixed on that board:
+
+| HUB75 | GPIO | HUB75 | GPIO |
+|---|---|---|---|
+| R1 | 4 | R2 | 7 |
+| G1 | 5 | G2 | 15 |
+| B1 | 6 | B2 | 16 |
+| A | 18 | B | 8 |
+| C | 3 | D | 42 |
+| E | 9 | CLK | 41 |
+| LAT | 40 | OE | 2 |
+
+Supported P5 64×32 layouts, set from the web UI:
+
+- One panel: 64×32, or 32×64 vertical
+- Three panels in a rectangle: 96×64, or 64×96 vertical. Two modules stack on the left; the third is rotated 90° on the right. Physically chain them P0 (top-left) → P1 (bottom-left) → P2 (right, rotated)
+- Four panels in a 2×2: 128×64, or 64×128 vertical. Chain P0 (top-left) → P1 (top-right) → P2 (bottom-left) → P3 (bottom-right)
+
+The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.
+
+HUB75 occupies many GPIOs, so the S3 console and MAX98357A move to the expansion header:
+
+| Function | GPIO |
+|---|---|
+| Start / handoff | 11 |
+| Stop | 12 |
+| Line clear | 13 |
+| Next end | 17 |
+| Suspend / resume | 1 |
+| Emergency stop | 10 |
+| Active buzzer | 38 |
+| I2S BCLK | 21 |
+| I2S LRC | 47 |
+| I2S DIN | 48 |
+| I2S SD | 14 |
+
+Power the P5 panels from a 5 V supply sized for the module count. Do not power them from the ESP32 3.3 V pin.
+
 Future schematics, PCB layouts, bills of materials, CAD, and manufacturing files belong under the `electronics/` and `mechanical/` directories and use the same hardware license.

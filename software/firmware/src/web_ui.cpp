@@ -107,6 +107,21 @@ void WebUi::handleState() {
   view.showEndLabels = settings_.showEndLabels;
   view.abcdFollowTimer = settings_.abcdFollowTimer;
   view.abcdColour = settings_.abcdColour;
+  const DisplayLogic::Geometry geometry = DisplayLogic::geometryFor(
+      static_cast<DisplayLogic::PanelPreset>(settings_.panelPreset),
+      static_cast<DisplayLogic::Orientation>(settings_.orientation));
+  view.displayDriver = DisplayLogic::DISPLAY_DRIVER;
+  view.panelPreset = DisplayLogic::name(static_cast<DisplayLogic::PanelPreset>(settings_.panelPreset));
+  view.orientation = DisplayLogic::name(static_cast<DisplayLogic::Orientation>(settings_.orientation));
+  view.panelColumns = geometry.columns;
+  view.panelRows = geometry.rows;
+  view.panelMaxLines = DisplayLogic::maxLinesFor(geometry);
+  Core::DisplayContent lines[DisplayLogic::MAX_CONTENT_LINES] = {};
+  for (uint8_t index = 0; index < settings_.lineCount && index < DisplayLogic::MAX_CONTENT_LINES; index++) {
+    lines[index] = static_cast<Core::DisplayContent>(settings_.lines[index]);
+  }
+  DisplayLogic::formatLines(lines, settings_.lineCount, panelLines_, sizeof(panelLines_));
+  view.panelLines = panelLines_;
   view.beepMs = sound_.beepMs();
   view.gapMs = sound_.gapMs();
   view.soundEnabled = sound_.isEnabled();
@@ -292,6 +307,42 @@ void WebUi::handleDisplay() {
     }
     clock_.setDisplayContent(now_, requested);
     settings_.displayContent = index;
+    if (settings_.lineCount == 0) settings_.lineCount = 1;
+    settings_.lines[0] = index;
+  }
+  const String body = server_.arg("plain");
+  DisplayLogic::PanelPreset preset = static_cast<DisplayLogic::PanelPreset>(settings_.panelPreset);
+  DisplayLogic::Orientation orientation = static_cast<DisplayLogic::Orientation>(settings_.orientation);
+  bool layoutChanged = false;
+  const String presetName = readJsonString(body, "panelPreset");
+  if (presetName.length() && DisplayLogic::parsePreset(presetName.c_str(), preset)) {
+    layoutChanged = true;
+  }
+  const String orientationName = readJsonString(body, "orientation");
+  if (orientationName.length() && DisplayLogic::parseOrientation(orientationName.c_str(), orientation)) {
+    layoutChanged = true;
+  }
+  const String linesText = readJsonString(body, "lines");
+  Core::DisplayContent parsed[DisplayLogic::MAX_CONTENT_LINES] = {};
+  uint8_t parsedCount = 0;
+  if (linesText.length()) {
+    parsedCount = DisplayLogic::parseLines(linesText.c_str(), parsed, DisplayLogic::MAX_CONTENT_LINES);
+  }
+  if (layoutChanged || parsedCount > 0) {
+    const DisplayLogic::Geometry geometry = DisplayLogic::geometryFor(preset, orientation);
+    const uint8_t maxLines = DisplayLogic::maxLinesFor(geometry);
+    settings_.panelPreset = static_cast<uint8_t>(preset);
+    settings_.orientation = static_cast<uint8_t>(orientation);
+    if (parsedCount == 0) {
+      parsedCount = DisplayLogic::defaultLines(geometry, parsed, maxLines);
+    }
+    if (parsedCount > maxLines) parsedCount = maxLines;
+    settings_.lineCount = parsedCount;
+    for (uint8_t index = 0; index < parsedCount; index++) {
+      settings_.lines[index] = static_cast<uint8_t>(parsed[index]);
+    }
+    settings_.displayContent = settings_.lines[0];
+    clock_.setDisplayContent(now_, static_cast<Core::DisplayContent>(settings_.displayContent));
   }
   if (server_.arg("plain").indexOf("clockSeconds") >= 0) {
     const bool clockSeconds = readJsonBool(server_.arg("plain"), "clockSeconds", settings_.clockSeconds);

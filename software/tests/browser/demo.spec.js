@@ -32,11 +32,16 @@ test('director clock stays in step with the panel while occupy runs', async ({ p
   expect(panel).toContain(clock);
 });
 
-test('what-if size control keeps the firmware 32x16 note', async ({ page }) => {
+test('panel size control changes the firmware frame', async ({ page }) => {
   await page.goto('/demo/');
-  await page.locator('#previewSize').selectOption('64x32');
-  await expect(page.locator('#sizeReadout')).toContainText('Firmware stays');
+  await page.locator('#panelPreset').selectOption('P5_64X32');
   await expect(page.locator('#sizeReadout')).toContainText('64×32');
+  await expect(page.locator('#layoutNote')).toContainText('64×32');
+  const small = await page.locator('#panel').boundingBox();
+  await page.locator('#orientation').selectOption('PORTRAIT');
+  await expect(page.locator('#layoutNote')).toContainText('32×64');
+  const tall = await page.locator('#panel').boundingBox();
+  expect(tall.height).toBeGreaterThan(small.height);
 });
 
 test('clock format defaults to seconds and can switch to minutes', async ({ page }) => {

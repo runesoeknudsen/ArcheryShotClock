@@ -21,7 +21,7 @@ It runs the same C++ core as the ESP32, compiled to WebAssembly.
 
 1. Never put `src/browser/` into the ESP32 build. `platformio.ini` excludes it.
 2. Never invent a second clock in JavaScript.
-3. Never tell reviewers that a 64×32 preview is what the board draws. Firmware is 32×16.
+3. Never describe a scaled-up 32×16 overlay as the board drawing a larger panel. Larger sizes are real firmware frames when that layout is selected.
 
 ## Commands
 

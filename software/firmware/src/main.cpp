@@ -57,6 +57,9 @@ void drawPanel(uint32_t now, const Core::StateSnapshot& state) {
   style.showEndLabels = settings.showEndLabels;
   style.abcdFollowTimer = settings.abcdFollowTimer;
   style.abcdColour = settings.abcdColour;
+  DisplayLogic::applyLayout(style, static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
+                            static_cast<DisplayLogic::Orientation>(settings.orientation), settings.lines,
+                            settings.lineCount);
   const DisplayLogic::RenderResult result = display.render(state, settings.brightness, style);
   webUi.setPanelText(result.text);
   if (haveFrame && result.checksum == lastFrameChecksum) return;
@@ -133,6 +136,8 @@ void setup() {
   amplifier.setVolume(settings.volume);
   amplifier.begin();
   display.begin();
+  display.configure(DisplayLogic::geometryFor(static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
+                                             static_cast<DisplayLogic::Orientation>(settings.orientation)));
   buttons.begin();
   // Armed before Wi-Fi comes up, so the emergency stop works from the first
   // moment the board is running rather than from the moment the AP is ready.

@@ -58,8 +58,8 @@
 <body>
   <div class="banner">
     Browser demo of the same C++ shot-clock core the ESP32 runs. No board, no Wi-Fi.
-    The LED grid is the firmware 32×16 frame. Size controls below are for the
-    “how big should the panel be?” conversation — they do not change the firmware yet.
+    The LED grid is the firmware frame. Panel size and line order below are the
+    same settings the ESP32 and the Waveshare ESP32-S3 HUB75 build use.
   </div>
   <header>
     <h1>Archery shot clock — browser demo</h1>
@@ -86,17 +86,30 @@
       </div>
       <div class="row">
         <div>
-          <label for="previewSize">What-if panel size</label>
-          <select id="previewSize">
-            <option value="32x16">32×16 — firmware today (two 8×32 modules)</option>
-            <option value="64x16">64×16 — four modules in a row</option>
-            <option value="64x32">64×32 — eight modules, twice as tall</option>
+          <label for="panelPreset">Panel size</label>
+          <select id="panelPreset">
+            <option value="LED_32X16">WS2812B 32×16 — two 8×32 modules</option>
+            <option value="P5_64X32">One P5 — 64×32</option>
+            <option value="P5_96X64">Three P5 — 96×64</option>
+            <option value="P5_128X64">Four P5 — 128×64</option>
           </select>
         </div>
+        <div>
+          <label for="orientation">Format</label>
+          <select id="orientation">
+            <option value="LANDSCAPE">Horizontal</option>
+            <option value="PORTRAIT">Vertical — more lines</option>
+          </select>
+        </div>
+      </div>
+      <p id="layoutNote" class="meta" style="justify-content:flex-start"></p>
+      <div id="lineSlots"></div>
+      <div class="row">
         <div>
           <label>Physical size at this pitch</label>
           <div id="sizeReadout">Loading…</div>
         </div>
+        <div></div>
       </div>
     </section>
 

@@ -469,6 +469,7 @@ bool contentAvailable(Core::DisplayContent content) {
 
 void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state) {
   request.content = state.display;
+  if (request.lineCount > 0) request.lines[0] = state.display;
   request.light = state.light;
   request.phase = state.phase;
   request.remainingMs = state.remainingMs;
@@ -485,7 +486,63 @@ void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state) 
   request.waves = state.waves;
 }
 
-RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
+bool usesWired32x16(const RenderRequest& request) {
+  return request.geometry.columns == COLUMNS && request.geometry.rows == ROWS && request.lineCount <= 1;
+}
+
+uint16_t logicalIndex(uint16_t x, uint16_t y, uint16_t columns) {
+  return static_cast<uint16_t>(x + y * columns);
+}
+
+namespace {
+
+void hashPixels(RenderResult& result, const uint32_t* pixels, uint16_t count) {
+  uint32_t checksum = 2166136261u;
+  result.litPixels = 0;
+  for (uint16_t index = 0; index < count; index++) {
+    if (pixels[index] != 0) result.litPixels++;
+    checksum ^= pixels[index] + index;
+    checksum *= 16777619u;
+  }
+  result.checksum = checksum;
+}
+
+void appendText(RenderResult& result, const char* text) {
+  if (text == nullptr || text[0] == '\0') return;
+  uint8_t index = 0;
+  while (result.text[index] != '\0') index++;
+  if (index > 0) {
+    if (index + 3 >= sizeof(result.text)) return;
+    result.text[index++] = ' ';
+    result.text[index++] = '|';
+    result.text[index++] = ' ';
+  }
+  uint8_t cursor = 0;
+  while (text[cursor] != '\0' && index + 1 < sizeof(result.text)) {
+    result.text[index++] = text[cursor++];
+  }
+  result.text[index] = '\0';
+}
+
+void blitTile(const uint32_t* tile, uint16_t destX, uint16_t destY, uint8_t scale, uint16_t columns,
+              uint16_t rows, uint32_t* dest) {
+  if (scale == 0) scale = 1;
+  for (uint8_t y = 0; y < ROWS; y++) {
+    for (uint8_t x = 0; x < COLUMNS; x++) {
+      const uint32_t colour = tile[ledIndex(x, y)];
+      if (colour == 0) continue;
+      for (uint8_t sy = 0; sy < scale; sy++) {
+        for (uint8_t sx = 0; sx < scale; sx++) {
+          const uint16_t dx = static_cast<uint16_t>(destX + x * scale + sx);
+          const uint16_t dy = static_cast<uint16_t>(destY + y * scale + sy);
+          if (dx < columns && dy < rows) dest[logicalIndex(dx, dy, columns)] = colour;
+        }
+      }
+    }
+  }
+}
+
+RenderResult renderWired32x16(const RenderRequest& request, uint32_t* pixels) {
   for (uint16_t index = 0; index < PIXEL_COUNT; index++) pixels[index] = 0;
   clearOccupancy();
   setElement(ELEMENT_TIME);
@@ -542,18 +599,11 @@ RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
       break;
   }
 
-  // A cheap order-sensitive hash. Enough to say "the panel is showing a
-  // different frame now" in the log without printing 512 pixels.
-  uint32_t checksum = 2166136261u;
-  for (uint16_t index = 0; index < PIXEL_COUNT; index++) {
-    if (pixels[index] != 0) result.litPixels++;
-    checksum ^= pixels[index] + index;
-    checksum *= 16777619u;
-  }
-  result.checksum = checksum;
+  hashPixels(result, pixels, PIXEL_COUNT);
   return result;
 }
 
+<<<<<<< HEAD
 bool lastFrameDistinctElementsSeparated() {
   for (uint8_t y = 0; y < ROWS; y++) {
     for (uint8_t x = 0; x < COLUMNS; x++) {
@@ -572,6 +622,57 @@ bool lastFrameDistinctElementsSeparated() {
     }
   }
   return true;
+=======
+RenderResult renderComposed(const RenderRequest& request, uint32_t* pixels) {
+  const uint16_t count = pixelCount(request.geometry);
+  for (uint16_t index = 0; index < count; index++) pixels[index] = 0;
+
+  Core::DisplayContent lines[MAX_CONTENT_LINES] = {};
+  uint8_t lineCount = request.lineCount;
+  if (lineCount == 0) {
+    lines[0] = request.content;
+    lineCount = 1;
+  } else {
+    for (uint8_t index = 0; index < lineCount && index < MAX_CONTENT_LINES; index++) {
+      lines[index] = request.lines[index];
+    }
+  }
+
+  const LayoutPlan plan = planLayout(request.geometry, lines, lineCount);
+  RenderResult result;
+  uint32_t tile[PIXEL_COUNT];
+
+  for (uint8_t index = 0; index < plan.lineCount; index++) {
+    RenderRequest tileRequest = request;
+    tileRequest.geometry = Geometry{};
+    tileRequest.lineCount = 0;
+    tileRequest.content = plan.lines[index].content;
+    const RenderResult tileResult = renderWired32x16(tileRequest, tile);
+    blitTile(tile, plan.lines[index].x, plan.lines[index].y, plan.lines[index].scale,
+             request.geometry.columns, request.geometry.rows, pixels);
+    appendText(result, tileResult.text);
+  }
+
+  hashPixels(result, pixels, count);
+  return result;
+}
+
+}  // namespace
+
+RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
+  if (usesWired32x16(request)) return renderWired32x16(request, pixels);
+  return renderComposed(request, pixels);
+}
+
+void applyLayout(RenderRequest& request, PanelPreset preset, Orientation orientation, const uint8_t* lines,
+                 uint8_t lineCount) {
+  request.geometry = geometryFor(preset, orientation);
+  request.lineCount = lineCount > MAX_CONTENT_LINES ? MAX_CONTENT_LINES : lineCount;
+  for (uint8_t index = 0; index < request.lineCount; index++) {
+    request.lines[index] = static_cast<Core::DisplayContent>(lines[index]);
+  }
+  if (request.lineCount > 0) request.content = request.lines[0];
+>>>>>>> 6939598 (Add Waveshare HUB75 P5 layouts and configurable panel lines.)
 }
 
 }  // namespace DisplayLogic

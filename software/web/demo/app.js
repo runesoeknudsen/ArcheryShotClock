@@ -70,6 +70,78 @@ function draftFromForm(state) {
   });
 }
 
+const CONTENT_OPTIONS = [
+  ['CLOCK', 'Clock'],
+  ['CLOCK_END', 'End number'],
+  ['ARROWS', 'Arrows shot'],
+  ['SCORE', 'Score'],
+  ['SET_POINTS', 'Set points'],
+  ['SHOOTER', 'Shooting side'],
+  ['BLANK', 'Blank']
+];
+
+function defaultLinesFor(preset, orientation) {
+  if (preset === 'LED_32X16') return ['CLOCK'];
+  if (orientation === 'PORTRAIT') {
+    if (preset === 'P5_64X32') return ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS'];
+    return ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS', 'SET_POINTS', 'SHOOTER'];
+  }
+  if (preset === 'P5_96X64' || preset === 'P5_128X64') return ['CLOCK', 'CLOCK_END'];
+  return ['CLOCK'];
+}
+
+function collectLines() {
+  const selected = [];
+  for (let index = 0; index < 8; index++) {
+    const field = $('line' + index);
+    if (!field) continue;
+    selected.push(field.value);
+  }
+  return selected.join(',') || ($('display') ? $('display').value : 'CLOCK');
+}
+
+let onLineChange = () => {};
+
+function syncLineSlots(state) {
+  const maxLines = state.panelMaxLines || 1;
+  const chosen = (state.panelLines || state.display || 'CLOCK').split(',');
+  const box = $('lineSlots');
+  if (!box) return;
+  if (box.childElementCount !== maxLines) {
+    box.innerHTML = '';
+    for (let index = 0; index < maxLines; index++) {
+      const wrap = document.createElement('div');
+      const label = document.createElement('label');
+      label.htmlFor = 'line' + index;
+      label.textContent = maxLines === 1 ? 'Panel shows' : 'Line ' + (index + 1);
+      const select = document.createElement('select');
+      select.id = 'line' + index;
+      select.onchange = () => {
+        if (index === 0) $('display').value = select.value;
+        onLineChange();
+      };
+      for (const [value, text] of CONTENT_OPTIONS) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        select.appendChild(option);
+      }
+      wrap.appendChild(label);
+      wrap.appendChild(select);
+      box.appendChild(wrap);
+    }
+  }
+  for (let index = 0; index < maxLines; index++) {
+    const field = $('line' + index);
+    if (field && document.activeElement !== field) field.value = chosen[index] || 'BLANK';
+  }
+  if ($('layoutNote')) {
+    $('layoutNote').innerHTML =
+      (state.displayDriver || 'WS2812B') + ' ' + (state.panelColumns || 32) + '×' +
+      (state.panelRows || 16) + ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+  }
+}
+
 function apply(state) {
   // The WASM core is ticked on every refresh, so remainingMs is already now.
   paintClock(state, state.remainingMs);
@@ -107,6 +179,13 @@ function apply(state) {
     $('waves').value = String(state.waves || (state.abcdRotation ? Math.min(state.details || 2, 3) : 1));
   }
   if (document.activeElement !== $('display')) $('display').value = state.display;
+  if ($('panelPreset') && document.activeElement !== $('panelPreset')) {
+    $('panelPreset').value = state.panelPreset || 'LED_32X16';
+  }
+  if ($('orientation') && document.activeElement !== $('orientation')) {
+    $('orientation').value = state.orientation || 'LANDSCAPE';
+  }
+  syncLineSlots(state);
   if (document.activeElement !== $('clockSeconds')) $('clockSeconds').value = String(state.clockSeconds !== false);
   if (document.activeElement !== $('showAbcd')) $('showAbcd').value = String(state.showAbcd !== false);
   if (document.activeElement !== $('abcdVertical')) $('abcdVertical').value = String(state.abcdVertical !== false);
@@ -142,9 +221,8 @@ function updateSize(panel) {
   const info = panel.summary();
   const firmware = `${info.firmwareMm.width} × ${info.firmwareMm.height} mm`;
   const preview = `${info.previewMm.width} × ${info.previewMm.height} mm`;
-  $('sizeReadout').innerHTML = info.same
-    ? `<b>${info.firmware}</b> firmware panel is <b>${firmware}</b> at ${info.pitchMm} mm pitch.`
-    : `Firmware stays <b>${info.firmware}</b> (${firmware}). Preview <b>${info.preview}</b> would be <b>${preview}</b> if we drew the same digits larger.`;
+  $('sizeReadout').innerHTML =
+    `<b>${info.firmware}</b> firmware panel is <b>${firmware}</b> at ${info.pitchMm} mm pitch.`;
 }
 
 function setupBeep(engine) {
@@ -300,7 +378,10 @@ try {
   $('breakAfterEnds').onchange = session;
   $('breakMinutes').onchange = session;
   $('matchLogic').onchange = session;
-  $('display').onchange = () => { engine.display($('display').value); refresh(); };
+  $('display').onchange = () => {
+    engine.display($('display').value);
+    savePanelOptions();
+  };
   function savePanelOptions() {
     engine.panelOptions({
       clockSeconds: $('clockSeconds').value === 'true',
@@ -308,10 +389,14 @@ try {
       abcdVertical: $('abcdVertical').value === 'true',
       showEndLabels: $('showEndLabels').value === 'true',
       abcdFollowTimer: $('abcdFollowTimer').value === 'true',
-      abcdColour: $('abcdColour').value
+      abcdColour: $('abcdColour').value,
+      panelPreset: $('panelPreset').value,
+      orientation: $('orientation').value,
+      lines: collectLines()
     });
     refresh();
   }
+  onLineChange = savePanelOptions;
   $('clockSeconds').onchange = savePanelOptions;
   $('showAbcd').onchange = savePanelOptions;
   $('abcdVertical').onchange = savePanelOptions;
@@ -326,16 +411,23 @@ try {
   function applyPreview() {
     panel.settings.ledPx = +$('ledPx').value;
     panel.settings.pitchMm = +$('pitchMm').value;
-    panel.settings.preview = $('previewSize').value;
     $('ledPxValue').textContent = panel.settings.ledPx;
     $('pitchMmValue').textContent = panel.settings.pitchMm;
     panel.resize();
     panel.draw();
     updateSize(panel);
   }
+  function onLayoutChange() {
+    const lines = defaultLinesFor($('panelPreset').value, $('orientation').value);
+    $('display').value = lines[0];
+    engine.display(lines[0]);
+    savePanelOptions();
+    applyPreview();
+  }
   $('ledPx').oninput = applyPreview;
   $('pitchMm').oninput = applyPreview;
-  $('previewSize').onchange = applyPreview;
+  $('panelPreset').onchange = onLayoutChange;
+  $('orientation').onchange = onLayoutChange;
 
   refresh();
   applyPreview();

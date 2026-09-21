@@ -1,23 +1,19 @@
-// Draws the WASM 32x16 frame and the size-conversation overlays.
+// Draws the WASM firmware frame at its real column and row count.
 export function createPanel(canvas, engine) {
   const ctx = canvas.getContext('2d');
-  const firmware = engine.panelSize();
 
   const settings = {
     ledPx: 12,
     gapPx: 2,
-    pitchMm: 5,
-    preview: '32x16'
+    pitchMm: 5
   };
 
-  function gridSize() {
-    if (settings.preview === '64x32') return { columns: 64, rows: 32 };
-    if (settings.preview === '64x16') return { columns: 64, rows: 16 };
-    return { columns: firmware.columns, rows: firmware.rows };
+  function firmwareSize() {
+    return engine.panelSize();
   }
 
   function resize() {
-    const grid = gridSize();
+    const grid = firmwareSize();
     const cell = settings.ledPx + settings.gapPx;
     canvas.width = grid.columns * cell + settings.gapPx;
     canvas.height = grid.rows * cell + settings.gapPx;
@@ -31,20 +27,15 @@ export function createPanel(canvas, engine) {
   }
 
   function draw() {
-    const grid = gridSize();
+    const grid = firmwareSize();
     const pixels = engine.pixels();
     const cell = settings.ledPx + settings.gapPx;
     ctx.fillStyle = '#05070a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const scaleX = grid.columns / firmware.columns;
-    const scaleY = grid.rows / firmware.rows;
-
     for (let y = 0; y < grid.rows; y++) {
       for (let x = 0; x < grid.columns; x++) {
-        const srcX = Math.floor(x / scaleX);
-        const srcY = Math.floor(y / scaleY);
-        const pixel = pixels[srcY * firmware.columns + srcX] || 0;
+        const pixel = pixels[y * grid.columns + x] || 0;
         ctx.fillStyle = pixel ? colour(pixel) : '#10151b';
         ctx.beginPath();
         ctx.roundRect(
@@ -64,17 +55,15 @@ export function createPanel(canvas, engine) {
   }
 
   function summary() {
-    const grid = gridSize();
-    const firmwareMm = physicalMm(firmware.columns, firmware.rows);
-    const previewMm = physicalMm(grid.columns, grid.rows);
-    const same = grid.columns === firmware.columns && grid.rows === firmware.rows;
+    const grid = firmwareSize();
+    const size = physicalMm(grid.columns, grid.rows);
     return {
-      firmware: `${firmware.columns}×${firmware.rows}`,
+      firmware: `${grid.columns}×${grid.rows}`,
       preview: `${grid.columns}×${grid.rows}`,
       pitchMm: settings.pitchMm,
-      firmwareMm,
-      previewMm,
-      same
+      firmwareMm: size,
+      previewMm: size,
+      same: true
     };
   }
 
@@ -85,6 +74,8 @@ export function createPanel(canvas, engine) {
     resize,
     draw,
     summary,
-    firmware
+    get firmware() {
+      return firmwareSize();
+    }
   };
 }

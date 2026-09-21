@@ -2,9 +2,14 @@
 
 #include <cstdint>
 
+#include "display_geometry.h"
 #include "snapshot.h"
 
-// Turns a StateSnapshot into a 32x16 frame.
+// Turns a StateSnapshot into a panel frame.
+//
+// The original clock is a 32x16 tile. Larger HUB75 and WS2812B layouts reuse
+// that tile, scaled and stacked, so a tall cabinet can show more than one
+// piece of information.
 //
 // Colour carries the light state. Article 11.3.1 makes the digital clock
 // authoritative if the clock and the lights ever disagree, so the panel derives
@@ -12,9 +17,9 @@
 // letters default to white and can follow the timer or use a colour from
 // settings.
 //
-// What the panel shows is selectable from the web UI. The clock is the default;
-// the rest exist because a 32x16 panel can only hold one thing at a time and a
-// director may want the end or arrow count visible to the line instead.
+// What each line shows is selectable from the web UI. The clock is the default;
+// extra lines exist because a 64x32 or taller panel can hold more than one
+// thing at a time.
 
 namespace DisplayLogic {
 
@@ -74,13 +79,21 @@ struct RenderRequest {
   bool showEndLabels = true;
   bool abcdFollowTimer = false;
   uint32_t abcdColour = COLOUR_WHITE;
+  Geometry geometry;
+  uint8_t lineCount = 0;
+  Core::DisplayContent lines[MAX_CONTENT_LINES] = {};
 };
 
 struct RenderResult {
-  uint32_t checksum = 0;   // identifies the frame without logging 512 pixels
+  uint32_t checksum = 0;   // identifies the frame without logging every pixel
   uint16_t litPixels = 0;
-  char text[16] = {0};     // what a person reading the panel would see
+  char text[64] = {0};     // what a person reading the panel would see
 };
+
+bool usesWired32x16(const RenderRequest& request);
+uint16_t logicalIndex(uint16_t x, uint16_t y, uint16_t columns);
+void applyLayout(RenderRequest& request, PanelPreset preset, Orientation orientation, const uint8_t* lines,
+                 uint8_t lineCount);
 
 uint16_t ledIndex(uint8_t x, uint8_t y);
 

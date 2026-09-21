@@ -63,6 +63,13 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
   char abcdColour[8] = {};
   DisplayLogic::formatCssColour(view.abcdColour, abcdColour, sizeof(abcdColour));
   json.text("abcdColour", abcdColour);
+  json.text("displayDriver", view.displayDriver);
+  json.text("panelPreset", view.panelPreset);
+  json.text("orientation", view.orientation);
+  json.unsigned32("panelColumns", view.panelColumns);
+  json.unsigned32("panelRows", view.panelRows);
+  json.unsigned32("panelMaxLines", view.panelMaxLines);
+  json.text("panelLines", view.panelLines);
   json.unsigned32("beepMs", view.beepMs);
   json.unsigned32("gapMs", view.gapMs);
   json.boolean("soundEnabled", view.soundEnabled);

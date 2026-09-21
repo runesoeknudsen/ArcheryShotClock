@@ -262,7 +262,7 @@
       <h2>Display and sound</h2>
       <div class="row">
         <div>
-          <label for="display">Panel shows</label>
+          <label for="display">First line / panel shows</label>
           <select id="display" onchange="saveDisplay()">
             <option value="CLOCK">Clock</option>
             <option value="CLOCK_END">End number</option>
@@ -281,6 +281,26 @@
           </select>
         </div>
       </div>
+      <div class="row">
+        <div>
+          <label for="panelPreset">Panel size</label>
+          <select id="panelPreset" onchange="onLayoutChange()">
+            <option value="LED_32X16">WS2812B 32×16 — two 8×32 modules</option>
+            <option value="P5_64X32">One P5 — 64×32</option>
+            <option value="P5_96X64">Three P5 — 96×64</option>
+            <option value="P5_128X64">Four P5 — 128×64</option>
+          </select>
+        </div>
+        <div>
+          <label for="orientation">Format</label>
+          <select id="orientation" onchange="onLayoutChange()">
+            <option value="LANDSCAPE">Horizontal</option>
+            <option value="PORTRAIT">Vertical — more lines</option>
+          </select>
+        </div>
+      </div>
+      <p id="layoutNote" class="meta" style="justify-content:flex-start"></p>
+      <div id="lineSlots"></div>
       <div class="row">
         <div>
           <label for="showAbcd">AB / CD with the time</label>
@@ -511,6 +531,9 @@
         shootOff: $('shootOff').value === 'true',
         practiceSeconds: +$('practiceSeconds').value,
         clockSeconds: $('clockSeconds').value === 'true',
+        panelPreset: $('panelPreset').value,
+        orientation: $('orientation').value,
+        panelLines: collectLines(),
         showAbcd: $('showAbcd').value === 'true',
         abcdVertical: $('abcdVertical').value === 'true',
         showEndLabels: $('showEndLabels').value === 'true',
@@ -570,6 +593,13 @@
       if (document.activeElement !== $('division')) $('division').value = state.division;
       if (document.activeElement !== $('matchLogic')) $('matchLogic').value = String(state.matchEnabled);
       if (document.activeElement !== $('display')) $('display').value = state.display;
+      if ($('panelPreset') && document.activeElement !== $('panelPreset')) {
+        $('panelPreset').value = state.panelPreset || 'LED_32X16';
+      }
+      if ($('orientation') && document.activeElement !== $('orientation')) {
+        $('orientation').value = state.orientation || 'LANDSCAPE';
+      }
+      syncLineSlots(state);
       if (document.activeElement !== $('clockSeconds')) $('clockSeconds').value = String(state.clockSeconds !== false);
       if (document.activeElement !== $('showAbcd')) $('showAbcd').value = String(state.showAbcd !== false);
       if (document.activeElement !== $('abcdVertical')) $('abcdVertical').value = String(state.abcdVertical !== false);
@@ -694,6 +724,9 @@
       $('abcdColour').disabled = $('abcdFollowTimer').value === 'true';
       return post('/api/display', {
         content: $('display').value,
+        panelPreset: $('panelPreset').value,
+        orientation: $('orientation').value,
+        lines: collectLines(),
         clockSeconds: $('clockSeconds').value === 'true',
         showAbcd: $('showAbcd').value === 'true',
         abcdVertical: $('abcdVertical').value === 'true',
@@ -702,6 +735,86 @@
         abcdColour: $('abcdColour').value
       });
     };
+    const CONTENT_OPTIONS = [
+      ['CLOCK', 'Clock'],
+      ['CLOCK_END', 'End number'],
+      ['ARROWS', 'Arrows shot'],
+      ['SCORE', 'Score'],
+      ['SET_POINTS', 'Set points'],
+      ['SHOOTER', 'Shooting side'],
+      ['BLANK', 'Blank']
+    ];
+    function defaultLinesFor(preset, orientation) {
+      if (preset === 'LED_32X16') return ['CLOCK'];
+      if (orientation === 'PORTRAIT') {
+        if (preset === 'P5_64X32') return ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS'];
+        return ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS', 'SET_POINTS', 'SHOOTER'];
+      }
+      if (preset === 'P5_96X64' || preset === 'P5_128X64') return ['CLOCK', 'CLOCK_END'];
+      return ['CLOCK'];
+    }
+    function collectLines() {
+      const selected = [];
+      for (let index = 0; index < 8; index++) {
+        const field = $('line' + index);
+        if (!field || field.parentElement.hidden) continue;
+        selected.push(field.value);
+      }
+      return selected.join(',') || $('display').value;
+    }
+    function syncLineSlots(state) {
+      const maxLines = state.panelMaxLines || 1;
+      const chosen = (state.panelLines || state.display || 'CLOCK').split(',');
+      const box = $('lineSlots');
+      if (!box) return;
+      if (box.childElementCount !== maxLines) {
+        box.innerHTML = '';
+        for (let index = 0; index < maxLines; index++) {
+          const wrap = document.createElement('div');
+          const label = document.createElement('label');
+          label.htmlFor = 'line' + index;
+          label.textContent = maxLines === 1 ? 'Panel shows' : 'Line ' + (index + 1);
+          const select = document.createElement('select');
+          select.id = 'line' + index;
+          select.onchange = () => {
+            if (index === 0) $('display').value = select.value;
+            saveDisplay();
+          };
+          for (const [value, text] of CONTENT_OPTIONS) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = text;
+            select.appendChild(option);
+          }
+          wrap.appendChild(label);
+          wrap.appendChild(select);
+          box.appendChild(wrap);
+        }
+      }
+      for (let index = 0; index < maxLines; index++) {
+        const field = $('line' + index);
+        if (field && document.activeElement !== field) field.value = chosen[index] || 'BLANK';
+      }
+      if ($('layoutNote')) {
+        const driver = state.displayDriver || 'WS2812B';
+        $('layoutNote').innerHTML =
+          driver + ' ' + (state.panelColumns || 32) + '×' + (state.panelRows || 16) +
+          ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+      }
+    }
+    function onLayoutChange() {
+      const lines = defaultLinesFor($('panelPreset').value, $('orientation').value);
+      $('display').value = lines[0];
+      if (lastState) {
+        lastState.panelPreset = $('panelPreset').value;
+        lastState.orientation = $('orientation').value;
+        lastState.panelLines = lines.join(',');
+        lastState.panelMaxLines = lines.length;
+        lastState.panelLines = lines.join(',');
+        syncLineSlots(Object.assign({}, lastState, { panelLines: lines.join(','), panelMaxLines: lines.length }));
+      }
+      return saveDisplay();
+    }
     const saveTrace = () => post('/api/trace', { level: $('traceLevel').value });
     const score = body => post('/api/score', body);
     const saveBrightness = () => post('/api/brightness', { brightness: +$('brightness').value });
