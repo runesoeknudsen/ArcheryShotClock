@@ -216,11 +216,7 @@
       if (state.qualificationComplete) progress = 'Qualification complete.';
       return {
         headline: 'Ready',
-<<<<<<< HEAD
-        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
-=======
-        detail: progress + ' Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line.'
->>>>>>> 6d71c1a (Add qualification structure: ends per round and total rounds.)
+        detail: progress + ' Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
       };
     }
     if (phase === 'OCCUPY') {
