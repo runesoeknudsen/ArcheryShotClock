@@ -54,7 +54,10 @@ The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a T
 Supported P5 64×32 layouts, set from the web UI:
 
 - One panel, kept horizontal: 64×32, or 32×64 when the cabinet is rotated 90°
-- Two to five panels stood on end, long side against long side: 64×64, 96×64, 128×64 or 160×64. The Waveshare build defaults to three panels (96×64) with one clock line. Rotate the whole cabinet 90° for a tall stand (64×64, 64×96, 64×128 or 64×160) so more lines fit. Chain the HUB75 ribbon left to right; each of those modules is rotated 90° clockwise.
+- Two panels stood on end: 64×64
+- Three panels in a U: 96×64, or 64×96 vertical. Two 64×32 modules stack on the left (long sides together). The third is rotated 90° and stands on the right end, giving (64+32)×64. Chain the HUB75 ribbon P0 (top) → P1 (right, rotated 90°) → P2 (bottom, under the top).
+- Four panels in a 2×2: 128×64, or 64×128 vertical. Chain P0 (top-left) → P1 (top-right) → P2 (bottom-left) → P3 (bottom-right)
+- Five panels stood on end: 160×64
 
 A larger cabinet stamps generated sans-serif outlines at the panel resolution. Edges fall off smoothly so a curve reads as a hill instead of a staircase of upscaled pixels. Add another typeface with `software/tools/font_to_glyphs.py`. Lines share the available height when you add more than one, and the last line takes any leftover pixels. You can instead pick one large line and keep the others the same size.
 

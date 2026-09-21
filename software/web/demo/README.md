@@ -15,8 +15,9 @@ into flash.
 - Start, occupy 10 s, shoot, stop, score
 - The LED grid is the real firmware frame, including colour
 - **Panel size** and **format** select the same 32×16, one horizontal 64×32, and
-  two to five P5s stood on end (64×64, 96×64, 128×64, 160×64) the ESP32 and
-  Waveshare HUB75 builds use. Rotate the cabinet 90° for more stacked lines.
+  two to five P5 modules (64×64, 96×64, 128×64, 160×64) the ESP32 and Waveshare
+  HUB75 builds use. Three panels form a U and four form a 2×2.
+  Rotate the cabinet 90° for more stacked lines.
   Defaults are one clock line on three P5s. Shooting shows seconds only, at
   most three digits, so the remaining time and AB/CD can fill the cabinet.
   Larger cabinets stamp generated sans-serif outlines at the panel resolution,

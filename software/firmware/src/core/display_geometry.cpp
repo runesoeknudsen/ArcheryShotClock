@@ -53,20 +53,51 @@ bool mapLandscapeToHub75(PanelPreset preset, uint16_t x, uint16_t y, uint16_t& d
   landscapeSize(preset, columns, rows);
   if (x >= columns || y >= rows) return false;
 
-  const uint8_t count = stackedP5(preset);
-  if (count <= 1) {
-    dmaX = x;
-    dmaY = y;
-    return true;
-  }
+  switch (preset) {
+    case PanelPreset::P5_96x64:
+      // U-shape chain: P0 top 64x32, P1 right 64x32 rotated 90° CW, P2 bottom
+      // 64x32 under the top. The HUB75 ribbon runs top → right → bottom.
+      if (x < 64) {
+        if (y < 32) {
+          dmaX = x;
+          dmaY = y;
+        } else {
+          dmaX = static_cast<uint16_t>(128 + x);
+          dmaY = static_cast<uint16_t>(y - 32);
+        }
+      } else {
+        const uint16_t localX = static_cast<uint16_t>(x - 64);
+        dmaX = static_cast<uint16_t>(64 + y);
+        dmaY = static_cast<uint16_t>(31 - localX);
+      }
+      return true;
 
-  // Two to five 64x32 modules stood on end (90° CW) and placed left to right.
-  // DMA is one 64*N x 32 chain; each 32x64 logical strip is one module.
-  const uint16_t panel = static_cast<uint16_t>(x / 32);
-  const uint16_t localX = static_cast<uint16_t>(x % 32);
-  dmaX = static_cast<uint16_t>(panel * 64 + y);
-  dmaY = static_cast<uint16_t>(31 - localX);
-  return true;
+    case PanelPreset::P5_128x64:
+      if (y < 32) {
+        dmaX = x;
+        dmaY = y;
+      } else {
+        dmaX = static_cast<uint16_t>(128 + x);
+        dmaY = static_cast<uint16_t>(y - 32);
+      }
+      return true;
+
+    case PanelPreset::P5_64x64:
+    case PanelPreset::P5_160x64: {
+      const uint16_t panel = static_cast<uint16_t>(x / 32);
+      const uint16_t localX = static_cast<uint16_t>(x % 32);
+      dmaX = static_cast<uint16_t>(panel * 64 + y);
+      dmaY = static_cast<uint16_t>(31 - localX);
+      return true;
+    }
+
+    case PanelPreset::P5_64x32:
+    case PanelPreset::Led32x16:
+    default:
+      dmaX = x;
+      dmaY = y;
+      return true;
+  }
 }
 
 }  // namespace
