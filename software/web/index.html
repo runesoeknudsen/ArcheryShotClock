@@ -722,6 +722,7 @@
     const saveDisplay = () => {
       if (lastState) Operator.renderPreview($('preview'), draftFromForm(lastState));
       $('abcdColour').disabled = $('abcdFollowTimer').value === 'true';
+      if ($('line0')) $('line0').value = $('display').value;
       return post('/api/display', {
         content: $('display').value,
         panelPreset: $('panelPreset').value,

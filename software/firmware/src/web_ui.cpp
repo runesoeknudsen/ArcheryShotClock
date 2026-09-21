@@ -338,8 +338,11 @@ void WebUi::handleDisplay() {
     }
     if (parsedCount > maxLines) parsedCount = maxLines;
     settings_.lineCount = parsedCount;
-    for (uint8_t index = 0; index < parsedCount; index++) {
-      settings_.lines[index] = static_cast<uint8_t>(parsed[index]);
+    for (uint8_t slot = 0; slot < parsedCount; slot++) {
+      settings_.lines[slot] = static_cast<uint8_t>(parsed[slot]);
+    }
+    if (content.length() && lookup(CONTENT_NAMES, content, index)) {
+      settings_.lines[0] = index;
     }
     settings_.displayContent = settings_.lines[0];
     clock_.setDisplayContent(now_, static_cast<Core::DisplayContent>(settings_.displayContent));

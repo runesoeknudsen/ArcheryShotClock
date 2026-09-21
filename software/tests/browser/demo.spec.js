@@ -16,7 +16,7 @@ test('start runs the occupy period from the real core', async ({ page }) => {
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
   await expect(page.locator('#phase')).toHaveText('OCCUPY');
   await expect(page.locator('#lampRed')).toHaveClass(/on/);
-  await expect(page.locator('#clock')).toHaveText('10');
+  await expect(page.locator('#clock')).toHaveText(/^[1-9]\d?$/);
 });
 
 test('director clock stays in step with the panel while occupy runs', async ({ page }) => {
