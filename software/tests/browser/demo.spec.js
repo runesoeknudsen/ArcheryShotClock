@@ -121,15 +121,49 @@ test('second end keeps AB in the flow after CD starts', async ({ page }) => {
 async function panelPixel(page, x, y) {
   return page.evaluate(({ x, y }) => {
     const canvas = document.getElementById('panel');
-    const ledPx = Number(document.getElementById('ledPx').value);
-    const gap = 2;
-    const cell = ledPx + gap;
-    const px = Math.floor(gap + x * cell + ledPx / 2);
-    const py = Math.floor(gap + y * cell + ledPx / 2);
+    const cell = Number(canvas.dataset.cell);
+    const gap = Number(canvas.dataset.gap);
+    const disc = Number(canvas.dataset.disc);
+    const px = Math.floor(gap + x * cell + disc / 2);
+    const py = Math.floor(gap + y * cell + disc / 2);
     const pixel = canvas.getContext('2d').getImageData(px, py, 1, 1).data;
     return [pixel[0], pixel[1], pixel[2]];
   }, { x, y });
 }
+
+test('on-screen panel fits the browser width by default', async ({ page }) => {
+  await page.goto('/demo/');
+  const { panel, stage } = await page.evaluate(() => {
+    const canvas = document.getElementById('panel').getBoundingClientRect();
+    const stage = document.getElementById('stage').getBoundingClientRect();
+    return { panel: canvas.width, stage: stage.width };
+  });
+  expect(panel).toBeGreaterThan(40);
+  expect(panel).toBeLessThanOrEqual(stage + 1);
+});
+
+test('module pitch changes the on-screen panel size', async ({ page }) => {
+  await page.goto('/demo/');
+  const before = await page.locator('#panel').boundingBox();
+  await page.locator('#pitchMm').evaluate((el) => {
+    el.value = '10';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const after = await page.locator('#panel').boundingBox();
+  expect(after.width).toBeGreaterThan(before.width * 1.5);
+});
+
+test('LED size can shrink below four pixels', async ({ page }) => {
+  await page.goto('/demo/');
+  const start = await page.locator('#panel').boundingBox();
+  await page.locator('#ledPx').evaluate((el) => {
+    el.value = '0.5';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(page.locator('#ledPxValue')).toHaveText('0.5');
+  const tiny = await page.locator('#panel').boundingBox();
+  expect(tiny.width).toBeLessThan(start.width / 2);
+});
 
 test('LED panel keeps AB white while the timer follows the light', async ({ page }) => {
   await page.goto('/demo/');

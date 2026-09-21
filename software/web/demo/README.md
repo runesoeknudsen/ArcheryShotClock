@@ -17,7 +17,8 @@ into flash.
 - **Panel size** and **format** select the same 32×16, 64×32, 96×64 and 128×64
   layouts the ESP32 and Waveshare HUB75 builds use, including extra stacked
   lines in vertical format
-- **Module pitch** turns pixels into millimetres
+- **On-screen LED size** defaults to the browser width; the slider goes down to half a pixel
+- **Module pitch** scales the preview cells (P5 is 5 mm) and the millimetre readout
 - Beeps play in the browser speaker (after the first tap)
 
 ## Run locally
