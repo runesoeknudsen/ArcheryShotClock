@@ -524,20 +524,18 @@ void appendText(RenderResult& result, const char* text) {
   result.text[index] = '\0';
 }
 
-void blitTile(const uint32_t* tile, uint16_t destX, uint16_t destY, uint8_t scale, uint16_t columns,
-              uint16_t rows, uint32_t* dest) {
-  if (scale == 0) scale = 1;
-  for (uint8_t y = 0; y < ROWS; y++) {
-    for (uint8_t x = 0; x < COLUMNS; x++) {
-      const uint32_t colour = tile[ledIndex(x, y)];
+void blitTile(const uint32_t* tile, uint16_t destX, uint16_t destY, uint16_t destW, uint16_t destH,
+              uint16_t columns, uint16_t rows, uint32_t* dest) {
+  if (destW == 0 || destH == 0) return;
+  for (uint16_t dy = 0; dy < destH; dy++) {
+    const uint8_t sy = static_cast<uint8_t>((dy * ROWS) / destH);
+    for (uint16_t dx = 0; dx < destW; dx++) {
+      const uint8_t sx = static_cast<uint8_t>((dx * COLUMNS) / destW);
+      const uint32_t colour = tile[ledIndex(sx, sy)];
       if (colour == 0) continue;
-      for (uint8_t sy = 0; sy < scale; sy++) {
-        for (uint8_t sx = 0; sx < scale; sx++) {
-          const uint16_t dx = static_cast<uint16_t>(destX + x * scale + sx);
-          const uint16_t dy = static_cast<uint16_t>(destY + y * scale + sy);
-          if (dx < columns && dy < rows) dest[logicalIndex(dx, dy, columns)] = colour;
-        }
-      }
+      const uint16_t px = static_cast<uint16_t>(destX + dx);
+      const uint16_t py = static_cast<uint16_t>(destY + dy);
+      if (px < columns && py < rows) dest[logicalIndex(px, py, columns)] = colour;
     }
   }
 }
@@ -618,7 +616,8 @@ RenderResult renderComposed(const RenderRequest& request, uint32_t* pixels) {
     }
   }
 
-  const LayoutPlan plan = planLayout(request.geometry, lines, lineCount);
+  const LayoutPlan plan =
+      planLayout(request.geometry, lines, lineCount, request.lineScale, request.heroLine);
   RenderResult result;
   uint32_t tile[PIXEL_COUNT];
 
@@ -628,8 +627,8 @@ RenderResult renderComposed(const RenderRequest& request, uint32_t* pixels) {
     tileRequest.lineCount = 0;
     tileRequest.content = plan.lines[index].content;
     const RenderResult tileResult = renderWired32x16(tileRequest, tile);
-    blitTile(tile, plan.lines[index].x, plan.lines[index].y, plan.lines[index].scale,
-             request.geometry.columns, request.geometry.rows, pixels);
+    blitTile(tile, plan.lines[index].x, plan.lines[index].y, plan.lines[index].width,
+             plan.lines[index].height, request.geometry.columns, request.geometry.rows, pixels);
     appendText(result, tileResult.text);
   }
 
@@ -665,13 +664,15 @@ RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
 }
 
 void applyLayout(RenderRequest& request, PanelPreset preset, Orientation orientation, const uint8_t* lines,
-                 uint8_t lineCount) {
+                 uint8_t lineCount, LineScaleMode scaleMode, uint8_t heroLine) {
   request.geometry = geometryFor(preset, orientation);
   request.lineCount = lineCount > MAX_CONTENT_LINES ? MAX_CONTENT_LINES : lineCount;
   for (uint8_t index = 0; index < request.lineCount; index++) {
     request.lines[index] = static_cast<Core::DisplayContent>(lines[index]);
   }
   if (request.lineCount > 0) request.content = request.lines[0];
+  request.lineScale = scaleMode;
+  request.heroLine = heroLine < request.lineCount ? heroLine : 0;
 }
 
 }  // namespace DisplayLogic

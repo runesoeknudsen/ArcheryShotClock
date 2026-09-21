@@ -160,13 +160,15 @@ struct Host {
   uint32_t pixels[DisplayLogic::MAX_PIXEL_COUNT];
   uint32_t logical[DisplayLogic::MAX_PIXEL_COUNT];
   char panelText[64];
-  char panelLines[80];
+  char panelLines[128];
   char stateJson[Core::STATE_JSON_BYTES];
   char logJson[8192];
   DisplayLogic::PanelPreset panelPreset;
   DisplayLogic::Orientation orientation;
   uint8_t lineCount;
   uint8_t lines[DisplayLogic::MAX_CONTENT_LINES];
+  DisplayLogic::LineScaleMode lineScale;
+  uint8_t heroLine;
   bool ready;
 
   Host()
@@ -188,6 +190,8 @@ struct Host {
         panelPreset(DisplayLogic::PanelPreset::Led32x16),
         orientation(DisplayLogic::Orientation::Landscape),
         lineCount(1),
+        lineScale(DisplayLogic::LineScaleMode::Fill),
+        heroLine(0),
         ready(false) {
     std::memset(pixels, 0, sizeof(pixels));
     std::memset(logical, 0, sizeof(logical));
@@ -217,7 +221,8 @@ void renderPanel() {
   request.showEndLabels = H().showEndLabels;
   request.abcdFollowTimer = H().abcdFollowTimer;
   request.abcdColour = H().abcdColour;
-  DisplayLogic::applyLayout(request, H().panelPreset, H().orientation, H().lines, H().lineCount);
+  DisplayLogic::applyLayout(request, H().panelPreset, H().orientation, H().lines, H().lineCount,
+                            H().lineScale, H().heroLine);
   DisplayLogic::fillFromSnapshot(request, snapshot);
   const DisplayLogic::RenderResult result = DisplayLogic::renderFrame(request, H().pixels);
   std::strncpy(H().panelText, result.text, sizeof(H().panelText) - 1);
@@ -452,7 +457,7 @@ int demo_panel_options(const char* json) {
   if (orientationName[0] != '\0' && DisplayLogic::parseOrientation(orientationName, orientation)) {
     layoutChanged = true;
   }
-  char linesText[80] = {};
+  char linesText[128] = {};
   readString(json, "lines", linesText, sizeof(linesText));
   Core::DisplayContent parsed[DisplayLogic::MAX_CONTENT_LINES] = {};
   uint8_t parsedCount = 0;
@@ -472,6 +477,16 @@ int demo_panel_options(const char* json) {
     }
     H().clock.setDisplayContent(H().now, parsed[0]);
   }
+  char scaleName[12] = {};
+  readString(json, "lineScale", scaleName, sizeof(scaleName));
+  DisplayLogic::LineScaleMode scaleMode = H().lineScale;
+  if (scaleName[0] != '\0' && DisplayLogic::parseLineScale(scaleName, scaleMode)) {
+    H().lineScale = scaleMode;
+  }
+  if (std::strstr(json, "heroLine") != nullptr) {
+    H().heroLine = static_cast<uint8_t>(readInt(json, "heroLine", H().heroLine));
+  }
+  if (H().heroLine >= H().lineCount) H().heroLine = 0;
   sync(H().now);
   return 0;
 }
@@ -588,6 +603,8 @@ const char* demo_state_json(void) {
   }
   DisplayLogic::formatLines(lines, H().lineCount, H().panelLines, sizeof(H().panelLines));
   view.panelLines = H().panelLines;
+  view.lineScale = DisplayLogic::name(H().lineScale);
+  view.heroLine = H().heroLine;
   view.beepMs = H().sound.beepMs();
   view.gapMs = H().sound.gapMs();
   view.soundEnabled = H().sound.isEnabled();

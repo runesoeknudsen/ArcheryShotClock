@@ -60,7 +60,7 @@ private:
   LogBufferSink& log_;
   WebServer server_{80};
   char panelText_[64] = {0};
-  char panelLines_[80] = {0};
+  char panelLines_[128] = {0};
   // One response buffer, reused. Building these with String concatenation was
   // what made the access point unreliable.
   char json_[Core::STATE_JSON_BYTES];

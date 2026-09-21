@@ -130,6 +130,8 @@ void test_state_json_carries_the_clock_and_the_session() {
   TEST_ASSERT_TRUE(has(json, "\"panelColumns\":32"));
   TEST_ASSERT_TRUE(has(json, "\"panelRows\":16"));
   TEST_ASSERT_TRUE(has(json, "\"panelLines\":\"CLOCK\""));
+  TEST_ASSERT_TRUE(has(json, "\"lineScale\":\"FILL\""));
+  TEST_ASSERT_TRUE(has(json, "\"heroLine\":0"));
 }
 
 void test_state_json_reports_the_board_s_memory() {

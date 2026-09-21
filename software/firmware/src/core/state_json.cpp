@@ -70,6 +70,8 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
   json.unsigned32("panelRows", view.panelRows);
   json.unsigned32("panelMaxLines", view.panelMaxLines);
   json.text("panelLines", view.panelLines);
+  json.text("lineScale", view.lineScale);
+  json.unsigned32("heroLine", view.heroLine);
   json.unsigned32("beepMs", view.beepMs);
   json.unsigned32("gapMs", view.gapMs);
   json.boolean("soundEnabled", view.soundEnabled);

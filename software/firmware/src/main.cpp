@@ -59,7 +59,8 @@ void drawPanel(uint32_t now, const Core::StateSnapshot& state) {
   style.abcdColour = settings.abcdColour;
   DisplayLogic::applyLayout(style, static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
                             static_cast<DisplayLogic::Orientation>(settings.orientation), settings.lines,
-                            settings.lineCount);
+                            settings.lineCount, static_cast<DisplayLogic::LineScaleMode>(settings.lineScale),
+                            settings.heroLine);
   const DisplayLogic::RenderResult result = display.render(state, settings.brightness, style);
   webUi.setPanelText(result.text);
   if (haveFrame && result.checksum == lastFrameChecksum) return;

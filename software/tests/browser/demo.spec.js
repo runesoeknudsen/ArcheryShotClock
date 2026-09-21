@@ -44,13 +44,13 @@ test('panel size control changes the firmware frame', async ({ page }) => {
   expect(tall.height).toBeGreaterThan(small.height);
 });
 
-test('three P5 layout is a U-shape 96x64', async ({ page }) => {
+test('three P5 modules stand on end as 96x64', async ({ page }) => {
   await page.goto('/demo/');
   await page.locator('#panelPreset').selectOption('P5_96X64');
   await expect(page.locator('#sizeReadout')).toContainText('96×64');
   await expect(page.locator('#layoutNote')).toContainText('96×64');
-  await expect(page.locator('#layoutNote')).toContainText('U-shape');
-  await expect(page.locator('#layoutNote')).toContainText('top → right 90° → bottom');
+  await expect(page.locator('#layoutNote')).toContainText('stood on end');
+  await expect(page.locator('#layoutNote')).not.toContainText('U-shape');
   const { panel, stage } = await page.evaluate(() => {
     const canvas = document.getElementById('panel').getBoundingClientRect();
     const stage = document.getElementById('stage').getBoundingClientRect();
@@ -58,6 +58,26 @@ test('three P5 layout is a U-shape 96x64', async ({ page }) => {
   });
   expect(panel).toBeGreaterThan(40);
   expect(panel).toBeLessThanOrEqual(stage + 2);
+});
+
+test('two and five P5 stacks and a 90 degree rotate', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_64X64');
+  await expect(page.locator('#sizeReadout')).toContainText('64×64');
+  await page.locator('#panelPreset').selectOption('P5_160X64');
+  await expect(page.locator('#sizeReadout')).toContainText('160×64');
+  await page.locator('#orientation').selectOption('PORTRAIT');
+  await expect(page.locator('#layoutNote')).toContainText('64×160');
+});
+
+test('line height can keep one line larger', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_64X64');
+  await expect(page.locator('#lineScaleRow')).toBeVisible();
+  await page.locator('#lineCount').selectOption('3');
+  await page.locator('#lineScale').selectOption('HERO');
+  await expect(page.locator('#heroLineWrap')).toBeVisible();
+  await expect(page.locator('#layoutNote')).toContainText('line 1 larger');
 });
 
 test('clock format defaults to seconds and can switch to minutes', async ({ page }) => {

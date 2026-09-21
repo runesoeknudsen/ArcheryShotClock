@@ -83,6 +83,21 @@ void test_browser_host_can_render_a_64x32_p5_layout() {
   TEST_ASSERT_GREATER_THAN_UINT16(80, lit);
 }
 
+void test_browser_host_can_render_stacked_vertical_p5s() {
+  demo_init(0);
+  TEST_ASSERT_EQUAL_INT(0, demo_panel_options("{\"panelPreset\":\"P5_96X64\",\"orientation\":\"LANDSCAPE\"}"));
+  TEST_ASSERT_EQUAL_UINT16(96, demo_panel_columns());
+  TEST_ASSERT_EQUAL_UINT16(64, demo_panel_rows());
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"panelPreset\":\"P5_96X64\""));
+  TEST_ASSERT_EQUAL_INT(0, demo_panel_options(
+      "{\"panelPreset\":\"P5_160X64\",\"orientation\":\"PORTRAIT\",\"lines\":\"CLOCK,SCORE,ARROWS\","
+      "\"lineScale\":\"HERO\",\"heroLine\":0}"));
+  TEST_ASSERT_EQUAL_UINT16(64, demo_panel_columns());
+  TEST_ASSERT_EQUAL_UINT16(160, demo_panel_rows());
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"lineScale\":\"HERO\""));
+  TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"heroLine\":0"));
+}
+
 void test_browser_host_portrait_uses_the_extra_lines() {
   demo_init(0);
   TEST_ASSERT_EQUAL_INT(0, demo_panel_options(
@@ -174,6 +189,7 @@ int main() {
   RUN_TEST(test_browser_host_defaults_to_abcd_rotation);
   RUN_TEST(test_browser_host_rotates_cd_first_on_the_second_end);
   RUN_TEST(test_browser_host_can_render_a_64x32_p5_layout);
+  RUN_TEST(test_browser_host_can_render_stacked_vertical_p5s);
   RUN_TEST(test_browser_host_portrait_uses_the_extra_lines);
   RUN_TEST(test_browser_host_abcd_letters_default_white);
   RUN_TEST(test_browser_host_reset_session_returns_to_end_one);

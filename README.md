@@ -1,6 +1,6 @@
 # ESP32 Archery Shot Clock
 
-An independent, unofficial World Archery shot clock. The default build runs on an ESP32-WROOM with two 8x32 WS2812B panels and a MAX98357A speaker. A second build targets the Waveshare ESP32-S3 RGB Matrix Driver Board and HUB75 P5 panels, with configurable 64×32, 96×64 and 128×64 layouts in horizontal or vertical format. It implements timing programs, match logic, display, sound signals, web UI, and trace logging for field testing.
+An independent, unofficial World Archery shot clock. The default build runs on an ESP32-WROOM with two 8x32 WS2812B panels and a MAX98357A speaker. A second build targets the Waveshare ESP32-S3 RGB Matrix Driver Board and HUB75 P5 panels, with one horizontal 64×32 or two to five modules stood on end (64×64, 96×64, 128×64, 160×64), each rotatable 90° for more stacked lines. It implements timing programs, match logic, display, sound signals, web UI, and trace logging for field testing.
 
 This project is not affiliated with or endorsed by World Archery.
 

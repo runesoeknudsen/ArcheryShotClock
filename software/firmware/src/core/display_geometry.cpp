@@ -15,26 +15,32 @@ bool sameText(const char* left, const char* right) {
   return left[index] == right[index];
 }
 
-void landscapeSize(PanelPreset preset, uint16_t& columns, uint16_t& rows) {
+uint8_t stackedP5(PanelPreset preset) {
   switch (preset) {
-    case PanelPreset::P5_64x32:
-      columns = 64;
-      rows = 32;
-      break;
-    case PanelPreset::P5_96x64:
-      columns = 96;
-      rows = 64;
-      break;
-    case PanelPreset::P5_128x64:
-      columns = 128;
-      rows = 64;
-      break;
+    case PanelPreset::P5_64x32: return 1;
+    case PanelPreset::P5_64x64: return 2;
+    case PanelPreset::P5_96x64: return 3;
+    case PanelPreset::P5_128x64: return 4;
+    case PanelPreset::P5_160x64: return 5;
     case PanelPreset::Led32x16:
-    default:
-      columns = TILE_COLUMNS;
-      rows = TILE_ROWS;
-      break;
+    default: return 0;
   }
+}
+
+void landscapeSize(PanelPreset preset, uint16_t& columns, uint16_t& rows) {
+  const uint8_t count = stackedP5(preset);
+  if (count == 0) {
+    columns = TILE_COLUMNS;
+    rows = TILE_ROWS;
+    return;
+  }
+  if (count == 1) {
+    columns = 64;
+    rows = 32;
+    return;
+  }
+  columns = static_cast<uint16_t>(count * 32);
+  rows = 64;
 }
 
 const Core::DisplayContent kDefaultOrder[] = {
@@ -47,42 +53,20 @@ bool mapLandscapeToHub75(PanelPreset preset, uint16_t x, uint16_t y, uint16_t& d
   landscapeSize(preset, columns, rows);
   if (x >= columns || y >= rows) return false;
 
-  switch (preset) {
-    case PanelPreset::P5_96x64:
-      // U-shape chain: P0 top 64x32, P1 right 64x32 rotated 90° CW, P2 bottom
-      // 64x32 under the top. The HUB75 ribbon runs top → right → bottom.
-      if (x < 64) {
-        if (y < 32) {
-          dmaX = x;
-          dmaY = y;
-        } else {
-          dmaX = static_cast<uint16_t>(128 + x);
-          dmaY = static_cast<uint16_t>(y - 32);
-        }
-      } else {
-        const uint16_t localX = static_cast<uint16_t>(x - 64);
-        dmaX = static_cast<uint16_t>(64 + y);
-        dmaY = static_cast<uint16_t>(31 - localX);
-      }
-      return true;
-
-    case PanelPreset::P5_128x64:
-      if (y < 32) {
-        dmaX = x;
-        dmaY = y;
-      } else {
-        dmaX = static_cast<uint16_t>(128 + x);
-        dmaY = static_cast<uint16_t>(y - 32);
-      }
-      return true;
-
-    case PanelPreset::P5_64x32:
-    case PanelPreset::Led32x16:
-    default:
-      dmaX = x;
-      dmaY = y;
-      return true;
+  const uint8_t count = stackedP5(preset);
+  if (count <= 1) {
+    dmaX = x;
+    dmaY = y;
+    return true;
   }
+
+  // Two to five 64x32 modules stood on end (90° CW) and placed left to right.
+  // DMA is one 64*N x 32 chain; each 32x64 logical strip is one module.
+  const uint16_t panel = static_cast<uint16_t>(x / 32);
+  const uint16_t localX = static_cast<uint16_t>(x % 32);
+  dmaX = static_cast<uint16_t>(panel * 64 + y);
+  dmaY = static_cast<uint16_t>(31 - localX);
+  return true;
 }
 
 }  // namespace
@@ -107,11 +91,13 @@ uint16_t pixelCount(const Geometry& geometry) {
   return count > MAX_PIXEL_COUNT ? MAX_PIXEL_COUNT : static_cast<uint16_t>(count);
 }
 
+uint8_t p5Count(PanelPreset preset) { return stackedP5(preset); }
+
 uint8_t maxLinesFor(const Geometry& geometry) {
-  if (geometry.rows < TILE_ROWS) return 1;
-  uint8_t lines = static_cast<uint8_t>(geometry.rows / TILE_ROWS);
+  uint8_t lines = static_cast<uint8_t>(geometry.rows / 8);
+  if (lines < 1) lines = 1;
   if (lines > MAX_CONTENT_LINES) lines = MAX_CONTENT_LINES;
-  return lines == 0 ? 1 : lines;
+  return lines;
 }
 
 uint8_t defaultLineCount(const Geometry& geometry) {
@@ -133,16 +119,20 @@ uint8_t defaultLines(const Geometry& geometry, Core::DisplayContent* lines, uint
   return count;
 }
 
-bool validPreset(uint8_t value) { return value <= static_cast<uint8_t>(PanelPreset::P5_128x64); }
+bool validPreset(uint8_t value) { return value <= static_cast<uint8_t>(PanelPreset::P5_160x64); }
 
 bool validOrientation(uint8_t value) { return value <= static_cast<uint8_t>(Orientation::Portrait); }
+
+bool validLineScale(uint8_t value) { return value <= static_cast<uint8_t>(LineScaleMode::Hero); }
 
 const char* name(PanelPreset preset) {
   switch (preset) {
     case PanelPreset::Led32x16: return "LED_32X16";
     case PanelPreset::P5_64x32: return "P5_64X32";
+    case PanelPreset::P5_64x64: return "P5_64X64";
     case PanelPreset::P5_96x64: return "P5_96X64";
     case PanelPreset::P5_128x64: return "P5_128X64";
+    case PanelPreset::P5_160x64: return "P5_160X64";
   }
   return "UNKNOWN";
 }
@@ -151,6 +141,14 @@ const char* name(Orientation orientation) {
   switch (orientation) {
     case Orientation::Landscape: return "LANDSCAPE";
     case Orientation::Portrait: return "PORTRAIT";
+  }
+  return "UNKNOWN";
+}
+
+const char* name(LineScaleMode mode) {
+  switch (mode) {
+    case LineScaleMode::Fill: return "FILL";
+    case LineScaleMode::Hero: return "HERO";
   }
   return "UNKNOWN";
 }
@@ -164,12 +162,20 @@ bool parsePreset(const char* text, PanelPreset& out) {
     out = PanelPreset::P5_64x32;
     return true;
   }
+  if (sameText(text, "P5_64X64")) {
+    out = PanelPreset::P5_64x64;
+    return true;
+  }
   if (sameText(text, "P5_96X64")) {
     out = PanelPreset::P5_96x64;
     return true;
   }
   if (sameText(text, "P5_128X64")) {
     out = PanelPreset::P5_128x64;
+    return true;
+  }
+  if (sameText(text, "P5_160X64")) {
+    out = PanelPreset::P5_160x64;
     return true;
   }
   return false;
@@ -182,6 +188,18 @@ bool parseOrientation(const char* text, Orientation& out) {
   }
   if (sameText(text, "PORTRAIT")) {
     out = Orientation::Portrait;
+    return true;
+  }
+  return false;
+}
+
+bool parseLineScale(const char* text, LineScaleMode& out) {
+  if (sameText(text, "FILL")) {
+    out = LineScaleMode::Fill;
+    return true;
+  }
+  if (sameText(text, "HERO")) {
+    out = LineScaleMode::Hero;
     return true;
   }
   return false;
@@ -239,7 +257,8 @@ void formatLines(const Core::DisplayContent* lines, uint8_t count, char* out, ui
   }
 }
 
-LayoutPlan planLayout(const Geometry& geometry, const Core::DisplayContent* lines, uint8_t lineCount) {
+LayoutPlan planLayout(const Geometry& geometry, const Core::DisplayContent* lines, uint8_t lineCount,
+                      LineScaleMode scaleMode, uint8_t heroLine) {
   LayoutPlan plan;
   plan.geometry = geometry;
   const uint8_t maxLines = maxLinesFor(geometry);
@@ -255,51 +274,64 @@ LayoutPlan planLayout(const Geometry& geometry, const Core::DisplayContent* line
   }
   plan.lineCount = used;
 
-  uint8_t scale = 1;
-  const uint8_t scaleX = geometry.columns / TILE_COLUMNS;
-  const uint8_t scaleY = geometry.rows / static_cast<uint16_t>(TILE_ROWS * used);
-  const uint8_t limit = scaleX < scaleY ? scaleX : scaleY;
-  if (limit > 1) scale = limit;
-
-  const uint16_t blockWidth = static_cast<uint16_t>(TILE_COLUMNS * scale);
-  const uint16_t blockHeight = static_cast<uint16_t>(TILE_ROWS * scale * used);
-  const uint16_t originX =
-      geometry.columns > blockWidth ? static_cast<uint16_t>((geometry.columns - blockWidth) / 2) : 0;
-  uint16_t originY = 0;
-  if (used == 1 && geometry.rows > blockHeight) {
-    originY = static_cast<uint16_t>((geometry.rows - blockHeight) / 2);
+  uint16_t heights[MAX_CONTENT_LINES] = {};
+  if (used == 1) {
+    heights[0] = geometry.rows;
+  } else if (scaleMode == LineScaleMode::Hero && heroLine < used) {
+    const uint8_t others = static_cast<uint8_t>(used - 1);
+    uint16_t otherH = geometry.rows / static_cast<uint16_t>(used + 1);
+    if (otherH < 1) otherH = 1;
+    uint16_t heroH = geometry.rows > otherH * others ? static_cast<uint16_t>(geometry.rows - otherH * others) : otherH;
+    if (heroH < otherH) heroH = otherH;
+    uint16_t usedHeight = 0;
+    for (uint8_t index = 0; index < used; index++) {
+      if (index + 1 == used) {
+        heights[index] = geometry.rows > usedHeight ? static_cast<uint16_t>(geometry.rows - usedHeight) : 1;
+      } else {
+        heights[index] = index == heroLine ? heroH : otherH;
+        usedHeight = static_cast<uint16_t>(usedHeight + heights[index]);
+      }
+    }
+  } else {
+    uint16_t base = geometry.rows / used;
+    if (base < 1) base = 1;
+    uint16_t usedHeight = 0;
+    for (uint8_t index = 0; index < used; index++) {
+      if (index + 1 == used) {
+        heights[index] = geometry.rows > usedHeight ? static_cast<uint16_t>(geometry.rows - usedHeight) : 1;
+      } else {
+        heights[index] = base;
+        usedHeight = static_cast<uint16_t>(usedHeight + base);
+      }
+    }
   }
 
+  uint16_t originY = 0;
   for (uint8_t index = 0; index < used; index++) {
+    plan.lines[index].x = 0;
+    plan.lines[index].y = originY;
+    plan.lines[index].width = geometry.columns;
+    plan.lines[index].height = heights[index] == 0 ? 1 : heights[index];
+    uint8_t scale = static_cast<uint8_t>(plan.lines[index].height / TILE_ROWS);
+    if (scale < 1) scale = 1;
     plan.lines[index].scale = scale;
-    plan.lines[index].x = originX;
-    plan.lines[index].y = static_cast<uint16_t>(originY + index * TILE_ROWS * scale);
+    originY = static_cast<uint16_t>(originY + plan.lines[index].height);
   }
   return plan;
 }
 
 Hub75Canvas hub75Canvas(PanelPreset preset) {
   Hub75Canvas canvas;
-  switch (preset) {
-    case PanelPreset::P5_96x64:
-      // Three 64x32 modules in a U, driven as one 192x32 chain.
-      canvas.width = 192;
-      canvas.height = 32;
-      canvas.chain = 3;
-      break;
-    case PanelPreset::P5_128x64:
-      canvas.width = 256;
-      canvas.height = 32;
-      canvas.chain = 4;
-      break;
-    case PanelPreset::P5_64x32:
-    case PanelPreset::Led32x16:
-    default:
-      canvas.width = 64;
-      canvas.height = 32;
-      canvas.chain = 1;
-      break;
+  const uint8_t count = stackedP5(preset);
+  if (count == 0) {
+    canvas.width = 64;
+    canvas.height = 32;
+    canvas.chain = 1;
+    return canvas;
   }
+  canvas.width = static_cast<uint16_t>(count * 64);
+  canvas.height = 32;
+  canvas.chain = count;
   return canvas;
 }
 

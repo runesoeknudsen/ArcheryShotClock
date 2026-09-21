@@ -64,6 +64,9 @@ function draftFromForm(state) {
     showEndLabels: $('showEndLabels').value === 'true',
     abcdFollowTimer: $('abcdFollowTimer').value === 'true',
     abcdColour: $('abcdColour').value,
+    panelLines: collectLines(),
+    lineScale: $('lineScale') ? $('lineScale').value : 'FILL',
+    heroLine: $('heroLine') ? +$('heroLine').value : 0,
     breakEnabled: $('breakEnabled').value === 'true',
     breakAfterEnds: +$('breakAfterEnds').value,
     breakMinutes: +$('breakMinutes').value
@@ -80,19 +83,34 @@ const CONTENT_OPTIONS = [
   ['BLANK', 'Blank']
 ];
 
+const DEFAULT_LINE_ORDER = ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS', 'SET_POINTS', 'SHOOTER'];
+
+function stackedP5Count(preset) {
+  return ({ P5_64X32: 1, P5_64X64: 2, P5_96X64: 3, P5_128X64: 4, P5_160X64: 5 })[preset] || 0;
+}
+
+function maxLinesFor(preset, orientation) {
+  if (preset === 'LED_32X16') return 1;
+  const count = stackedP5Count(preset);
+  let rows = count === 1 ? 32 : 64;
+  if (orientation === 'PORTRAIT') rows = count === 1 ? 64 : count * 32;
+  return Math.max(1, Math.min(10, Math.floor(rows / 8)));
+}
+
 function defaultLinesFor(preset, orientation) {
   if (preset === 'LED_32X16') return ['CLOCK'];
-  if (orientation === 'PORTRAIT') {
-    if (preset === 'P5_64X32') return ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS'];
-    return ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS', 'SET_POINTS', 'SHOOTER'];
-  }
-  if (preset === 'P5_96X64' || preset === 'P5_128X64') return ['CLOCK', 'CLOCK_END'];
-  return ['CLOCK'];
+  const maxLines = maxLinesFor(preset, orientation);
+  let used = 1;
+  if (orientation === 'PORTRAIT') used = maxLines;
+  else if (maxLines >= 4) used = 2;
+  if (used > DEFAULT_LINE_ORDER.length) used = DEFAULT_LINE_ORDER.length;
+  return DEFAULT_LINE_ORDER.slice(0, used);
 }
 
 function collectLines() {
   const selected = [];
-  for (let index = 0; index < 8; index++) {
+  const count = $('lineCount') ? +$('lineCount').value : 10;
+  for (let index = 0; index < count; index++) {
     const field = $('line' + index);
     if (!field) continue;
     selected.push(field.value);
@@ -100,20 +118,52 @@ function collectLines() {
   return selected.join(',') || ($('display') ? $('display').value : 'CLOCK');
 }
 
+function fillSelect(field, count, labelFor) {
+  if (!field) return;
+  if (field.options.length !== count) {
+    field.innerHTML = '';
+    for (let index = 0; index < count; index++) {
+      const option = document.createElement('option');
+      option.value = String(labelFor ? index : index + 1);
+      option.textContent = labelFor ? labelFor(index) : String(index + 1);
+      field.appendChild(option);
+    }
+  }
+}
+
+function layoutHint(preset) {
+  return ({
+    P5_64X32: 'one horizontal P5',
+    P5_64X64: 'two P5 stood on end',
+    P5_96X64: 'three P5 stood on end',
+    P5_128X64: 'four P5 stood on end',
+    P5_160X64: 'five P5 stood on end'
+  })[preset] || '';
+}
+
 let onLineChange = () => {};
 
 function syncLineSlots(state) {
   const maxLines = state.panelMaxLines || 1;
-  const chosen = (state.panelLines || state.display || 'CLOCK').split(',');
+  const chosen = (state.panelLines || state.display || 'CLOCK').split(',').filter(Boolean);
+  const shown = Math.max(1, Math.min(maxLines, chosen.length || 1));
+  fillSelect($('lineCount'), maxLines);
+  if ($('lineCount') && document.activeElement !== $('lineCount')) $('lineCount').value = String(shown);
+  fillSelect($('heroLine'), shown, index => 'Line ' + (index + 1));
+  const hero = Math.min(state.heroLine || 0, shown - 1);
+  if ($('heroLine') && document.activeElement !== $('heroLine')) $('heroLine').value = String(hero);
+  const scale = ($('lineScale') && $('lineScale').value) || state.lineScale || 'FILL';
+  if ($('lineScaleRow')) $('lineScaleRow').hidden = maxLines <= 1;
+  if ($('heroLineWrap')) $('heroLineWrap').hidden = maxLines <= 1 || scale !== 'HERO';
   const box = $('lineSlots');
   if (!box) return;
-  if (box.childElementCount !== maxLines) {
+  if (box.childElementCount !== shown) {
     box.innerHTML = '';
-    for (let index = 0; index < maxLines; index++) {
+    for (let index = 0; index < shown; index++) {
       const wrap = document.createElement('div');
       const label = document.createElement('label');
       label.htmlFor = 'line' + index;
-      label.textContent = maxLines === 1 ? 'Panel shows' : 'Line ' + (index + 1);
+      label.textContent = shown === 1 ? 'Panel shows' : 'Line ' + (index + 1);
       const select = document.createElement('select');
       select.id = 'line' + index;
       select.onchange = () => {
@@ -131,17 +181,19 @@ function syncLineSlots(state) {
       box.appendChild(wrap);
     }
   }
-  for (let index = 0; index < maxLines; index++) {
+  for (let index = 0; index < shown; index++) {
     const field = $('line' + index);
     if (field && document.activeElement !== field) field.value = chosen[index] || 'BLANK';
   }
   if ($('layoutNote')) {
+    const preset = state.panelPreset || '';
     let note = (state.displayDriver || 'WS2812B') + ' ' + (state.panelColumns || 32) + '×' +
       (state.panelRows || 16);
-    if ((state.panelPreset || '') === 'P5_96X64') {
-      note += ' U-shape (top → right 90° → bottom)';
-    }
-    note += ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+    const hint = layoutHint(preset);
+    if (hint) note += ' — ' + hint;
+    note += ' — ' + shown + ' of ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+    if (shown > 1 && scale === 'HERO') note += ', line ' + (hero + 1) + ' larger';
+    else if (shown > 1) note += ', equal height';
     $('layoutNote').innerHTML = note;
   }
 }
@@ -188,6 +240,9 @@ function apply(state) {
   }
   if ($('orientation') && document.activeElement !== $('orientation')) {
     $('orientation').value = state.orientation || 'LANDSCAPE';
+  }
+  if ($('lineScale') && document.activeElement !== $('lineScale')) {
+    $('lineScale').value = state.lineScale || 'FILL';
   }
   syncLineSlots(state);
   if (document.activeElement !== $('clockSeconds')) $('clockSeconds').value = String(state.clockSeconds !== false);
@@ -398,7 +453,9 @@ try {
       abcdColour: $('abcdColour').value,
       panelPreset: $('panelPreset').value,
       orientation: $('orientation').value,
-      lines: collectLines()
+      lines: collectLines(),
+      lineScale: $('lineScale') ? $('lineScale').value : 'FILL',
+      heroLine: $('heroLine') ? +$('heroLine').value : 0
     });
     refresh();
   }
@@ -442,9 +499,34 @@ try {
     panel.draw();
     updateSize(panel);
   }
+  function onLineCountChange() {
+    const count = $('lineCount') ? +$('lineCount').value : 1;
+    const current = collectLines().split(',').filter(Boolean);
+    while (current.length < count) current.push(DEFAULT_LINE_ORDER[current.length] || 'BLANK');
+    if (lastState) {
+      lastState.panelLines = current.slice(0, count).join(',');
+      lastState.lineScale = $('lineScale') ? $('lineScale').value : lastState.lineScale;
+      lastState.heroLine = $('heroLine') ? +$('heroLine').value : lastState.heroLine;
+      syncLineSlots(lastState);
+    }
+    savePanelOptions();
+  }
   function onLayoutChange() {
-    const lines = defaultLinesFor($('panelPreset').value, $('orientation').value);
+    const preset = $('panelPreset').value;
+    const orientation = $('orientation').value;
+    const lines = defaultLinesFor(preset, orientation);
     $('display').value = lines[0];
+    if ($('lineScale')) $('lineScale').value = 'FILL';
+    if ($('heroLine')) $('heroLine').value = '0';
+    if (lastState) {
+      lastState.panelPreset = preset;
+      lastState.orientation = orientation;
+      lastState.panelLines = lines.join(',');
+      lastState.panelMaxLines = maxLinesFor(preset, orientation);
+      lastState.lineScale = 'FILL';
+      lastState.heroLine = 0;
+      syncLineSlots(lastState);
+    }
     engine.display(lines[0]);
     autoFitLed = true;
     savePanelOptions();
@@ -458,6 +540,12 @@ try {
   $('pitchMm').oninput = applyPreview;
   $('panelPreset').onchange = onLayoutChange;
   $('orientation').onchange = onLayoutChange;
+  if ($('lineCount')) $('lineCount').onchange = onLineCountChange;
+  if ($('lineScale')) $('lineScale').onchange = () => {
+    if ($('heroLineWrap')) $('heroLineWrap').hidden = $('lineScale').value !== 'HERO';
+    savePanelOptions();
+  };
+  if ($('heroLine')) $('heroLine').onchange = savePanelOptions;
   window.addEventListener('resize', () => {
     if (!autoFitLed) return;
     fitLedToStage();

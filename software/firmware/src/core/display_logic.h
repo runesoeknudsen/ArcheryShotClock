@@ -82,6 +82,8 @@ struct RenderRequest {
   Geometry geometry;
   uint8_t lineCount = 0;
   Core::DisplayContent lines[MAX_CONTENT_LINES] = {};
+  LineScaleMode lineScale = LineScaleMode::Fill;
+  uint8_t heroLine = 0;
 };
 
 struct RenderResult {
@@ -93,7 +95,7 @@ struct RenderResult {
 bool usesWired32x16(const RenderRequest& request);
 uint16_t logicalIndex(uint16_t x, uint16_t y, uint16_t columns);
 void applyLayout(RenderRequest& request, PanelPreset preset, Orientation orientation, const uint8_t* lines,
-                 uint8_t lineCount);
+                 uint8_t lineCount, LineScaleMode scaleMode = LineScaleMode::Fill, uint8_t heroLine = 0);
 
 uint16_t ledIndex(uint8_t x, uint8_t y);
 

@@ -122,6 +122,8 @@ void WebUi::handleState() {
   }
   DisplayLogic::formatLines(lines, settings_.lineCount, panelLines_, sizeof(panelLines_));
   view.panelLines = panelLines_;
+  view.lineScale = DisplayLogic::name(static_cast<DisplayLogic::LineScaleMode>(settings_.lineScale));
+  view.heroLine = settings_.heroLine;
   view.beepMs = sound_.beepMs();
   view.gapMs = sound_.gapMs();
   view.soundEnabled = sound_.isEnabled();
@@ -347,6 +349,15 @@ void WebUi::handleDisplay() {
     settings_.displayContent = settings_.lines[0];
     clock_.setDisplayContent(now_, static_cast<Core::DisplayContent>(settings_.displayContent));
   }
+  const String scaleName = readJsonString(body, "lineScale");
+  DisplayLogic::LineScaleMode scaleMode = static_cast<DisplayLogic::LineScaleMode>(settings_.lineScale);
+  if (scaleName.length() && DisplayLogic::parseLineScale(scaleName.c_str(), scaleMode)) {
+    settings_.lineScale = static_cast<uint8_t>(scaleMode);
+  }
+  if (body.indexOf("heroLine") >= 0) {
+    settings_.heroLine = static_cast<uint8_t>(readJsonInteger(body, "heroLine"));
+  }
+  if (settings_.heroLine >= settings_.lineCount) settings_.heroLine = 0;
   if (server_.arg("plain").indexOf("clockSeconds") >= 0) {
     const bool clockSeconds = readJsonBool(server_.arg("plain"), "clockSeconds", settings_.clockSeconds);
     tracer_.config(now_, "clock_seconds", settings_.clockSeconds ? 1 : 0, clockSeconds ? 1 : 0);

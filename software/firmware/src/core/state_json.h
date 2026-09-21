@@ -43,6 +43,8 @@ struct StateView {
   uint16_t panelRows = 16;
   uint8_t panelMaxLines = 1;
   const char* panelLines = "CLOCK";
+  const char* lineScale = "FILL";
+  uint8_t heroLine = 0;
   uint16_t beepMs = 0;
   uint16_t gapMs = 0;
   bool soundEnabled = true;

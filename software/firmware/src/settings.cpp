@@ -27,8 +27,10 @@ Settings SettingsStore::load() const {
   settings.lineCount = preferences.getUChar("nlines", 0);
   const size_t lineBytes = preferences.getBytes("lines", settings.lines, sizeof(settings.lines));
   if (lineBytes < sizeof(settings.lines)) {
-    for (uint8_t index = 0; index < 8; index++) settings.lines[index] = 0;
+    for (uint8_t index = 0; index < DisplayLogic::MAX_CONTENT_LINES; index++) settings.lines[index] = 0;
   }
+  settings.lineScale = preferences.getUChar("lscale", static_cast<uint8_t>(DisplayLogic::LineScaleMode::Fill));
+  settings.heroLine = preferences.getUChar("hero", 0);
   settings.clockSeconds = preferences.getBool("clk_sec", true);
   settings.showAbcd = preferences.getBool("show_abcd", true);
   settings.abcdVertical = preferences.getBool("abcd_vert", true);
@@ -87,6 +89,10 @@ Settings SettingsStore::load() const {
       }
     }
     settings.displayContent = settings.lines[0];
+    if (!DisplayLogic::validLineScale(settings.lineScale)) {
+      settings.lineScale = static_cast<uint8_t>(DisplayLogic::LineScaleMode::Fill);
+    }
+    if (settings.heroLine >= settings.lineCount) settings.heroLine = 0;
   }
   if (settings.firstShooter != 1 && settings.firstShooter != 2) settings.firstShooter = 1;
   if (settings.details < 1 || settings.details > 4) settings.details = 2;
@@ -124,6 +130,8 @@ void SettingsStore::save(const Settings& settings) const {
   preferences.putUChar("orient", settings.orientation);
   preferences.putUChar("nlines", settings.lineCount);
   preferences.putBytes("lines", settings.lines, sizeof(settings.lines));
+  preferences.putUChar("lscale", settings.lineScale);
+  preferences.putUChar("hero", settings.heroLine);
   preferences.putBool("clk_sec", settings.clockSeconds);
   preferences.putBool("show_abcd", settings.showAbcd);
   preferences.putBool("abcd_vert", settings.abcdVertical);
