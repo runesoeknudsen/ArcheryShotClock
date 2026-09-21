@@ -26,12 +26,6 @@ void test_named_sizes_and_portrait_swap() {
   TEST_ASSERT_EQUAL_UINT16(64, tall.rows);
   TEST_ASSERT_EQUAL_UINT8(8, DisplayLogic::maxLinesFor(tall));
   TEST_ASSERT_EQUAL_UINT8(8, DisplayLogic::defaultLineCount(tall));
-
-  const DisplayLogic::Geometry two =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
-  TEST_ASSERT_EQUAL_UINT16(64, two.columns);
-  TEST_ASSERT_EQUAL_UINT16(64, two.rows);
-
   const DisplayLogic::Geometry two =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
   TEST_ASSERT_EQUAL_UINT16(64, two.columns);
