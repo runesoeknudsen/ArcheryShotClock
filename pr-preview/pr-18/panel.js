@@ -22,32 +22,23 @@ export function ledPxForWidth(columns, pitchMm, availableWidth) {
   return clampLedPx(cell * REFERENCE_PITCH_MM / pitch);
 }
 
+const STACKED_P5 = {
+  P5_64X64: 2,
+  P5_96X64: 3,
+  P5_128X64: 4,
+  P5_160X64: 5
+};
+
 export function moduleSeams(preset, orientation) {
-  if (preset === 'P5_96X64') {
-    if (orientation === 'PORTRAIT') {
-      return [
-        { x: 0, y: 32, w: 64, h: 0 },
-        { x: 32, y: 32, w: 0, h: 64 }
-      ];
-    }
-    return [
-      { x: 64, y: 0, w: 0, h: 64 },
-      { x: 0, y: 32, w: 64, h: 0 }
-    ];
+  const count = STACKED_P5[preset];
+  if (!count) return [];
+  const seams = [];
+  for (let index = 1; index < count; index++) {
+    const at = index * 32;
+    if (orientation === 'PORTRAIT') seams.push({ x: 0, y: at, w: 64, h: 0 });
+    else seams.push({ x: at, y: 0, w: 0, h: 64 });
   }
-  if (preset === 'P5_128X64') {
-    if (orientation === 'PORTRAIT') {
-      return [
-        { x: 32, y: 0, w: 0, h: 128 },
-        { x: 0, y: 64, w: 64, h: 0 }
-      ];
-    }
-    return [
-      { x: 64, y: 0, w: 0, h: 64 },
-      { x: 0, y: 32, w: 128, h: 0 }
-    ];
-  }
-  return [];
+  return seams;
 }
 
 export function createPanel(canvas, engine) {
