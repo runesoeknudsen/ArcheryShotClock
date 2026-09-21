@@ -179,7 +179,7 @@ try {
     return [
       state.phase, state.mode, state.detail, state.details, state.shooter,
       state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
-      state.end, state.breakEnabled, state.breakAfterEnds
+      state.end, state.breakEnabled, state.breakAfterEnds, state.breakMinutes
     ].join('|');
   }
 
@@ -213,6 +213,11 @@ try {
     if (spec.action === 'extend') {
       const seconds = spec.seconds != null ? spec.seconds : +$('extendSeconds').value;
       engine.control('extend', seconds);
+      refresh();
+      return;
+    }
+    if (spec.action === 'adjust_break') {
+      engine.control('adjust_break', spec.seconds);
       refresh();
       return;
     }
