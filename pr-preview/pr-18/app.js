@@ -1,5 +1,5 @@
 import { createEngine } from './engine.js';
-import { createPanel } from './panel.js';
+import { createPanel, ledPxForWidth } from './panel.js';
 
 const $ = id => document.getElementById(id);
 const MODES = [
@@ -376,10 +376,27 @@ try {
   $('btnTestSound').onclick = () => { engine.testTone(2000); refresh(); };
   $('traceLevel').onchange = () => { engine.traceLevel($('traceLevel').value); refresh(); refreshLog(); };
 
+  function availablePanelWidth() {
+    const stage = $('stage');
+    const style = getComputedStyle(stage);
+    return Math.max(64, stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+  }
+
+  function formatLedPx(value) {
+    const rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  }
+
+  let autoFitLed = true;
+
+  function fitLedToStage() {
+    $('ledPx').value = String(ledPxForWidth(panel.firmware.columns, +$('pitchMm').value, availablePanelWidth()));
+  }
+
   function applyPreview() {
     panel.settings.ledPx = +$('ledPx').value;
     panel.settings.pitchMm = +$('pitchMm').value;
-    $('ledPxValue').textContent = panel.settings.ledPx;
+    $('ledPxValue').textContent = formatLedPx(panel.settings.ledPx);
     $('pitchMmValue').textContent = panel.settings.pitchMm;
     panel.resize();
     panel.draw();
@@ -389,15 +406,26 @@ try {
     const lines = defaultLinesFor($('panelPreset').value, $('orientation').value);
     $('display').value = lines[0];
     engine.display(lines[0]);
+    autoFitLed = true;
     savePanelOptions();
+    fitLedToStage();
     applyPreview();
   }
-  $('ledPx').oninput = applyPreview;
+  $('ledPx').oninput = () => {
+    autoFitLed = false;
+    applyPreview();
+  };
   $('pitchMm').oninput = applyPreview;
   $('panelPreset').onchange = onLayoutChange;
   $('orientation').onchange = onLayoutChange;
+  window.addEventListener('resize', () => {
+    if (!autoFitLed) return;
+    fitLedToStage();
+    applyPreview();
+  });
 
   refresh();
+  fitLedToStage();
   applyPreview();
   setInterval(() => {
     paint(engine.state());

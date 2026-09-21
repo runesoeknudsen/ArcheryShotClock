@@ -1,10 +1,32 @@
 // Draws the WASM firmware frame at its real column and row count.
+export const REFERENCE_PITCH_MM = 5;
+export const LED_PX_MIN = 0.5;
+export const LED_PX_MAX = 32;
+
+export function clampLedPx(value) {
+  return Math.min(LED_PX_MAX, Math.max(LED_PX_MIN, value));
+}
+
+export function cellMetrics(ledPx, pitchMm) {
+  const pitch = pitchMm > 0 ? pitchMm : REFERENCE_PITCH_MM;
+  const cell = Math.max(0.25, ledPx * (pitch / REFERENCE_PITCH_MM));
+  const gap = Math.max(0.15, cell * 0.18);
+  const disc = Math.max(0.2, cell - gap);
+  return { cell, gap, disc };
+}
+
+export function ledPxForWidth(columns, pitchMm, availableWidth) {
+  const cols = Math.max(1, columns);
+  const cell = Math.max(0.25, availableWidth / (cols + 0.18));
+  const pitch = pitchMm > 0 ? pitchMm : REFERENCE_PITCH_MM;
+  return clampLedPx(cell * REFERENCE_PITCH_MM / pitch);
+}
+
 export function createPanel(canvas, engine) {
   const ctx = canvas.getContext('2d');
 
   const settings = {
-    ledPx: 12,
-    gapPx: 2,
+    ledPx: 8,
     pitchMm: 5
   };
 
@@ -12,11 +34,22 @@ export function createPanel(canvas, engine) {
     return engine.panelSize();
   }
 
+  function metrics() {
+    return cellMetrics(settings.ledPx, settings.pitchMm);
+  }
+
+  function rememberMetrics(drawn) {
+    canvas.dataset.cell = String(drawn.cell);
+    canvas.dataset.gap = String(drawn.gap);
+    canvas.dataset.disc = String(drawn.disc);
+  }
+
   function resize() {
     const grid = firmwareSize();
-    const cell = settings.ledPx + settings.gapPx;
-    canvas.width = grid.columns * cell + settings.gapPx;
-    canvas.height = grid.rows * cell + settings.gapPx;
+    const drawn = metrics();
+    canvas.width = Math.max(1, Math.round(grid.columns * drawn.cell + drawn.gap));
+    canvas.height = Math.max(1, Math.round(grid.rows * drawn.cell + drawn.gap));
+    rememberMetrics(drawn);
   }
 
   function colour(pixel) {
@@ -29,7 +62,8 @@ export function createPanel(canvas, engine) {
   function draw() {
     const grid = firmwareSize();
     const pixels = engine.pixels();
-    const cell = settings.ledPx + settings.gapPx;
+    const drawn = metrics();
+    rememberMetrics(drawn);
     ctx.fillStyle = '#05070a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -37,15 +71,15 @@ export function createPanel(canvas, engine) {
       for (let x = 0; x < grid.columns; x++) {
         const pixel = pixels[y * grid.columns + x] || 0;
         ctx.fillStyle = pixel ? colour(pixel) : '#10151b';
-        ctx.beginPath();
-        ctx.roundRect(
-          settings.gapPx + x * cell,
-          settings.gapPx + y * cell,
-          settings.ledPx,
-          settings.ledPx,
-          Math.max(1, settings.ledPx / 4)
-        );
-        ctx.fill();
+        const x0 = drawn.gap + x * drawn.cell;
+        const y0 = drawn.gap + y * drawn.cell;
+        if (drawn.disc >= 1.5 && typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(x0, y0, drawn.disc, drawn.disc, drawn.disc / 4);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x0, y0, drawn.disc, drawn.disc);
+        }
       }
     }
   }
@@ -74,6 +108,7 @@ export function createPanel(canvas, engine) {
     resize,
     draw,
     summary,
+    metrics,
     get firmware() {
       return firmwareSize();
     }
