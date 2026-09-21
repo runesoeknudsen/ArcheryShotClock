@@ -7,9 +7,10 @@
 // Named panel sizes and how 32x16 content is placed on them.
 //
 // The original clock is two 8x32 WS2812B modules (32x16). P5 HUB75 modules are
-// 64x32. Three of those in a U are 96x64 (top, right rotated 90°, bottom);
-// four in a 2x2 are 128x64. Portrait swaps the axes so a tall cabinet can show
-// more stacked lines.
+// 64x32. One stays horizontal (64x32). Two to five stand on end, long side
+// against long side, so the cabinet is 64x64, 96x64, 128x64 or 160x64.
+// Portrait rotates that cabinet 90° so a tall stand can show more stacked
+// lines.
 
 namespace DisplayLogic {
 

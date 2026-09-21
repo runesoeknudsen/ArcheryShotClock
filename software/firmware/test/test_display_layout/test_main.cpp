@@ -32,6 +32,11 @@ void test_named_sizes_and_portrait_swap() {
   TEST_ASSERT_EQUAL_UINT16(64, two.columns);
   TEST_ASSERT_EQUAL_UINT16(64, two.rows);
 
+  const DisplayLogic::Geometry two =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
+  TEST_ASSERT_EQUAL_UINT16(64, two.columns);
+  TEST_ASSERT_EQUAL_UINT16(64, two.rows);
+
   const DisplayLogic::Geometry three =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
   TEST_ASSERT_EQUAL_UINT16(96, three.columns);
@@ -148,68 +153,28 @@ void test_line_list_parsing() {
   TEST_ASSERT_EQUAL_STRING("CLOCK,SCORE,ARROWS", formatted);
 }
 
-void test_hub75_three_panel_corners() {
-  const DisplayLogic::Geometry geometry =
+void test_hub75_vertical_panels_are_rotated() {
+  const DisplayLogic::Geometry three =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
   uint16_t dmaX = 0;
   uint16_t dmaY = 0;
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 0, 0, dmaX, dmaY));
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(three, 0, 0, dmaX, dmaY));
   TEST_ASSERT_EQUAL_UINT16(0, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 63, 31, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(63, dmaX);
   TEST_ASSERT_EQUAL_UINT16(31, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 64, 0, dmaX, dmaY));
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(three, 32, 0, dmaX, dmaY));
   TEST_ASSERT_EQUAL_UINT16(64, dmaX);
   TEST_ASSERT_EQUAL_UINT16(31, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 95, 0, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(64, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 95, 63, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(127, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 0, 32, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(128, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 63, 63, dmaX, dmaY));
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(three, 95, 63, dmaX, dmaY));
   TEST_ASSERT_EQUAL_UINT16(191, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(31, dmaY);
-}
-
-void test_hub75_three_panel_u_uses_every_chain_pixel() {
-  const DisplayLogic::Geometry geometry =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
-  bool used[192 * 32] = {};
-  uint16_t dmaX = 0;
-  uint16_t dmaY = 0;
-  for (uint16_t y = 0; y < 64; y++) {
-    for (uint16_t x = 0; x < 96; x++) {
-      TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, x, y, dmaX, dmaY));
-      TEST_ASSERT_LESS_THAN_UINT16(192, dmaX);
-      TEST_ASSERT_LESS_THAN_UINT16(32, dmaY);
-      const uint16_t index = static_cast<uint16_t>(dmaY * 192 + dmaX);
-      TEST_ASSERT_FALSE(used[index]);
-      used[index] = true;
-    }
-  }
-}
-
-void test_hub75_four_panel_is_2x2() {
-  const DisplayLogic::Geometry geometry =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_128x64, DisplayLogic::Orientation::Landscape);
-  uint16_t dmaX = 0;
-  uint16_t dmaY = 0;
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 0, 32, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(128, dmaX);
   TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 127, 63, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(255, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(31, dmaY);
-  TEST_ASSERT_EQUAL_UINT8(4, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_128x64).chain);
-}
+  TEST_ASSERT_EQUAL_UINT8(3, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_96x64).chain);
 
-void test_hub75_other_panel_chain_lengths() {
-  TEST_ASSERT_EQUAL_UINT8(2, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_64x64).chain);
+  const DisplayLogic::Geometry four =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_128x64, DisplayLogic::Orientation::Landscape);
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(four, 127, 63, dmaX, dmaY));
+  TEST_ASSERT_EQUAL_UINT16(255, dmaX);
+  TEST_ASSERT_EQUAL_UINT16(0, dmaY);
+  TEST_ASSERT_EQUAL_UINT8(4, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_128x64).chain);
   TEST_ASSERT_EQUAL_UINT8(5, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_160x64).chain);
 }
 
@@ -229,6 +194,51 @@ void test_hub75_three_vertical_uses_every_chain_pixel() {
       used[index] = true;
     }
   }
+}
+
+void test_last_line_takes_leftover_height() {
+  const DisplayLogic::Geometry geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
+  Core::DisplayContent lines[3] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
+                                   Core::DisplayContent::Score};
+  const DisplayLogic::LayoutPlan plan = DisplayLogic::planLayout(geometry, lines, 3);
+  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(22, plan.lines[2].height);
+  TEST_ASSERT_EQUAL_UINT16(64, plan.lines[0].height + plan.lines[1].height + plan.lines[2].height);
+}
+
+void test_hero_line_is_larger_than_the_others() {
+  const DisplayLogic::Geometry geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
+  Core::DisplayContent lines[4] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
+                                   Core::DisplayContent::Score, Core::DisplayContent::ArrowCount};
+  const DisplayLogic::LayoutPlan first =
+      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 0);
+  TEST_ASSERT_EQUAL_UINT16(32, first.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(16, first.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(16, first.lines[2].height);
+  TEST_ASSERT_EQUAL_UINT16(64, first.lines[0].height + first.lines[1].height + first.lines[2].height);
+
+  const DisplayLogic::LayoutPlan lastHero =
+      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 2);
+  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(32, lastHero.lines[2].height);
+
+  const DisplayLogic::LayoutPlan four =
+      DisplayLogic::planLayout(geometry, lines, 4, DisplayLogic::LineScaleMode::Hero, 0);
+  TEST_ASSERT_EQUAL_UINT16(28, four.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(12, four.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(12, four.lines[2].height);
+  TEST_ASSERT_EQUAL_UINT16(12, four.lines[3].height);
+  TEST_ASSERT_EQUAL_UINT16(64, four.lines[0].height + four.lines[1].height + four.lines[2].height +
+                                   four.lines[3].height);
+}
+
+void test_hub75_other_panel_chain_lengths() {
+  TEST_ASSERT_EQUAL_UINT8(2, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_64x64).chain);
+  TEST_ASSERT_EQUAL_UINT8(5, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_160x64).chain);
 }
 
 void test_smooth_glyphs_use_in_between_levels() {
@@ -509,9 +519,7 @@ int main() {
   RUN_TEST(test_64x32_clock_is_not_a_scaled_tile);
   RUN_TEST(test_portrait_stacks_more_lines_in_order);
   RUN_TEST(test_line_list_parsing);
-  RUN_TEST(test_hub75_three_panel_corners);
-  RUN_TEST(test_hub75_three_panel_u_uses_every_chain_pixel);
-  RUN_TEST(test_hub75_four_panel_is_2x2);
+  RUN_TEST(test_hub75_vertical_panels_are_rotated);
   RUN_TEST(test_hub75_other_panel_chain_lengths);
   RUN_TEST(test_hub75_three_vertical_uses_every_chain_pixel);
   RUN_TEST(test_smooth_glyphs_use_in_between_levels);

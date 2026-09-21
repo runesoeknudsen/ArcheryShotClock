@@ -100,7 +100,7 @@ function maxLinesFor(preset, orientation) {
 function defaultLinesFor(preset, orientation) {
   if (preset === 'LED_32X16' || orientation !== 'PORTRAIT') return ['CLOCK'];
   const maxLines = maxLinesFor(preset, orientation);
-  const used = maxLines > DEFAULT_LINE_ORDER.length ? DEFAULT_LINE_ORDER.length : maxLines;
+  const used = Math.min(maxLines, DEFAULT_LINE_ORDER.length);
   return DEFAULT_LINE_ORDER.slice(0, used);
 }
 
@@ -132,8 +132,8 @@ function layoutHint(preset) {
   return ({
     P5_64X32: 'one horizontal P5',
     P5_64X64: 'two P5 stood on end',
-    P5_96X64: 'three P5 in a U (top → right 90° → bottom)',
-    P5_128X64: 'four P5 in a 2×2',
+    P5_96X64: 'three P5 stood on end',
+    P5_128X64: 'four P5 stood on end',
     P5_160X64: 'five P5 stood on end'
   })[preset] || '';
 }

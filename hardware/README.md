@@ -49,17 +49,17 @@ Build `waveshare_s3_hub75` for the Waveshare ESP32-S3-RGB-Matrix board (ESP32-S3
 | E | unused (1/8 scan) | CLK | 41 |
 | LAT | 40 | OE | 2 |
 
-The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; the fork's `VirtualMatrixPanel_T` with `FOUR_SCAN_64X32_DOUBLE_WIDTH` maps the 64×32 cabinet onto that buffer.
+The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; the library's `ScanTypeMapping<FOUR_SCAN_32PX_HIGH>` maps the 64×32 cabinet onto that buffer, with pixel base set to 1.
 
 Supported P5 64×32 layouts, set from the web UI:
 
 - One panel, kept horizontal: 64×32, or 32×64 when the cabinet is rotated 90°
 - Two panels stood on end: 64×64
-- Three panels in a U: 96×64, or 64×96 vertical. Two 64×32 modules stack on the left (long sides together). The third is rotated 90° and stands on the right end, giving (64+32)×64. Chain the HUB75 ribbon P0 (top) → P1 (right, rotated 90°) → P2 (bottom, under the top).
-- Four panels in a 2×2: 128×64, or 64×128 vertical. Chain P0 (top-left) → P1 (top-right) → P2 (bottom-left) → P3 (bottom-right)
+- Three panels stood on end: 96×64
+- Four panels stood on end: 128×64
 - Five panels stood on end: 160×64
 
-A larger cabinet stamps generated sans-serif outlines at the panel resolution. Edges fall off smoothly so a curve reads as a hill instead of a staircase of upscaled pixels. Add another typeface with `software/tools/font_to_glyphs.py`. Lines share the available height when you add more than one, and the last line takes any leftover pixels. You can instead pick one large line and keep the others the same size.
+Rotate the whole cabinet 90° for a tall stand so more lines fit. Chain the HUB75 ribbon left to right; each module is rotated 90° clockwise. Lines share the available height by default, and the last line takes any leftover pixels. Larger cabinets stamp generated sans-serif outlines at the panel resolution with smooth edges. Add another typeface with `software/tools/font_to_glyphs.py`. You can instead pick one large line and keep the others the same size.
 
 The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.
 

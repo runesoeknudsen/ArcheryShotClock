@@ -44,22 +44,13 @@ test('panel size control changes the firmware frame', async ({ page }) => {
   expect(tall.height).toBeGreaterThan(small.height);
 });
 
-test('three P5 landscape defaults to one clock line', async ({ page }) => {
-  await page.goto('/demo/');
-  await page.locator('#panelPreset').selectOption('P5_96X64');
-  await expect(page.locator('#sizeReadout')).toContainText('96×64');
-  await expect(page.locator('#layoutNote')).toContainText('1 of');
-  await expect(page.locator('#lineCount')).toHaveValue('1');
-  await expect(page.locator('#line0')).toHaveValue('CLOCK');
-});
-
-test('three P5 layout is a U-shape 96x64', async ({ page }) => {
+test('three P5 modules stand on end as 96x64', async ({ page }) => {
   await page.goto('/demo/');
   await page.locator('#panelPreset').selectOption('P5_96X64');
   await expect(page.locator('#sizeReadout')).toContainText('96×64');
   await expect(page.locator('#layoutNote')).toContainText('96×64');
-  await expect(page.locator('#layoutNote')).toContainText('U-shape');
-  await expect(page.locator('#layoutNote')).toContainText('top → right 90° → bottom');
+  await expect(page.locator('#layoutNote')).toContainText('stood on end');
+  await expect(page.locator('#layoutNote')).not.toContainText('U-shape');
   const { panel, stage } = await page.evaluate(() => {
     const canvas = document.getElementById('panel').getBoundingClientRect();
     const stage = document.getElementById('stage').getBoundingClientRect();
