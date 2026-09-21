@@ -22,12 +22,42 @@ export function ledPxForWidth(columns, pitchMm, availableWidth) {
   return clampLedPx(cell * REFERENCE_PITCH_MM / pitch);
 }
 
+export function moduleSeams(preset, orientation) {
+  if (preset === 'P5_96X64') {
+    if (orientation === 'PORTRAIT') {
+      return [
+        { x: 0, y: 32, w: 64, h: 0 },
+        { x: 32, y: 32, w: 0, h: 64 }
+      ];
+    }
+    return [
+      { x: 64, y: 0, w: 0, h: 64 },
+      { x: 0, y: 32, w: 64, h: 0 }
+    ];
+  }
+  if (preset === 'P5_128X64') {
+    if (orientation === 'PORTRAIT') {
+      return [
+        { x: 32, y: 0, w: 0, h: 128 },
+        { x: 0, y: 64, w: 64, h: 0 }
+      ];
+    }
+    return [
+      { x: 64, y: 0, w: 0, h: 64 },
+      { x: 0, y: 32, w: 128, h: 0 }
+    ];
+  }
+  return [];
+}
+
 export function createPanel(canvas, engine) {
   const ctx = canvas.getContext('2d');
 
   const settings = {
     ledPx: 8,
-    pitchMm: 5
+    pitchMm: 5,
+    preset: 'LED_32X16',
+    orientation: 'LANDSCAPE'
   };
 
   function firmwareSize() {
@@ -81,6 +111,27 @@ export function createPanel(canvas, engine) {
           ctx.fillRect(x0, y0, drawn.disc, drawn.disc);
         }
       }
+    }
+    drawSeams(drawn);
+  }
+
+  function drawSeams(drawn) {
+    const seams = moduleSeams(settings.preset, settings.orientation);
+    if (!seams.length) return;
+    ctx.strokeStyle = 'rgba(255,150,56,0.55)';
+    ctx.lineWidth = Math.max(1, drawn.gap);
+    for (const seam of seams) {
+      const x0 = drawn.gap + seam.x * drawn.cell;
+      const y0 = drawn.gap + seam.y * drawn.cell;
+      ctx.beginPath();
+      if (seam.w) {
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x0 + seam.w * drawn.cell, y0);
+      } else {
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x0, y0 + seam.h * drawn.cell);
+      }
+      ctx.stroke();
     }
   }
 

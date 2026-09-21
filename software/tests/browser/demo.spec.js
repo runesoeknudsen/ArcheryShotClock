@@ -44,6 +44,22 @@ test('panel size control changes the firmware frame', async ({ page }) => {
   expect(tall.height).toBeGreaterThan(small.height);
 });
 
+test('three P5 layout is a U-shape 96x64', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_96X64');
+  await expect(page.locator('#sizeReadout')).toContainText('96×64');
+  await expect(page.locator('#layoutNote')).toContainText('96×64');
+  await expect(page.locator('#layoutNote')).toContainText('U-shape');
+  await expect(page.locator('#layoutNote')).toContainText('top → right 90° → bottom');
+  const { panel, stage } = await page.evaluate(() => {
+    const canvas = document.getElementById('panel').getBoundingClientRect();
+    const stage = document.getElementById('stage').getBoundingClientRect();
+    return { panel: canvas.width, stage: stage.width };
+  });
+  expect(panel).toBeGreaterThan(40);
+  expect(panel).toBeLessThanOrEqual(stage + 2);
+});
+
 test('clock format defaults to seconds and can switch to minutes', async ({ page }) => {
   await page.goto('/demo/');
   await expect(page.locator('#clock')).toHaveText('120');

@@ -798,9 +798,12 @@
       }
       if ($('layoutNote')) {
         const driver = state.displayDriver || 'WS2812B';
-        $('layoutNote').innerHTML =
-          driver + ' ' + (state.panelColumns || 32) + '×' + (state.panelRows || 16) +
-          ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+        let note = driver + ' ' + (state.panelColumns || 32) + '×' + (state.panelRows || 16);
+        if ((state.panelPreset || $('panelPreset').value) === 'P5_96X64') {
+          note += ' U-shape (top → right 90° → bottom)';
+        }
+        note += ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+        $('layoutNote').innerHTML = note;
       }
     }
     function onLayoutChange() {

@@ -603,26 +603,6 @@ RenderResult renderWired32x16(const RenderRequest& request, uint32_t* pixels) {
   return result;
 }
 
-<<<<<<< HEAD
-bool lastFrameDistinctElementsSeparated() {
-  for (uint8_t y = 0; y < ROWS; y++) {
-    for (uint8_t x = 0; x < COLUMNS; x++) {
-      const uint8_t here = occupancy[static_cast<uint16_t>(y) * COLUMNS + x];
-      if (here == ELEMENT_NONE) continue;
-      for (int8_t dy = -1; dy <= 1; dy++) {
-        for (int8_t dx = -1; dx <= 1; dx++) {
-          if (dx == 0 && dy == 0) continue;
-          const int nx = static_cast<int>(x) + dx;
-          const int ny = static_cast<int>(y) + dy;
-          if (nx < 0 || ny < 0 || nx >= COLUMNS || ny >= ROWS) continue;
-          const uint8_t other = occupancy[static_cast<uint16_t>(ny) * COLUMNS + static_cast<uint8_t>(nx)];
-          if (other != ELEMENT_NONE && other != here) return false;
-        }
-      }
-    }
-  }
-  return true;
-=======
 RenderResult renderComposed(const RenderRequest& request, uint32_t* pixels) {
   const uint16_t count = pixelCount(request.geometry);
   for (uint16_t index = 0; index < count; index++) pixels[index] = 0;
@@ -659,6 +639,26 @@ RenderResult renderComposed(const RenderRequest& request, uint32_t* pixels) {
 
 }  // namespace
 
+bool lastFrameDistinctElementsSeparated() {
+  for (uint8_t y = 0; y < ROWS; y++) {
+    for (uint8_t x = 0; x < COLUMNS; x++) {
+      const uint8_t here = occupancy[static_cast<uint16_t>(y) * COLUMNS + x];
+      if (here == ELEMENT_NONE) continue;
+      for (int8_t dy = -1; dy <= 1; dy++) {
+        for (int8_t dx = -1; dx <= 1; dx++) {
+          if (dx == 0 && dy == 0) continue;
+          const int nx = static_cast<int>(x) + dx;
+          const int ny = static_cast<int>(y) + dy;
+          if (nx < 0 || ny < 0 || nx >= COLUMNS || ny >= ROWS) continue;
+          const uint8_t other = occupancy[static_cast<uint16_t>(ny) * COLUMNS + static_cast<uint8_t>(nx)];
+          if (other != ELEMENT_NONE && other != here) return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
 RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
   if (usesWired32x16(request)) return renderWired32x16(request, pixels);
   return renderComposed(request, pixels);
@@ -672,7 +672,6 @@ void applyLayout(RenderRequest& request, PanelPreset preset, Orientation orienta
     request.lines[index] = static_cast<Core::DisplayContent>(lines[index]);
   }
   if (request.lineCount > 0) request.content = request.lines[0];
->>>>>>> 6939598 (Add Waveshare HUB75 P5 layouts and configurable panel lines.)
 }
 
 }  // namespace DisplayLogic

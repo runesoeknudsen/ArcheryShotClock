@@ -136,9 +136,13 @@ function syncLineSlots(state) {
     if (field && document.activeElement !== field) field.value = chosen[index] || 'BLANK';
   }
   if ($('layoutNote')) {
-    $('layoutNote').innerHTML =
-      (state.displayDriver || 'WS2812B') + ' ' + (state.panelColumns || 32) + '×' +
-      (state.panelRows || 16) + ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+    let note = (state.displayDriver || 'WS2812B') + ' ' + (state.panelColumns || 32) + '×' +
+      (state.panelRows || 16);
+    if ((state.panelPreset || '') === 'P5_96X64') {
+      note += ' U-shape (top → right 90° → bottom)';
+    }
+    note += ' — up to ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+    $('layoutNote').innerHTML = note;
   }
 }
 
@@ -289,6 +293,8 @@ try {
       $('extendBox').hidden = !canExtend;
       $('extras').hidden = !canExtend && !$('aux').childElementCount;
     }
+    panel.settings.preset = state.panelPreset || 'LED_32X16';
+    panel.settings.orientation = state.orientation || 'LANDSCAPE';
     panel.draw();
     updateSize(panel);
     beep();
@@ -428,6 +434,8 @@ try {
   function applyPreview() {
     panel.settings.ledPx = +$('ledPx').value;
     panel.settings.pitchMm = +$('pitchMm').value;
+    panel.settings.preset = $('panelPreset').value;
+    panel.settings.orientation = $('orientation').value;
     $('ledPxValue').textContent = formatLedPx(panel.settings.ledPx);
     $('pitchMmValue').textContent = panel.settings.pitchMm;
     panel.resize();
