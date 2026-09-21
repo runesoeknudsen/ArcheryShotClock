@@ -49,17 +49,19 @@ bool mapLandscapeToHub75(PanelPreset preset, uint16_t x, uint16_t y, uint16_t& d
 
   switch (preset) {
     case PanelPreset::P5_96x64:
+      // U-shape chain: P0 top 64x32, P1 right 64x32 rotated 90° CW, P2 bottom
+      // 64x32 under the top. The HUB75 ribbon runs top → right → bottom.
       if (x < 64) {
         if (y < 32) {
           dmaX = x;
           dmaY = y;
         } else {
-          dmaX = static_cast<uint16_t>(64 + x);
+          dmaX = static_cast<uint16_t>(128 + x);
           dmaY = static_cast<uint16_t>(y - 32);
         }
       } else {
         const uint16_t localX = static_cast<uint16_t>(x - 64);
-        dmaX = static_cast<uint16_t>(128 + y);
+        dmaX = static_cast<uint16_t>(64 + y);
         dmaY = static_cast<uint16_t>(31 - localX);
       }
       return true;
@@ -280,6 +282,7 @@ Hub75Canvas hub75Canvas(PanelPreset preset) {
   Hub75Canvas canvas;
   switch (preset) {
     case PanelPreset::P5_96x64:
+      // Three 64x32 modules in a U, driven as one 192x32 chain.
       canvas.width = 192;
       canvas.height = 32;
       canvas.chain = 3;

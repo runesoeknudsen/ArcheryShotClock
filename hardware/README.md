@@ -52,7 +52,7 @@ Build `waveshare_s3_hub75` for the Waveshare ESP32-S3 RGB Matrix Driver Board. T
 Supported P5 64×32 layouts, set from the web UI:
 
 - One panel: 64×32, or 32×64 vertical
-- Three panels in a rectangle: 96×64, or 64×96 vertical. Two modules stack on the left; the third is rotated 90° on the right. Physically chain them P0 (top-left) → P1 (bottom-left) → P2 (right, rotated)
+- Three panels in a U: 96×64, or 64×96 vertical. Two 64×32 modules stack on the left (long sides together). The third is rotated 90° and stands on the right end, giving (64+32)×64. Chain the HUB75 ribbon P0 (top) → P1 (right, rotated 90°) → P2 (bottom, under the top).
 - Four panels in a 2×2: 128×64, or 64×128 vertical. Chain P0 (top-left) → P1 (top-right) → P2 (bottom-left) → P3 (bottom-right)
 
 The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.

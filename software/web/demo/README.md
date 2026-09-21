@@ -14,9 +14,9 @@ into flash.
 - Setup page: the timing program and a live preview of occupy / shoot / score
 - Start, occupy 10 s, shoot, stop, score
 - The LED grid is the real firmware frame, including colour
-- **Panel size** and **format** select the same 32×16, 64×32, 96×64 and 128×64
-  layouts the ESP32 and Waveshare HUB75 builds use, including extra stacked
-  lines in vertical format
+- **Panel size** and **format** select the same 32×16, 64×32, 96×64 U-shape and
+  128×64 layouts the ESP32 and Waveshare HUB75 builds use, including extra
+  stacked lines in vertical format
 - **On-screen LED size** defaults to the browser width; the slider goes down to half a pixel
 - **Module pitch** scales the preview cells (P5 is 5 mm) and the millimetre readout
 - Beeps play in the browser speaker (after the first tap)

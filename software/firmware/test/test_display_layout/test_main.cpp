@@ -113,18 +113,48 @@ void test_hub75_three_panel_corners() {
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
   uint16_t dmaX = 0;
   uint16_t dmaY = 0;
+  // P0 top 64x32
   TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 0, 0, dmaX, dmaY));
   TEST_ASSERT_EQUAL_UINT16(0, dmaX);
   TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 0, 32, dmaX, dmaY));
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 63, 31, dmaX, dmaY));
+  TEST_ASSERT_EQUAL_UINT16(63, dmaX);
+  TEST_ASSERT_EQUAL_UINT16(31, dmaY);
+  // P1 right 64x32, rotated 90° CW onto the end of the U
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 64, 0, dmaX, dmaY));
+  TEST_ASSERT_EQUAL_UINT16(64, dmaX);
+  TEST_ASSERT_EQUAL_UINT16(31, dmaY);
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 95, 0, dmaX, dmaY));
   TEST_ASSERT_EQUAL_UINT16(64, dmaX);
   TEST_ASSERT_EQUAL_UINT16(0, dmaY);
-  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 64, 0, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(128, dmaX);
-  TEST_ASSERT_EQUAL_UINT16(31, dmaY);
   TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 95, 63, dmaX, dmaY));
-  TEST_ASSERT_EQUAL_UINT16(191, dmaX);
+  TEST_ASSERT_EQUAL_UINT16(127, dmaX);
   TEST_ASSERT_EQUAL_UINT16(0, dmaY);
+  // P2 bottom 64x32, under the top
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 0, 32, dmaX, dmaY));
+  TEST_ASSERT_EQUAL_UINT16(128, dmaX);
+  TEST_ASSERT_EQUAL_UINT16(0, dmaY);
+  TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, 63, 63, dmaX, dmaY));
+  TEST_ASSERT_EQUAL_UINT16(191, dmaX);
+  TEST_ASSERT_EQUAL_UINT16(31, dmaY);
+}
+
+void test_hub75_three_panel_u_uses_every_chain_pixel() {
+  const DisplayLogic::Geometry geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
+  bool used[192 * 32] = {};
+  uint16_t dmaX = 0;
+  uint16_t dmaY = 0;
+  for (uint16_t y = 0; y < 64; y++) {
+    for (uint16_t x = 0; x < 96; x++) {
+      TEST_ASSERT_TRUE(DisplayLogic::mapLogicalToHub75(geometry, x, y, dmaX, dmaY));
+      TEST_ASSERT_LESS_THAN_UINT16(192, dmaX);
+      TEST_ASSERT_LESS_THAN_UINT16(32, dmaY);
+      const uint16_t index = static_cast<uint16_t>(dmaY * 192 + dmaX);
+      TEST_ASSERT_FALSE(used[index]);
+      used[index] = true;
+    }
+  }
 }
 
 void test_hub75_four_panel_is_2x2() {
@@ -179,6 +209,7 @@ int main() {
   RUN_TEST(test_portrait_stacks_more_lines_in_order);
   RUN_TEST(test_line_list_parsing);
   RUN_TEST(test_hub75_three_panel_corners);
+  RUN_TEST(test_hub75_three_panel_u_uses_every_chain_pixel);
   RUN_TEST(test_hub75_four_panel_is_2x2);
   RUN_TEST(test_ws2812_32x16_matches_the_original_map);
   RUN_TEST(test_ws2812_64x32_uses_every_led_once);
