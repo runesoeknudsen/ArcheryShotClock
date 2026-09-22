@@ -118,6 +118,8 @@ void test_state_json_carries_the_clock_and_the_session() {
   TEST_ASSERT_TRUE(has(json, "\"abcdFollowTimer\":false"));
   TEST_ASSERT_TRUE(has(json, "\"abcdColour\":\"#ffffff\""));
   TEST_ASSERT_TRUE(has(json, "\"abcdRotation\":true"));
+  TEST_ASSERT_TRUE(has(json, "\"breakMinutes\":15"));
+  TEST_ASSERT_TRUE(has(json, "\"breakSeconds\":900"));
 }
 
 void test_state_json_reports_the_board_s_memory() {

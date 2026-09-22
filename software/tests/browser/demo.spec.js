@@ -132,7 +132,7 @@ test('LED panel keeps AB white while the timer follows the light', async ({ page
   await expect(page.locator('#phase')).toHaveText('OCCUPY');
   await expect(page.locator('#clockGroup')).toHaveCSS('color', 'rgb(255, 255, 255)');
   await expect(page.locator('#clock')).toHaveCSS('color', 'rgb(255, 24, 8)');
-  expect(await panelPixel(page, 2, 2)).toEqual([255, 255, 255]);
+  expect(await panelPixel(page, 1, 2)).toEqual([255, 255, 255]);
   expect(await panelPixel(page, 26, 2)).toEqual([255, 24, 8]);
 });
 
@@ -150,6 +150,6 @@ test('LED panel uses a custom AB CD colour from settings', async ({ page }) => {
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
   await expect(page.locator('#phase')).toHaveText('OCCUPY');
   await expect(page.locator('#clockGroup')).toHaveCSS('color', 'rgb(51, 102, 204)');
-  expect(await panelPixel(page, 2, 2)).toEqual([51, 102, 204]);
+  expect(await panelPixel(page, 1, 2)).toEqual([51, 102, 204]);
   expect(await panelPixel(page, 26, 2)).toEqual([255, 24, 8]);
 });

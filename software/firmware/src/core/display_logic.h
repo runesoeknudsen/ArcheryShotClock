@@ -48,6 +48,12 @@ constexpr uint32_t COLOUR_WHITE = 0xFFFFFF;
 // Same right edge as the MM:SS ones digit, so switching format does not jump.
 constexpr uint8_t CLOCK_ONES_LEFT = 25;
 
+// Occupancy ids for the one-LED gap rule between distinct panel elements.
+constexpr uint8_t ELEMENT_NONE = 0;
+constexpr uint8_t ELEMENT_TIME = 1;
+constexpr uint8_t ELEMENT_LABEL = 2;
+constexpr uint8_t ELEMENT_GROUP = 3;
+
 struct RenderRequest {
   Core::DisplayContent content = Core::DisplayContent::Clock;
   Core::Light light = Core::Light::Off;
@@ -91,5 +97,11 @@ void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state);
 // Fills pixels and returns what was drawn. Content with no data falls back to
 // the clock rather than showing a blank panel.
 RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels);
+
+// True when every pair of distinct drawn elements (time vs BREAK/END/SCORE,
+// or AB/CD vs time) has at least one unused LED between occupied pixels,
+// including diagonally. Independent of the current font and panel size as
+// long as drawing goes through the occupancy map.
+bool lastFrameDistinctElementsSeparated();
 
 }  // namespace DisplayLogic

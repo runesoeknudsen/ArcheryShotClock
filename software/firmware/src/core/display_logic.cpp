@@ -10,8 +10,29 @@ constexpr uint8_t DIGIT_WIDTH = 5;
 constexpr uint8_t DIGIT_HEIGHT = 11;
 constexpr uint8_t DIGIT_GAP = 2;
 constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
-constexpr uint8_t GROUP_LEFT = 1;
+constexpr uint8_t GROUP_LEFT = 0;
 constexpr uint8_t LETTER_GAP = 1;
+constexpr uint8_t ELEMENT_GAP = 1;
+
+uint8_t occupancy[PIXEL_COUNT];
+uint8_t currentElement = ELEMENT_NONE;
+
+void setElement(uint8_t element) { currentElement = element; }
+
+void clearOccupancy() {
+  for (uint16_t index = 0; index < PIXEL_COUNT; index++) occupancy[index] = ELEMENT_NONE;
+}
+
+void plot(uint8_t x, uint8_t y, uint32_t colour, uint32_t* pixels) {
+  if (x >= COLUMNS || y >= ROWS) return;
+  pixels[ledIndex(x, y)] = colour;
+  occupancy[static_cast<uint16_t>(y) * COLUMNS + x] = currentElement;
+}
+
+uint8_t minTimeLeft(bool groupVertical) {
+  if (!groupVertical) return 0;
+  return static_cast<uint8_t>(GROUP_LEFT + SmallFont::NARROW_WIDTH + ELEMENT_GAP);
+}
 
 const char* groupLetters(uint8_t detail) {
   switch (detail) {
@@ -23,22 +44,25 @@ const char* groupLetters(uint8_t detail) {
 }
 
 bool showGroup(const RenderRequest& request) {
-  return request.showAbcd && request.details > 1;
+  // MM:SS during a break uses the same columns as vertical AB/CD, so the group
+  // letters have to come off the panel while that timer is showing.
+  return request.showAbcd && request.details > 1 && request.phase != Core::Phase::Break;
 }
 
 bool endLabelPhase(Core::Phase phase) {
   return phase == Core::Phase::Finished || phase == Core::Phase::Scoring;
 }
 
-void drawDigitAt(uint8_t value, uint8_t left, uint8_t top, uint32_t colour, uint32_t* pixels) {
+void drawDigitAt(uint8_t value, uint8_t left, uint8_t top, uint32_t colour, uint32_t* pixels,
+                 bool compact = false) {
   if (value > 9) return;
-  for (uint8_t row = 0; row < DIGIT_HEIGHT; row++) {
-    if (top + row >= ROWS) continue;
-    for (uint8_t column = 0; column < DIGIT_WIDTH; column++) {
-      if (BIG_DIGITS[value][row][column] != '#') continue;
-      const uint8_t x = left + column;
-      if (x >= COLUMNS) continue;
-      pixels[ledIndex(x, top + row)] = colour;
+  const uint8_t height = compact ? SmallFont::DIGIT_HEIGHT : DIGIT_HEIGHT;
+  const uint8_t width = compact ? SmallFont::DIGIT_WIDTH : DIGIT_WIDTH;
+  for (uint8_t row = 0; row < height; row++) {
+    const char* glyph = compact ? SmallFont::DIGIT[value][row] : BIG_DIGITS[value][row];
+    for (uint8_t column = 0; column < width; column++) {
+      if (glyph[column] != '#') continue;
+      plot(static_cast<uint8_t>(left + column), static_cast<uint8_t>(top + row), colour, pixels);
     }
   }
 }
@@ -47,20 +71,28 @@ void drawDigit(uint8_t value, uint8_t left, uint32_t colour, uint32_t* pixels) {
   drawDigitAt(value, left, DIGIT_TOP, colour, pixels);
 }
 
-void drawColon(uint32_t colour, uint32_t* pixels) {
-  for (uint8_t y = 5; y < 7; y++) {
-    pixels[ledIndex(15, y)] = colour;
-    pixels[ledIndex(16, y)] = colour;
+void drawColonAt(uint8_t origin, uint8_t top, uint8_t height, uint32_t colour, uint32_t* pixels) {
+  const uint8_t x0 = static_cast<uint8_t>(origin + 13);
+  if (height <= SmallFont::DIGIT_HEIGHT) {
+    plot(x0, static_cast<uint8_t>(top + 1), colour, pixels);
+    plot(static_cast<uint8_t>(x0 + 1), static_cast<uint8_t>(top + 1), colour, pixels);
+    plot(x0, static_cast<uint8_t>(top + 3), colour, pixels);
+    plot(static_cast<uint8_t>(x0 + 1), static_cast<uint8_t>(top + 3), colour, pixels);
+    return;
   }
-  for (uint8_t y = 9; y < 11; y++) {
-    pixels[ledIndex(15, y)] = colour;
-    pixels[ledIndex(16, y)] = colour;
+  for (uint8_t y = static_cast<uint8_t>(top + 3); y < static_cast<uint8_t>(top + 5); y++) {
+    plot(x0, y, colour, pixels);
+    plot(static_cast<uint8_t>(x0 + 1), y, colour, pixels);
+  }
+  for (uint8_t y = static_cast<uint8_t>(top + 7); y < static_cast<uint8_t>(top + 9); y++) {
+    plot(x0, y, colour, pixels);
+    plot(static_cast<uint8_t>(x0 + 1), y, colour, pixels);
   }
 }
 
 void drawSeparator(uint32_t colour, uint32_t* pixels) {
   for (uint8_t y = 7; y < 9; y++) {
-    for (uint8_t x = 14; x < 18; x++) pixels[ledIndex(x, y)] = colour;
+    for (uint8_t x = 14; x < 18; x++) plot(x, y, colour, pixels);
   }
 }
 
@@ -68,25 +100,19 @@ void drawNarrowLetter(char letter, uint8_t left, uint8_t top, uint32_t colour, u
   if (letter < 'A' || letter > 'H') return;
   const uint8_t index = static_cast<uint8_t>(letter - 'A');
   for (uint8_t row = 0; row < SmallFont::NARROW_HEIGHT; row++) {
-    if (top + row >= ROWS) continue;
     for (uint8_t column = 0; column < SmallFont::NARROW_WIDTH; column++) {
       if (SmallFont::NARROW[index][row][column] != '#') continue;
-      const uint8_t x = left + column;
-      if (x >= COLUMNS) continue;
-      pixels[ledIndex(x, top + row)] = colour;
+      plot(static_cast<uint8_t>(left + column), static_cast<uint8_t>(top + row), colour, pixels);
     }
   }
 }
 
 void drawWideLetter(char letter, uint8_t left, uint8_t top, uint32_t colour, uint32_t* pixels) {
   for (uint8_t row = 0; row < SmallFont::WIDE_HEIGHT; row++) {
-    if (top + row >= ROWS) continue;
     const char* glyph = SmallFont::wideRow(letter, row);
     for (uint8_t column = 0; column < SmallFont::WIDE_WIDTH; column++) {
       if (glyph[column] != '#') continue;
-      const uint8_t x = left + column;
-      if (x >= COLUMNS) continue;
-      pixels[ledIndex(x, top + row)] = colour;
+      plot(static_cast<uint8_t>(left + column), static_cast<uint8_t>(top + row), colour, pixels);
     }
   }
 }
@@ -215,13 +241,14 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
 }
 
 void drawRightSeconds(uint32_t totalSeconds, uint8_t top, uint32_t colour, uint32_t* pixels,
-                      RenderResult& result, uint8_t textAt) {
+                      RenderResult& result, uint8_t textAt, uint8_t minLeft, bool compact) {
   uint32_t shown = totalSeconds > 9999 ? 9999 : totalSeconds;
   uint8_t digits[4] = {0};
   const uint8_t count = secondsDigits(shown, digits);
   uint8_t left = static_cast<uint8_t>(CLOCK_ONES_LEFT - (count - 1) * (DIGIT_WIDTH + DIGIT_GAP));
+  if (left < minLeft) left = minLeft;
   for (uint8_t index = 0; index < count; index++) {
-    drawDigitAt(digits[index], left, top, colour, pixels);
+    drawDigitAt(digits[index], left, top, colour, pixels, compact);
     left = static_cast<uint8_t>(left + DIGIT_WIDTH + DIGIT_GAP);
   }
   writeSecondsText(result, shown, count, textAt);
@@ -245,14 +272,19 @@ void prefixGroupText(RenderResult& result, const char* letters) {
   result.text[out] = '\0';
 }
 
-void drawMmSs(uint32_t totalSeconds, uint32_t colour, uint32_t* pixels, RenderResult& result) {
+void drawMmSs(uint32_t totalSeconds, uint32_t colour, uint32_t* pixels, RenderResult& result,
+              uint8_t top, uint8_t origin, bool compact) {
   const uint32_t minutes = (totalSeconds / 60) % 100;
   const uint32_t seconds = totalSeconds % 60;
-  drawDigit(static_cast<uint8_t>(minutes / 10), 2, colour, pixels);
-  drawDigit(static_cast<uint8_t>(minutes % 10), 9, colour, pixels);
-  drawDigit(static_cast<uint8_t>(seconds / 10), 18, colour, pixels);
-  drawDigit(static_cast<uint8_t>(seconds % 10), 25, colour, pixels);
-  drawColon(colour, pixels);
+  const uint8_t height = compact ? SmallFont::DIGIT_HEIGHT : DIGIT_HEIGHT;
+  drawDigitAt(static_cast<uint8_t>(minutes / 10), origin, top, colour, pixels, compact);
+  drawDigitAt(static_cast<uint8_t>(minutes % 10), static_cast<uint8_t>(origin + DIGIT_WIDTH + DIGIT_GAP),
+              top, colour, pixels, compact);
+  drawDigitAt(static_cast<uint8_t>(seconds / 10), static_cast<uint8_t>(origin + 16), top, colour, pixels,
+              compact);
+  drawDigitAt(static_cast<uint8_t>(seconds % 10), static_cast<uint8_t>(origin + 23), top, colour, pixels,
+              compact);
+  drawColonAt(origin, top, height, colour, pixels);
   result.text[0] = static_cast<char>('0' + minutes / 10);
   result.text[1] = static_cast<char>('0' + minutes % 10);
   result.text[2] = ':';
@@ -261,13 +293,36 @@ void drawMmSs(uint32_t totalSeconds, uint32_t colour, uint32_t* pixels, RenderRe
   result.text[5] = '\0';
 }
 
+void prefixBreakText(RenderResult& result) {
+  char time[8];
+  uint8_t index = 0;
+  while (result.text[index] != '\0' && index < sizeof(time) - 1) {
+    time[index] = result.text[index];
+    index++;
+  }
+  time[index] = '\0';
+  const char* prefix = "BREAK ";
+  uint8_t out = 0;
+  while (prefix[out] != '\0' && out < sizeof(result.text) - 1) {
+    result.text[out] = prefix[out];
+    out++;
+  }
+  for (uint8_t cursor = 0; time[cursor] != '\0' && out < sizeof(result.text) - 1; cursor++) {
+    result.text[out++] = time[cursor];
+  }
+  result.text[out] = '\0';
+}
+
 void drawEndLabel(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
                   RenderResult& result) {
   const bool scoring = request.phase == Core::Phase::Scoring;
+  setElement(ELEMENT_LABEL);
   drawWideWord(scoring ? "SCORE" : "END", 0, colour, pixels);
   const uint16_t shown = request.endNumber > 99 ? 99 : request.endNumber;
-  drawDigitAt(static_cast<uint8_t>(shown / 10), 10, 5, colour, pixels);
-  drawDigitAt(static_cast<uint8_t>(shown % 10), 17, 5, colour, pixels);
+  setElement(ELEMENT_TIME);
+  const uint8_t top = static_cast<uint8_t>(SmallFont::WIDE_HEIGHT + ELEMENT_GAP);
+  drawDigitAt(static_cast<uint8_t>(shown / 10), 10, top, colour, pixels, true);
+  drawDigitAt(static_cast<uint8_t>(shown % 10), 17, top, colour, pixels, true);
   writeLabeledNumber(result, scoring ? "Scoring" : "End", shown);
 }
 
@@ -280,18 +335,35 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
 
   const uint32_t totalSeconds = (request.remainingMs + 999) / 1000;
   const bool group = showGroup(request);
+  const bool groupVertical = group && request.abcdVertical;
+  const bool groupUnder = group && !request.abcdVertical;
   const char* letters = groupLetters(request.detail);
-  const uint8_t top = (group && !request.abcdVertical) ? 0 : DIGIT_TOP;
+  const bool compactTime = request.phase == Core::Phase::Break || groupUnder;
+  const uint8_t top = compactTime ? 0 : DIGIT_TOP;
+  const uint8_t origin = groupVertical ? minTimeLeft(true) : 2;
 
+  if (request.phase == Core::Phase::Break) {
+    setElement(ELEMENT_LABEL);
+    drawWideWord("BREAK", 0, colour, pixels);
+    setElement(ELEMENT_TIME);
+    const uint8_t timeTop = static_cast<uint8_t>(SmallFont::WIDE_HEIGHT + ELEMENT_GAP);
+    drawMmSs(totalSeconds, colour, pixels, result, timeTop, 2, true);
+    prefixBreakText(result);
+    return;
+  }
+
+  setElement(ELEMENT_TIME);
   if (request.clockSeconds) {
-    drawRightSeconds(totalSeconds, top, colour, pixels, result, 0);
+    drawRightSeconds(totalSeconds, top, colour, pixels, result, 0, minTimeLeft(groupVertical),
+                     compactTime);
   } else {
-    drawMmSs(totalSeconds, colour, pixels, result);
+    drawMmSs(totalSeconds, colour, pixels, result, top, origin, compactTime);
   }
 
   if (!group) return;
+  setElement(ELEMENT_GROUP);
   const uint32_t letterColour = groupColour(request, colour);
-  if (request.abcdVertical) {
+  if (groupVertical) {
     drawGroupVertical(letters, letterColour, pixels);
   } else {
     drawGroupUnder(letters, letterColour, pixels);
@@ -397,6 +469,8 @@ void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state) 
 
 RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
   for (uint16_t index = 0; index < PIXEL_COUNT; index++) pixels[index] = 0;
+  clearOccupancy();
+  setElement(ELEMENT_TIME);
 
   RenderResult result;
   const uint32_t colour = colourFor(request.light);
@@ -460,6 +534,26 @@ RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
   }
   result.checksum = checksum;
   return result;
+}
+
+bool lastFrameDistinctElementsSeparated() {
+  for (uint8_t y = 0; y < ROWS; y++) {
+    for (uint8_t x = 0; x < COLUMNS; x++) {
+      const uint8_t here = occupancy[static_cast<uint16_t>(y) * COLUMNS + x];
+      if (here == ELEMENT_NONE) continue;
+      for (int8_t dy = -1; dy <= 1; dy++) {
+        for (int8_t dx = -1; dx <= 1; dx++) {
+          if (dx == 0 && dy == 0) continue;
+          const int nx = static_cast<int>(x) + dx;
+          const int ny = static_cast<int>(y) + dy;
+          if (nx < 0 || ny < 0 || nx >= COLUMNS || ny >= ROWS) continue;
+          const uint8_t other = occupancy[static_cast<uint16_t>(ny) * COLUMNS + static_cast<uint8_t>(nx)];
+          if (other != ELEMENT_NONE && other != here) return false;
+        }
+      }
+    }
+  }
+  return true;
 }
 
 }  // namespace DisplayLogic

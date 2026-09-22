@@ -204,8 +204,8 @@
       </div>
       <div class="row">
         <div>
-          <label for="breakSeconds">Break length (seconds)</label>
-          <input id="breakSeconds" type="number" min="10" max="3600" value="900" onchange="saveSession()">
+          <label for="breakMinutes">Break length (minutes)</label>
+          <input id="breakMinutes" type="number" min="1" max="180" value="15" onchange="saveSession()">
         </div>
         <div></div>
       </div>
@@ -496,7 +496,7 @@
         abcdColour: $('abcdColour').value,
         breakEnabled: $('breakEnabled').value === 'true',
         breakAfterEnds: +$('breakAfterEnds').value,
-        breakSeconds: +$('breakSeconds').value
+        breakMinutes: +$('breakMinutes').value
       });
     }
 
@@ -552,8 +552,9 @@
       if (document.activeElement !== $('breakAfterEnds') && state.breakAfterEnds != null) {
         $('breakAfterEnds').value = String(state.breakAfterEnds);
       }
-      if (document.activeElement !== $('breakSeconds') && state.breakSeconds != null) {
-        $('breakSeconds').value = String(state.breakSeconds);
+      if (document.activeElement !== $('breakMinutes')) {
+        if (state.breakMinutes != null) $('breakMinutes').value = String(state.breakMinutes);
+        else if (state.breakSeconds != null) $('breakMinutes').value = String(Math.round(state.breakSeconds / 60));
       }
       applyMatch(state);
       if (document.activeElement !== $('brightness')) $('brightness').value = state.brightness;
@@ -570,7 +571,7 @@
       view.renderFlow($('flow'), state);
       const actionKey = [state.phase, state.mode, state.detail, state.details, state.shooter,
         state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
-        state.end, state.breakEnabled, state.breakAfterEnds].join('|');
+        state.end, state.breakEnabled, state.breakAfterEnds, state.breakMinutes].join('|');
       if (actionKey !== lastActionKey) {
         lastActionKey = actionKey;
         view.renderActions($('actions'), state, runAction);
@@ -605,7 +606,12 @@
         return;
       }
       if (spec.action === 'extend') {
-        await post('/api/control', { action: 'extend', seconds: +$('extendSeconds').value });
+        const seconds = spec.seconds != null ? spec.seconds : +$('extendSeconds').value;
+        await post('/api/control', { action: 'extend', seconds });
+        return;
+      }
+      if (spec.action === 'adjust_break') {
+        await post('/api/control', { action: 'adjust_break', seconds: spec.seconds });
         return;
       }
       await post('/api/control', { action: spec.action });
@@ -636,7 +642,7 @@
         shootOff: $('shootOff').value === 'true',
         breakEnabled: $('breakEnabled').value === 'true',
         breakAfterEnds: +$('breakAfterEnds').value,
-        breakSeconds: +$('breakSeconds').value
+        breakMinutes: +$('breakMinutes').value
       });
     };
     const saveDisplay = () => {

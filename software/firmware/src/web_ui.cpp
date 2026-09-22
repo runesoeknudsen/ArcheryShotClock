@@ -163,7 +163,10 @@ void WebUi::handleControl() {
     clock_.clearEmergency(now);
   } else if (action == "extend") {
     const int seconds = readJsonInteger(body, "seconds");
-    if (seconds > 0) clock_.extendTime(now, static_cast<uint32_t>(seconds) * 1000UL);
+    if (seconds != 0) clock_.extendTime(now, seconds * 1000);
+  } else if (action == "adjust_break") {
+    const int seconds = readJsonInteger(body, "seconds");
+    if (seconds != 0) clock_.adjustBreak(now, seconds * 1000);
   } else {
     server_.send(400, "application/json", "{\"error\":\"unknown action\"}");
     return;
@@ -237,6 +240,10 @@ void WebUi::handleSession() {
   if (body.indexOf("breakSeconds") >= 0) {
     const int breakSeconds = readJsonInteger(body, "breakSeconds");
     if (breakSeconds > 0) config.breakMs = static_cast<uint32_t>(breakSeconds) * 1000UL;
+  }
+  if (body.indexOf("breakMinutes") >= 0) {
+    const int breakMinutes = readJsonInteger(body, "breakMinutes");
+    if (breakMinutes > 0) config.breakMs = static_cast<uint32_t>(breakMinutes) * 60UL * 1000UL;
   }
 
   clock_.configure(now_, config);
