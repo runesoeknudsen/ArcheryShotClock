@@ -17,7 +17,9 @@ into flash.
 - **Panel size** and **format** select the same 32×16, one horizontal 64×32, and
   two to five P5s stood on end (64×64, 96×64, 128×64, 160×64) the ESP32 and
   Waveshare HUB75 builds use. Rotate the cabinet 90° for more stacked lines.
-  Line height fills the leftover space; one line can be kept larger.
+  Defaults are one clock line on three P5s. Larger cabinets draw the glyphs at
+  the panel resolution with soft edges. Line height fills leftover space; one
+  line can be kept larger.
 - **On-screen LED size** defaults to the browser width; the slider goes down to half a pixel
 - **Module pitch** scales the preview cells (P5 is 5 mm) and the millimetre readout
 - Beeps play in the browser speaker (after the first tap)

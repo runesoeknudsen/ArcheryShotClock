@@ -57,6 +57,16 @@ void test_named_sizes_and_portrait_swap() {
   TEST_ASSERT_EQUAL_UINT16(16, led.rows);
 }
 
+void test_landscape_defaults_to_one_clock_line() {
+  const DisplayLogic::Geometry three =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
+  TEST_ASSERT_EQUAL_UINT8(1, DisplayLogic::defaultLineCount(three));
+  Core::DisplayContent lines[DisplayLogic::MAX_CONTENT_LINES] = {};
+  TEST_ASSERT_EQUAL_UINT8(1, DisplayLogic::defaultLines(three, lines, DisplayLogic::MAX_CONTENT_LINES));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(Core::DisplayContent::Clock),
+                          static_cast<uint8_t>(lines[0]));
+}
+
 void test_64x32_clock_is_a_2x_tile() {
   DisplayLogic::RenderRequest small;
   small.content = Core::DisplayContent::Clock;
@@ -167,6 +177,29 @@ void test_hub75_three_vertical_uses_every_chain_pixel() {
   }
 }
 
+void test_upscaled_glyphs_use_in_between_levels() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Green;
+  request.remainingMs = 90000;
+  request.geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
+  request.lineCount = 1;
+  request.lines[0] = Core::DisplayContent::Clock;
+  DisplayLogic::renderFrame(request, large);
+
+  uint16_t soft = 0;
+  uint16_t full = 0;
+  const uint16_t count = DisplayLogic::pixelCount(request.geometry);
+  for (uint16_t index = 0; index < count; index++) {
+    if (large[index] == 0) continue;
+    if (large[index] == DisplayLogic::COLOUR_GREEN) full++;
+    else soft++;
+  }
+  TEST_ASSERT_GREATER_THAN_UINT16(20, full);
+  TEST_ASSERT_GREATER_THAN_UINT16(10, soft);
+}
+
 void test_last_line_takes_leftover_height() {
   const DisplayLogic::Geometry geometry =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
@@ -241,11 +274,13 @@ void tearDown() {}
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_named_sizes_and_portrait_swap);
+  RUN_TEST(test_landscape_defaults_to_one_clock_line);
   RUN_TEST(test_64x32_clock_is_a_2x_tile);
   RUN_TEST(test_portrait_stacks_more_lines_in_order);
   RUN_TEST(test_line_list_parsing);
   RUN_TEST(test_hub75_vertical_panels_are_rotated);
   RUN_TEST(test_hub75_three_vertical_uses_every_chain_pixel);
+  RUN_TEST(test_upscaled_glyphs_use_in_between_levels);
   RUN_TEST(test_last_line_takes_leftover_height);
   RUN_TEST(test_hero_line_is_larger_than_the_others);
   RUN_TEST(test_ws2812_32x16_matches_the_original_map);

@@ -525,14 +525,53 @@ void appendText(RenderResult& result, const char* text) {
   result.text[index] = '\0';
 }
 
+uint32_t sampleTile(const uint32_t* tile, int sx, int sy) {
+  if (sx < 0 || sy < 0 || sx >= COLUMNS || sy >= ROWS) return 0;
+  return tile[ledIndex(static_cast<uint8_t>(sx), static_cast<uint8_t>(sy))];
+}
+
+uint8_t mix8(uint8_t a, uint8_t b, uint8_t t) {
+  return static_cast<uint8_t>((static_cast<uint16_t>(a) * (255 - t) + static_cast<uint16_t>(b) * t + 127) /
+                              255);
+}
+
+uint32_t mixColour(uint32_t a, uint32_t b, uint8_t t) {
+  if (a == b || t == 0) return a;
+  if (t == 255) return b;
+  const uint32_t r = mix8(static_cast<uint8_t>(a >> 16), static_cast<uint8_t>(b >> 16), t);
+  const uint32_t g = mix8(static_cast<uint8_t>(a >> 8), static_cast<uint8_t>(b >> 8), t);
+  const uint32_t blue = mix8(static_cast<uint8_t>(a), static_cast<uint8_t>(b), t);
+  return (r << 16) | (g << 8) | blue;
+}
+
+uint32_t bilinearTile(const uint32_t* tile, uint16_t dx, uint16_t dy, uint16_t destW, uint16_t destH) {
+  const uint32_t xNum = (static_cast<uint32_t>(dx) * 2u + 1u) * COLUMNS;
+  const uint32_t xDen = static_cast<uint32_t>(destW) * 2u;
+  const uint32_t yNum = (static_cast<uint32_t>(dy) * 2u + 1u) * ROWS;
+  const uint32_t yDen = static_cast<uint32_t>(destH) * 2u;
+  const int sx = static_cast<int>(xNum / xDen);
+  const int sy = static_cast<int>(yNum / yDen);
+  const uint8_t xFrac = static_cast<uint8_t>((xNum % xDen) * 255u / xDen);
+  const uint8_t yFrac = static_cast<uint8_t>((yNum % yDen) * 255u / yDen);
+  const uint32_t a = sampleTile(tile, sx, sy);
+  const uint32_t b = sampleTile(tile, sx + 1, sy);
+  const uint32_t c = sampleTile(tile, sx, sy + 1);
+  const uint32_t d = sampleTile(tile, sx + 1, sy + 1);
+  return mixColour(mixColour(a, b, xFrac), mixColour(c, d, xFrac), yFrac);
+}
+
 void blitTile(const uint32_t* tile, uint16_t destX, uint16_t destY, uint16_t destW, uint16_t destH,
               uint16_t columns, uint16_t rows, uint32_t* dest) {
   if (destW == 0 || destH == 0) return;
+  const bool exact = destW == COLUMNS && destH == ROWS;
   for (uint16_t dy = 0; dy < destH; dy++) {
-    const uint8_t sy = static_cast<uint8_t>((dy * ROWS) / destH);
     for (uint16_t dx = 0; dx < destW; dx++) {
-      const uint8_t sx = static_cast<uint8_t>((dx * COLUMNS) / destW);
-      const uint32_t colour = tile[ledIndex(sx, sy)];
+      uint32_t colour = 0;
+      if (exact) {
+        colour = tile[ledIndex(static_cast<uint8_t>(dx), static_cast<uint8_t>(dy))];
+      } else {
+        colour = bilinearTile(tile, dx, dy, destW, destH);
+      }
       if (colour == 0) continue;
       const uint16_t px = static_cast<uint16_t>(destX + dx);
       const uint16_t py = static_cast<uint16_t>(destY + dy);

@@ -101,10 +101,7 @@ uint8_t maxLinesFor(const Geometry& geometry) {
 }
 
 uint8_t defaultLineCount(const Geometry& geometry) {
-  const uint8_t maxLines = maxLinesFor(geometry);
-  if (maxLines <= 1) return 1;
-  if (geometry.orientation == Orientation::Portrait) return maxLines;
-  if (maxLines >= 4) return 2;
+  if (geometry.orientation == Orientation::Portrait) return maxLinesFor(geometry);
   return 1;
 }
 

@@ -47,7 +47,7 @@ constexpr const char* DISPLAY_DRIVER = "WS2812B";
 #endif
 
 #ifdef DISPLAY_HUB75
-constexpr PanelPreset DEFAULT_PRESET = PanelPreset::P5_64x32;
+constexpr PanelPreset DEFAULT_PRESET = PanelPreset::P5_96x64;
 #else
 constexpr PanelPreset DEFAULT_PRESET = PanelPreset::Led32x16;
 #endif
