@@ -53,6 +53,18 @@ constexpr uint32_t COLOUR_WHITE = 0xFFFFFF;
 // Same right edge as the MM:SS ones digit, so switching format does not jump.
 constexpr uint8_t CLOCK_ONES_LEFT = 25;
 
+// Occupy, shooting and the yellow warning are seconds only, three digits
+// max, so the remaining time can fill the cabinet. Break stays MM:SS.
+inline bool shotCountdown(Core::Phase phase) {
+  return phase == Core::Phase::Occupy || phase == Core::Phase::Shooting ||
+         phase == Core::Phase::Warning;
+}
+
+inline uint32_t countdownSeconds(uint32_t remainingMs) {
+  const uint32_t total = (remainingMs + 999U) / 1000U;
+  return total > 999U ? 999U : total;
+}
+
 // Occupancy ids for the one-LED gap rule between distinct panel elements.
 constexpr uint8_t ELEMENT_NONE = 0;
 constexpr uint8_t ELEMENT_TIME = 1;
@@ -85,6 +97,10 @@ struct RenderRequest {
   LineScaleMode lineScale = LineScaleMode::Fill;
   uint8_t heroLine = 0;
 };
+
+inline bool secondsClock(const RenderRequest& request) {
+  return shotCountdown(request.phase) || request.clockSeconds;
+}
 
 struct RenderResult {
   uint32_t checksum = 0;   // identifies the frame without logging every pixel

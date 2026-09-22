@@ -15,6 +15,13 @@ constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
 constexpr uint8_t GROUP_LEFT = 0;
 constexpr uint8_t LETTER_GAP = 1;
 constexpr uint8_t ELEMENT_GAP = 1;
+constexpr float SHOOT_GROUP_W = 5.0f;
+constexpr float SHOOT_GROUP_H = 7.0f;
+constexpr float SHOOT_DIGIT_W = 8.0f;
+constexpr float SHOOT_DIGIT_H = 15.0f;
+constexpr float SHOOT_DIGIT_GAP = 1.0f;
+constexpr float SHOOT_ONES_LEFT = 24.0f;
+constexpr float SHOOT_TOP = 0.5f;
 
 struct Canvas {
   uint32_t* pixels = nullptr;
@@ -218,9 +225,10 @@ void drawNarrowLetter(const Canvas& canvas, char letter, float left, float top, 
              SmallFont::NARROW_HEIGHT, colour);
 }
 
-uint8_t minTimeLeft(bool groupVertical) {
+uint8_t minTimeLeft(bool groupVertical, bool wideGroup) {
   if (!groupVertical) return 0;
-  return static_cast<uint8_t>(GROUP_LEFT + SmallFont::NARROW_WIDTH + ELEMENT_GAP);
+  const uint8_t groupW = wideGroup ? SmallFont::WIDE_WIDTH : SmallFont::NARROW_WIDTH;
+  return static_cast<uint8_t>(GROUP_LEFT + groupW + ELEMENT_GAP);
 }
 
 const char* groupLetters(uint8_t detail) {
@@ -261,7 +269,7 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
   uint8_t reversed[4] = {0};
   uint8_t n = 0;
   uint32_t value = shown;
-  while (value > 0 && n < 4) {
+  while (value > 0 && n < 3) {
     reversed[n++] = static_cast<uint8_t>(value % 10);
     value /= 10;
   }
@@ -271,7 +279,7 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
 
 void drawRightSeconds(const Canvas& canvas, uint32_t totalSeconds, float top, uint32_t colour,
                       float minLeft, bool compact) {
-  uint32_t shown = totalSeconds > 9999 ? 9999 : totalSeconds;
+  uint32_t shown = totalSeconds > 999 ? 999 : totalSeconds;
   uint8_t digits[4] = {0};
   const uint8_t count = secondsDigits(shown, digits);
   float left = static_cast<float>(CLOCK_ONES_LEFT - (count - 1) * (DIGIT_WIDTH + DIGIT_GAP));
@@ -291,8 +299,15 @@ void drawEndLabel(const Canvas& canvas, const RenderRequest& request, uint32_t c
   drawDigit(canvas, static_cast<uint8_t>(shown % 10), 17.0f, top, true, colour);
 }
 
-void drawGroup(const Canvas& canvas, const char* letters, uint32_t colour, bool vertical) {
+void drawGroup(const Canvas& canvas, const char* letters, uint32_t colour, bool vertical, bool wide) {
   if (vertical) {
+    if (wide) {
+      stampGlyph(canvas, static_cast<uint8_t>(letters[0]), GROUP_LEFT, 2.0f, SmallFont::WIDE_WIDTH,
+                 SmallFont::WIDE_HEIGHT, colour);
+      stampGlyph(canvas, static_cast<uint8_t>(letters[1]), GROUP_LEFT, 9.0f, SmallFont::WIDE_WIDTH,
+                 SmallFont::WIDE_HEIGHT, colour);
+      return;
+    }
     drawNarrowLetter(canvas, letters[0], GROUP_LEFT, 2.0f, colour);
     drawNarrowLetter(canvas, letters[1], GROUP_LEFT, 9.0f, colour);
     return;
@@ -303,20 +318,43 @@ void drawGroup(const Canvas& canvas, const char* letters, uint32_t colour, bool 
   drawNarrowLetter(canvas, letters[1], left + SmallFont::NARROW_WIDTH + LETTER_GAP, 11.0f, colour);
 }
 
+void drawLargeSeconds(const Canvas& canvas, uint32_t totalSeconds, uint32_t colour, bool withGroup) {
+  uint32_t shown = totalSeconds > 999 ? 999 : totalSeconds;
+  uint8_t digits[3] = {0};
+  const uint8_t count = secondsDigits(shown, digits);
+  float left = SHOOT_ONES_LEFT - static_cast<float>(count - 1) * (SHOOT_DIGIT_W + SHOOT_DIGIT_GAP);
+  const float minLeft = withGroup ? SHOOT_GROUP_W + 1.0f : 0.0f;
+  if (left < minLeft) left = minLeft;
+  for (uint8_t index = 0; index < count; index++) {
+    stampGlyph(canvas, static_cast<uint8_t>('0' + digits[index]), left, SHOOT_TOP, SHOOT_DIGIT_W,
+               SHOOT_DIGIT_H, colour);
+    left += SHOOT_DIGIT_W + SHOOT_DIGIT_GAP;
+  }
+}
+
+void drawLargeGroup(const Canvas& canvas, const char* letters, uint32_t colour) {
+  stampGlyph(canvas, static_cast<uint8_t>(letters[0]), 0.0f, SHOOT_TOP, SHOOT_GROUP_W, SHOOT_GROUP_H,
+             colour);
+  stampGlyph(canvas, static_cast<uint8_t>(letters[1]), 0.0f, SHOOT_TOP + SHOOT_GROUP_H + 1.0f,
+             SHOOT_GROUP_W, SHOOT_GROUP_H, colour);
+}
+
 void drawClock(const Canvas& canvas, const RenderRequest& request, uint32_t colour) {
   if (request.showEndLabels && endLabelPhase(request.phase)) {
     drawEndLabel(canvas, request, colour);
     return;
   }
 
-  const uint32_t totalSeconds = (request.remainingMs + 999) / 1000;
+  const bool seconds = secondsClock(request);
+  const uint32_t totalSeconds =
+      seconds ? countdownSeconds(request.remainingMs) : (request.remainingMs + 999) / 1000;
   const bool group = showGroup(request);
-  const bool groupVertical = group && request.abcdVertical;
-  const bool groupUnder = group && !request.abcdVertical;
+  const bool stackGroup = group && (request.abcdVertical || shotCountdown(request.phase));
+  const bool groupUnder = group && !stackGroup;
   const char* letters = groupLetters(request.detail);
   const bool compactTime = request.phase == Core::Phase::Break || groupUnder;
   const float top = compactTime ? 0.0f : DIGIT_TOP;
-  const float origin = groupVertical ? minTimeLeft(true) : 2.0f;
+  const float origin = stackGroup ? static_cast<float>(minTimeLeft(true, seconds)) : 2.0f;
 
   if (request.phase == Core::Phase::Break) {
     drawWideWord(canvas, "BREAK", 0.0f, colour);
@@ -325,15 +363,15 @@ void drawClock(const Canvas& canvas, const RenderRequest& request, uint32_t colo
     return;
   }
 
-  if (request.clockSeconds) {
-    drawRightSeconds(canvas, totalSeconds, top, colour, static_cast<float>(minTimeLeft(groupVertical)),
-                     compactTime);
-  } else {
-    drawMmSs(canvas, totalSeconds, colour, top, origin, compactTime);
+  if (seconds) {
+    drawLargeSeconds(canvas, totalSeconds, colour, stackGroup);
+    if (group) drawLargeGroup(canvas, letters, groupColour(request, colour));
+    return;
   }
 
+  drawMmSs(canvas, totalSeconds, colour, top, origin, compactTime);
   if (!group) return;
-  drawGroup(canvas, letters, groupColour(request, colour), groupVertical);
+  drawGroup(canvas, letters, groupColour(request, colour), stackGroup, false);
 }
 
 void drawTwoPairs(const Canvas& canvas, uint16_t left, uint16_t right, uint32_t colour) {

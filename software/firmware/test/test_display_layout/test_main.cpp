@@ -278,6 +278,49 @@ void test_wide_and_narrow_glyphs_share_one_scale() {
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(4, delta);
 }
 
+void test_shooting_seconds_fill_the_large_panel() {
+  DisplayLogic::RenderRequest idle;
+  idle.content = Core::DisplayContent::Clock;
+  idle.light = Core::Light::Green;
+  idle.remainingMs = 90000;
+  idle.geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
+  idle.lineCount = 1;
+  idle.lines[0] = Core::DisplayContent::Clock;
+  DisplayLogic::renderFrame(idle, large);
+  uint16_t idleTop = 0;
+  uint16_t idleBottom = 0;
+  inkSpan(6, 21, 96, 64, &idleTop, &idleBottom);
+  const uint16_t idleH = static_cast<uint16_t>(idleBottom - idleTop + 1);
+
+  DisplayLogic::RenderRequest request = idle;
+  request.phase = Core::Phase::Shooting;
+  request.details = 2;
+  request.detail = 1;
+  request.showAbcd = true;
+  request.abcdVertical = true;
+  DisplayLogic::renderFrame(request, large);
+
+  uint16_t tensTop = 0;
+  uint16_t tensBottom = 0;
+  uint16_t onesTop = 0;
+  uint16_t onesBottom = 0;
+  uint16_t aTop = 0;
+  uint16_t aBottom = 0;
+  inkSpan(45, 69, 96, 64, &tensTop, &tensBottom);
+  inkSpan(72, 96, 96, 64, &onesTop, &onesBottom);
+  inkSpan(0, 15, 96, 64, &aTop, &aBottom);
+  const uint16_t tensH = static_cast<uint16_t>(tensBottom - tensTop + 1);
+  const uint16_t onesH = static_cast<uint16_t>(onesBottom - onesTop + 1);
+  const uint16_t aH = static_cast<uint16_t>(aBottom - aTop + 1);
+  TEST_ASSERT_GREATER_THAN_UINT16(idleH, tensH);
+  TEST_ASSERT_GREATER_THAN_UINT16(idleH, onesH);
+  TEST_ASSERT_GREATER_THAN_UINT16(12, aH);
+  const uint16_t delta = tensH > onesH ? static_cast<uint16_t>(tensH - onesH)
+                                       : static_cast<uint16_t>(onesH - tensH);
+  TEST_ASSERT_LESS_OR_EQUAL_UINT16(4, delta);
+}
+
 void test_last_line_takes_leftover_height() {
   const DisplayLogic::Geometry geometry =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
@@ -360,6 +403,7 @@ int main() {
   RUN_TEST(test_hub75_three_vertical_uses_every_chain_pixel);
   RUN_TEST(test_smooth_glyphs_use_in_between_levels);
   RUN_TEST(test_wide_and_narrow_glyphs_share_one_scale);
+  RUN_TEST(test_shooting_seconds_fill_the_large_panel);
   RUN_TEST(test_last_line_takes_leftover_height);
   RUN_TEST(test_hero_line_is_larger_than_the_others);
   RUN_TEST(test_ws2812_32x16_matches_the_original_map);

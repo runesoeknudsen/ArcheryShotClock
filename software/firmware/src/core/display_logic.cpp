@@ -31,9 +31,10 @@ constexpr uint8_t GROUP_LEFT = 0;
 constexpr uint8_t LETTER_GAP = 1;
 constexpr uint8_t ELEMENT_GAP = 1;
 
-uint8_t minTimeLeft(bool groupVertical) {
+uint8_t minTimeLeft(bool groupVertical, bool wideGroup) {
   if (!groupVertical) return 0;
-  return static_cast<uint8_t>(GROUP_LEFT + SmallFont::NARROW_WIDTH + ELEMENT_GAP);
+  const uint8_t groupW = wideGroup ? SmallFont::WIDE_WIDTH : SmallFont::NARROW_WIDTH;
+  return static_cast<uint8_t>(GROUP_LEFT + groupW + ELEMENT_GAP);
 }
 
 const char* groupLetters(const RenderRequest& request) {
@@ -139,9 +140,14 @@ void drawWideWord(const char* word, uint8_t top, uint32_t colour, uint32_t* pixe
   }
 }
 
-void drawGroupVertical(const char* letters, uint32_t colour, uint32_t* pixels) {
+void drawGroupVertical(const char* letters, uint32_t colour, uint32_t* pixels, bool wide) {
   if (letters[1] == '\0') {
     drawNarrowLetter(letters[0], GROUP_LEFT, 5, colour, pixels);
+    return;
+  }
+  if (wide) {
+    drawWideLetter(letters[0], GROUP_LEFT, 2, colour, pixels);
+    drawWideLetter(letters[1], GROUP_LEFT, 9, colour, pixels);
     return;
   }
   drawNarrowLetter(letters[0], GROUP_LEFT, 2, colour, pixels);
@@ -250,7 +256,7 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
   uint8_t reversed[4] = {0};
   uint8_t n = 0;
   uint32_t value = shown;
-  while (value > 0 && n < 4) {
+  while (value > 0 && n < 3) {
     reversed[n++] = static_cast<uint8_t>(value % 10);
     value /= 10;
   }
@@ -260,7 +266,7 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
 
 void drawRightSeconds(uint32_t totalSeconds, uint8_t top, uint32_t colour, uint32_t* pixels,
                       RenderResult& result, uint8_t textAt, uint8_t minLeft, bool compact) {
-  uint32_t shown = totalSeconds > 9999 ? 9999 : totalSeconds;
+  uint32_t shown = totalSeconds > 999 ? 999 : totalSeconds;
   uint8_t digits[4] = {0};
   const uint8_t count = secondsDigits(shown, digits);
   uint8_t left = static_cast<uint8_t>(CLOCK_ONES_LEFT - (count - 1) * (DIGIT_WIDTH + DIGIT_GAP));
@@ -352,14 +358,16 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
     return;
   }
 
-  const uint32_t totalSeconds = (request.remainingMs + 999) / 1000;
+  const bool seconds = secondsClock(request);
+  const uint32_t totalSeconds =
+      seconds ? countdownSeconds(request.remainingMs) : (request.remainingMs + 999) / 1000;
   const bool group = showGroup(request);
-  const bool groupVertical = group && request.abcdVertical;
-  const bool groupUnder = group && !request.abcdVertical;
+  const bool stackGroup = group && (request.abcdVertical || shotCountdown(request.phase));
+  const bool groupUnder = group && !stackGroup;
   const char* letters = groupLetters(request);
   const bool compactTime = request.phase == Core::Phase::Break || groupUnder;
   const uint8_t top = compactTime ? 0 : DIGIT_TOP;
-  const uint8_t origin = groupVertical ? minTimeLeft(true) : 2;
+  const uint8_t origin = stackGroup ? minTimeLeft(true, seconds) : 2;
 
   if (request.phase == Core::Phase::Break) {
     setElement(ELEMENT_LABEL);
@@ -372,8 +380,8 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
   }
 
   setElement(ELEMENT_TIME);
-  if (request.clockSeconds) {
-    drawRightSeconds(totalSeconds, top, colour, pixels, result, 0, minTimeLeft(groupVertical),
+  if (seconds) {
+    drawRightSeconds(totalSeconds, top, colour, pixels, result, 0, minTimeLeft(stackGroup, true),
                      compactTime);
   } else {
     drawMmSs(totalSeconds, colour, pixels, result, top, origin, compactTime);
@@ -382,8 +390,8 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
   if (!group) return;
   setElement(ELEMENT_GROUP);
   const uint32_t letterColour = groupColour(request, colour);
-  if (groupVertical) {
-    drawGroupVertical(letters, letterColour, pixels);
+  if (stackGroup) {
+    drawGroupVertical(letters, letterColour, pixels, seconds);
   } else {
     drawGroupUnder(letters, letterColour, pixels);
   }
