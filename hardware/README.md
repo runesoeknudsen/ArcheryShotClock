@@ -59,7 +59,7 @@ Supported P5 64×32 layouts, set from the web UI:
 - Four panels stood on end: 128×64
 - Five panels stood on end: 160×64
 
-Rotate the whole cabinet 90° for a tall stand so more lines fit. Chain the HUB75 ribbon left to right; each module is rotated 90° clockwise. Lines share the available height by default, and the last line takes any leftover pixels. Larger cabinets stamp generated sans-serif outlines at the panel resolution with smooth edges. Add another typeface with `software/tools/font_to_glyphs.py`. You can instead pick one large line and keep the others the same size.
+The Waveshare build defaults to three panels (96×64) with one clock line. Rotate the whole cabinet 90° for a tall stand (64×64, 64×96, 64×128 or 64×160) so more lines fit. Chain the HUB75 ribbon left to right; each module is rotated 90° clockwise. Larger cabinets render glyphs at the panel resolution with soft edges. Lines share the available height when added, and the last line takes any leftover pixels. Add another typeface with `software/tools/font_to_glyphs.py`, or choose one large line and keep the others the same size.
 
 The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.
 
