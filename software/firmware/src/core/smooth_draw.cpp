@@ -284,9 +284,15 @@ void stampFitted(const Canvas& canvas, const uint8_t* codes, uint8_t count, floa
                  float boxW, float boxH, const float* widths, uint8_t extraAt, uint32_t colour) {
   float cursor = left;
   for (uint8_t index = 0; index < count; index++) {
-    const float inkW = packedWidth(codes[index], boxW, boxH);
-    const float pad = widths[index] > inkW ? (widths[index] - inkW) * 0.5f : 0.0f;
-    stampPacked(canvas, codes[index], cursor + pad, top, boxW, boxH, colour);
+    // Digits share a left rail in the tabular slot so a 1 does not slide
+    // toward the centre when it replaces a 0. Letters and the colon stay
+    // optically centred in their own advance.
+    float inkLeft = cursor;
+    if (!isDigitCode(codes[index])) {
+      const float inkW = packedWidth(codes[index], boxW, boxH);
+      if (widths[index] > inkW) inkLeft += (widths[index] - inkW) * 0.5f;
+    }
+    stampPacked(canvas, codes[index], inkLeft, top, boxW, boxH, colour);
     cursor += widths[index] + LETTER_SPACE;
     if (extraAt != 0 && index + 1 == extraAt) cursor += LETTER_SPACE;
   }

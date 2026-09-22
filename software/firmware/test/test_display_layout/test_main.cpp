@@ -372,6 +372,23 @@ void test_counting_ones_does_not_nudge_the_tens() {
                                     ? static_cast<uint16_t>(hundredLeft - hundredOneLeft)
                                     : static_cast<uint16_t>(hundredOneLeft - hundredLeft);
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, hundredDelta);
+
+  // 90 vs 89: the tens glyph itself changes. A left rail keeps 8 and 9
+  // on the same origin instead of recentring a slightly different width.
+  request.remainingMs = 90000;
+  DisplayLogic::renderFrame(request, large);
+  uint16_t ninetyLeft = 0;
+  uint16_t ninetyRight = 0;
+  inkX(96, 64, &ninetyLeft, &ninetyRight);
+  request.remainingMs = 89000;
+  DisplayLogic::renderFrame(request, large);
+  uint16_t eightyNineLeft = 0;
+  uint16_t eightyNineRight = 0;
+  inkX(96, 64, &eightyNineLeft, &eightyNineRight);
+  const uint16_t ninetyDelta = ninetyLeft > eightyNineLeft
+                                   ? static_cast<uint16_t>(ninetyLeft - eightyNineLeft)
+                                   : static_cast<uint16_t>(eightyNineLeft - ninetyLeft);
+  TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, ninetyDelta);
 }
 
 void test_last_line_takes_leftover_height() {
