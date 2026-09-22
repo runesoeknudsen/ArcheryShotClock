@@ -489,6 +489,27 @@ void drawLargeGroup(const Canvas& canvas, const char* letters, uint32_t colour) 
              boxW, SHOOT_GROUP_H, colour);
 }
 
+void drawLargeSeconds(const Canvas& canvas, uint32_t totalSeconds, uint32_t colour, bool withGroup) {
+  uint32_t shown = totalSeconds > 999 ? 999 : totalSeconds;
+  uint8_t digits[3] = {0};
+  const uint8_t count = secondsDigits(shown, digits);
+  float left = SHOOT_ONES_LEFT - static_cast<float>(count - 1) * (SHOOT_DIGIT_W + SHOOT_DIGIT_GAP);
+  const float minLeft = withGroup ? SHOOT_GROUP_W + 1.0f : 0.0f;
+  if (left < minLeft) left = minLeft;
+  for (uint8_t index = 0; index < count; index++) {
+    stampGlyph(canvas, static_cast<uint8_t>('0' + digits[index]), left, SHOOT_TOP, SHOOT_DIGIT_W,
+               SHOOT_DIGIT_H, colour);
+    left += SHOOT_DIGIT_W + SHOOT_DIGIT_GAP;
+  }
+}
+
+void drawLargeGroup(const Canvas& canvas, const char* letters, uint32_t colour) {
+  stampGlyph(canvas, static_cast<uint8_t>(letters[0]), 0.0f, SHOOT_TOP, SHOOT_GROUP_W, SHOOT_GROUP_H,
+             colour);
+  stampGlyph(canvas, static_cast<uint8_t>(letters[1]), 0.0f, SHOOT_TOP + SHOOT_GROUP_H + 1.0f,
+             SHOOT_GROUP_W, SHOOT_GROUP_H, colour);
+}
+
 void drawClock(const Canvas& canvas, const RenderRequest& request, uint32_t colour) {
   if (request.showEndLabels && endLabelPhase(request.phase)) {
     drawEndLabel(canvas, request, colour);
