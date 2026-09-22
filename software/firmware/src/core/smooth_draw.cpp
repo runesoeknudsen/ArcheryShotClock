@@ -303,7 +303,7 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   }
 }
 
-// Grotesque sans after Source Sans / Helvetica / DIN signage. One cell,
+// Neutral sans-serif after Arial / Liberation Sans / Helvetica. One cell,
 // one stroke weight, and the same bowls and stems for digits and letters
 // so the clock reads as a single face.
 constexpr float kPi = 3.14159265f;
@@ -334,6 +334,27 @@ Face makeFace(float left, float top, float width, float height) {
   return face;
 }
 
+void unitEllipsePoint(float cx, float cy, float rx, float ry, float ang, float& x, float& y) {
+  x = cx + rx * cosf(ang);
+  y = cy + ry * sinf(ang);
+}
+
+// Rounded D used by B, D and R: stem on the left, flat right side, round corners.
+void addRoundBowl(const Canvas& canvas, StrokeBuf& buf, float xL, float xR, float y0, float y1,
+                  float radius) {
+  const float h = y1 - y0;
+  const float w = xR - xL;
+  if (h < 0.05f || w < 0.05f) return;
+  float cr = 0.38f * (h < w ? h : w);
+  if (cr < 0.10f) cr = 0.10f;
+  if (cr > 0.46f * h) cr = 0.46f * h;
+  addUnitStroke(canvas, buf, xL, y0, xR - cr, y0, radius);
+  addUnitArc(canvas, buf, xR - cr, y0 + cr, cr, cr, -kPi * 0.50f, 0.0f, radius);
+  addUnitStroke(canvas, buf, xR, y0 + cr, xR, y1 - cr, radius);
+  addUnitArc(canvas, buf, xR - cr, y1 - cr, cr, cr, 0.0f, kPi * 0.50f, radius);
+  addUnitStroke(canvas, buf, xR - cr, y1, xL, y1, radius);
+}
+
 void addDigit(const Canvas& canvas, StrokeBuf& buf, uint8_t value, float left, float top, float width,
               float height, float radius) {
   if (value > 9) return;
@@ -354,10 +375,15 @@ void addDigit(const Canvas& canvas, StrokeBuf& buf, uint8_t value, float left, f
       return;
     }
     case 2: {
-      const float topRy = height <= 6.0f ? height * 0.22f : height * 0.20f;
-      addUnitArc(canvas, buf, f.xM, f.yT + height * 0.22f, rx, topRy, kPi * 0.80f, kPi * 2.15f,
-                 radius);
-      addUnitStroke(canvas, buf, f.xR, f.yT + height * 0.36f, f.xL + width * 0.02f, f.yB, radius);
+      const float cy = f.yT + height * 0.24f;
+      const float ary = height * (height <= 6.0f ? 0.24f : 0.22f);
+      const float a0 = kPi * 0.92f;
+      const float a1 = kPi * 2.20f;
+      addUnitArc(canvas, buf, f.xM, cy, rx, ary, a0, a1, radius);
+      float jx = 0;
+      float jy = 0;
+      unitEllipsePoint(f.xM, cy, rx, ary, a1, jx, jy);
+      addUnitStroke(canvas, buf, jx, jy, f.xL, f.yB, radius);
       addUnitStroke(canvas, buf, f.xL, f.yB, f.xR, f.yB, radius);
       return;
     }
@@ -440,9 +466,6 @@ void addSansLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left
   const Face f = makeFace(left, top, width, height);
   const float rx = width * 0.36f;
   const float ry = height * 0.40f;
-  const float bowlRx = f.xR - f.xL;
-  const float upperRy = height * 0.20f;
-  const float lowerRy = height * 0.22f;
 
   switch (letter) {
     case 'A':
@@ -451,19 +474,19 @@ void addSansLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left
       addUnitStroke(canvas, buf, f.xL + width * 0.10f, f.yT + height * 0.58f,
                     f.xR - width * 0.10f, f.yT + height * 0.58f, radius);
       return;
-    case 'B':
+    case 'B': {
+      const float waist = f.yT + (f.yB - f.yT) * 0.44f;
       addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitArc(canvas, buf, f.xL, f.yT + height * 0.22f, bowlRx, upperRy, -kPi * 0.50f,
-                 kPi * 0.50f, radius);
-      addUnitArc(canvas, buf, f.xL, f.yB - height * 0.24f, bowlRx, lowerRy, -kPi * 0.50f,
-                 kPi * 0.50f, radius);
+      addRoundBowl(canvas, buf, f.xL, f.xR, f.yT, waist, radius);
+      addRoundBowl(canvas, buf, f.xL, f.xR, waist, f.yB, radius);
       return;
+    }
     case 'C':
       addUnitArc(canvas, buf, f.xM, f.yM, rx, ry, kPi * 0.32f, kPi * 1.68f, radius);
       return;
     case 'D':
       addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitArc(canvas, buf, f.xL, f.yM, bowlRx, ry, -kPi * 0.50f, kPi * 0.50f, radius);
+      addRoundBowl(canvas, buf, f.xL, f.xR, f.yT, f.yB, radius);
       return;
     case 'E':
       addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
@@ -499,12 +522,13 @@ void addSansLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left
     case 'O':
       addUnitEllipse(canvas, buf, f.xM, f.yM, rx, ry, radius);
       return;
-    case 'R':
+    case 'R': {
+      const float waist = f.yT + (f.yB - f.yT) * 0.44f;
       addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitArc(canvas, buf, f.xL, f.yT + height * 0.22f, bowlRx, upperRy, -kPi * 0.50f,
-                 kPi * 0.50f, radius);
-      addUnitStroke(canvas, buf, f.xL + width * 0.08f, f.yM, f.xR, f.yB, radius);
+      addRoundBowl(canvas, buf, f.xL, f.xR, f.yT, waist, radius);
+      addUnitStroke(canvas, buf, f.xL + width * 0.10f, waist, f.xR, f.yB, radius);
       return;
+    }
     case 'S':
       addUnitArc(canvas, buf, f.xM, f.yT + height * 0.22f, rx, height * 0.22f, kPi * 1.00f,
                  kPi * 1.92f, radius);
