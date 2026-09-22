@@ -105,8 +105,10 @@
       if (state.phase === 'SCORING') return 'Scoring ' + (state.end || '');
     }
     if (state && state.phase === 'BREAK') return 'BREAK ' + mmss(ms);
-    const total = Math.ceil(Math.max(ms || 0, 0) / 1000);
-    if (!state || state.clockSeconds !== false) return String(total);
+    const total = Math.min(999, Math.ceil(Math.max(ms || 0, 0) / 1000));
+    const shooting = state && (state.phase === 'OCCUPY' || state.phase === 'SHOOTING' ||
+                               state.phase === 'WARNING');
+    if (!state || shooting || state.clockSeconds !== false) return String(total);
     return mmss(ms);
   }
 
@@ -462,7 +464,11 @@
                                           : 'Replay the 10 s occupy · 1 sound then 2'
     });
     lines.push({ label: 'Emergency', value: '5 or more sounds · red · all shooting stops' });
-    if (state.clockSeconds !== false) lines.push({ label: 'Clock on the panel', value: 'Seconds, right aligned' });
+    if (state.clockSeconds !== false) {
+      lines.push({ label: 'Clock on the panel', value: 'Seconds, three digits max' });
+    } else {
+      lines.push({ label: 'Clock on the panel', value: 'Minutes when idle; seconds while shooting' });
+    }
     else lines.push({ label: 'Clock on the panel', value: 'Minutes and seconds' });
     if (usesAbcd(state) && state.showAbcd !== false) {
       lines.push({
