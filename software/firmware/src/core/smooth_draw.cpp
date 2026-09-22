@@ -15,27 +15,6 @@ constexpr uint8_t GROUP_LEFT = 0;
 constexpr uint8_t LETTER_GAP = 1;
 constexpr uint8_t ELEMENT_GAP = 1;
 
-constexpr uint8_t SEG_A = 1;
-constexpr uint8_t SEG_B = 2;
-constexpr uint8_t SEG_C = 4;
-constexpr uint8_t SEG_D = 8;
-constexpr uint8_t SEG_E = 16;
-constexpr uint8_t SEG_F = 32;
-constexpr uint8_t SEG_G = 64;
-
-const uint8_t kSevenSeg[10] = {
-    static_cast<uint8_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F),
-    static_cast<uint8_t>(SEG_B | SEG_C),
-    static_cast<uint8_t>(SEG_A | SEG_B | SEG_D | SEG_E | SEG_G),
-    static_cast<uint8_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_G),
-    static_cast<uint8_t>(SEG_B | SEG_C | SEG_F | SEG_G),
-    static_cast<uint8_t>(SEG_A | SEG_C | SEG_D | SEG_F | SEG_G),
-    static_cast<uint8_t>(SEG_A | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G),
-    static_cast<uint8_t>(SEG_A | SEG_B | SEG_C),
-    static_cast<uint8_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G),
-    static_cast<uint8_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_F | SEG_G),
-};
-
 struct Canvas {
   uint32_t* pixels = nullptr;
   uint16_t destX = 0;
@@ -48,11 +27,16 @@ struct Canvas {
   float sy = 1.0f;
 };
 
+enum class Prim : uint8_t { Capsule, Ellipse, Arc };
+
 struct Stroke {
+  Prim kind = Prim::Capsule;
   float x0 = 0;
   float y0 = 0;
   float x1 = 0;
   float y1 = 0;
+  float a0 = 0;
+  float a1 = 0;
   float radius = 0;
 };
 
@@ -62,9 +46,45 @@ struct StrokeBuf {
 
   void add(float x0, float y0, float x1, float y1, float radius) {
     if (count >= 24) return;
-    items[count++] = {x0, y0, x1, y1, radius};
+    Stroke stroke;
+    stroke.kind = Prim::Capsule;
+    stroke.x0 = x0;
+    stroke.y0 = y0;
+    stroke.x1 = x1;
+    stroke.y1 = y1;
+    stroke.radius = radius;
+    items[count++] = stroke;
+  }
+
+  void ellipse(float cx, float cy, float rx, float ry, float radius) {
+    if (count >= 24) return;
+    Stroke stroke;
+    stroke.kind = Prim::Ellipse;
+    stroke.x0 = cx;
+    stroke.y0 = cy;
+    stroke.x1 = rx;
+    stroke.y1 = ry;
+    stroke.radius = radius;
+    items[count++] = stroke;
+  }
+
+  void arc(float cx, float cy, float rx, float ry, float a0, float a1, float radius) {
+    if (count >= 24) return;
+    Stroke stroke;
+    stroke.kind = Prim::Arc;
+    stroke.x0 = cx;
+    stroke.y0 = cy;
+    stroke.x1 = rx;
+    stroke.y1 = ry;
+    stroke.a0 = a0;
+    stroke.a1 = a1;
+    stroke.radius = radius;
+    items[count++] = stroke;
   }
 };
+
+constexpr float kPi = 3.14159265f;
+constexpr float kTwoPi = 6.2831853f;
 
 uint8_t mix8(uint8_t a, uint8_t b, uint8_t t) {
   return static_cast<uint8_t>((static_cast<uint16_t>(a) * (255 - t) + static_cast<uint16_t>(b) * t + 127) /
@@ -111,6 +131,85 @@ float distToSeg(float px, float py, float x0, float y0, float x1, float y1) {
   return sqrtf(dx * dx + dy * dy);
 }
 
+bool angleOnArc(float ang, float a0, float a1) {
+  float t = ang - a0;
+  while (t < 0.0f) t += kTwoPi;
+  while (t >= kTwoPi) t -= kTwoPi;
+  return t <= a1 - a0;
+}
+
+void ellipsePoint(float cx, float cy, float rx, float ry, float ang, float& x, float& y) {
+  x = cx + rx * cosf(ang);
+  y = cy + ry * sinf(ang);
+}
+
+float distToEllipse(float px, float py, float cx, float cy, float rx, float ry) {
+  if (rx < 0.01f) rx = 0.01f;
+  if (ry < 0.01f) ry = 0.01f;
+  const float u = (px - cx) / rx;
+  const float v = (py - cy) / ry;
+  const float len = sqrtf(u * u + v * v);
+  if (len < 1e-6f) return -(rx < ry ? rx : ry);
+  const float ex = cx + (u / len) * rx;
+  const float ey = cy + (v / len) * ry;
+  const float dx = px - ex;
+  const float dy = py - ey;
+  float dist = sqrtf(dx * dx + dy * dy);
+  if (len < 1.0f) dist = -dist;
+  return dist;
+}
+
+float distToArc(float px, float py, float cx, float cy, float rx, float ry, float a0, float a1) {
+  if (rx < 0.01f) rx = 0.01f;
+  if (ry < 0.01f) ry = 0.01f;
+  const float u = (px - cx) / rx;
+  const float v = (py - cy) / ry;
+  const float ang = atan2f(v, u);
+  if (angleOnArc(ang, a0, a1)) return fabsf(distToEllipse(px, py, cx, cy, rx, ry));
+  float x0 = 0;
+  float y0 = 0;
+  float x1 = 0;
+  float y1 = 0;
+  ellipsePoint(cx, cy, rx, ry, a0, x0, y0);
+  ellipsePoint(cx, cy, rx, ry, a1, x1, y1);
+  const float d0 = distToSeg(px, py, x0, y0, x0, y0);
+  const float d1 = distToSeg(px, py, x1, y1, x1, y1);
+  return d0 < d1 ? d0 : d1;
+}
+
+float primSdf(const Stroke& stroke, float px, float py) {
+  if (stroke.kind == Prim::Ellipse) {
+    return fabsf(distToEllipse(px, py, stroke.x0, stroke.y0, stroke.x1, stroke.y1)) - stroke.radius;
+  }
+  if (stroke.kind == Prim::Arc) {
+    return distToArc(px, py, stroke.x0, stroke.y0, stroke.x1, stroke.y1, stroke.a0, stroke.a1) -
+           stroke.radius;
+  }
+  return distToSeg(px, py, stroke.x0, stroke.y0, stroke.x1, stroke.y1) - stroke.radius;
+}
+
+void primBounds(const Stroke& stroke, float pad, float& minX, float& minY, float& maxX, float& maxY) {
+  if (stroke.kind == Prim::Ellipse || stroke.kind == Prim::Arc) {
+    const float x0 = stroke.x0 - stroke.x1 - pad;
+    const float y0 = stroke.y0 - stroke.y1 - pad;
+    const float x1 = stroke.x0 + stroke.x1 + pad;
+    const float y1 = stroke.y0 + stroke.y1 + pad;
+    if (x0 < minX) minX = x0;
+    if (y0 < minY) minY = y0;
+    if (x1 > maxX) maxX = x1;
+    if (y1 > maxY) maxY = y1;
+    return;
+  }
+  const float x0 = (stroke.x0 < stroke.x1 ? stroke.x0 : stroke.x1) - pad;
+  const float x1 = (stroke.x0 > stroke.x1 ? stroke.x0 : stroke.x1) + pad;
+  const float y0 = (stroke.y0 < stroke.y1 ? stroke.y0 : stroke.y1) - pad;
+  const float y1 = (stroke.y0 > stroke.y1 ? stroke.y0 : stroke.y1) + pad;
+  if (x0 < minX) minX = x0;
+  if (y0 < minY) minY = y0;
+  if (x1 > maxX) maxX = x1;
+  if (y1 > maxY) maxY = y1;
+}
+
 float strokeRadius(const Canvas& canvas, float unitHalf) {
   float radius = unitHalf * 0.5f * (canvas.sx + canvas.sy);
   if (radius < 0.55f) radius = 0.55f;
@@ -133,6 +232,37 @@ void addUnitStroke(const Canvas& canvas, StrokeBuf& buf, float ux0, float uy0, f
   buf.add(x0, y0, x1, y1, radius);
 }
 
+void addUnitEllipse(const Canvas& canvas, StrokeBuf& buf, float ucx, float ucy, float urx, float ury,
+                    float radius) {
+  float cx = 0;
+  float cy = 0;
+  unitToDest(canvas, ucx, ucy, cx, cy);
+  buf.ellipse(cx, cy, urx * canvas.sx, ury * canvas.sy, radius);
+}
+
+void addUnitArc(const Canvas& canvas, StrokeBuf& buf, float ucx, float ucy, float urx, float ury,
+                float a0, float a1, float radius) {
+  float cx = 0;
+  float cy = 0;
+  unitToDest(canvas, ucx, ucy, cx, cy);
+  buf.arc(cx, cy, urx * canvas.sx, ury * canvas.sy, a0, a1, radius);
+}
+
+void addUnitBezier(const Canvas& canvas, StrokeBuf& buf, float x0, float y0, float x1, float y1,
+                   float x2, float y2, float x3, float y3, float radius) {
+  float px = x0;
+  float py = y0;
+  for (uint8_t step = 1; step <= 8; step++) {
+    const float t = static_cast<float>(step) / 8.0f;
+    const float u = 1.0f - t;
+    const float x = u * u * u * x0 + 3.0f * u * u * t * x1 + 3.0f * u * t * t * x2 + t * t * t * x3;
+    const float y = u * u * u * y0 + 3.0f * u * u * t * y1 + 3.0f * u * t * t * y2 + t * t * t * y3;
+    addUnitStroke(canvas, buf, px, py, x, y, radius);
+    px = x;
+    py = y;
+  }
+}
+
 void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   if (buf.count == 0 || canvas.pixels == nullptr || canvas.destW == 0 || canvas.destH == 0) return;
 
@@ -141,16 +271,7 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   float maxX = -1e9f;
   float maxY = -1e9f;
   for (uint8_t index = 0; index < buf.count; index++) {
-    const Stroke& stroke = buf.items[index];
-    const float pad = stroke.radius + 2.2f;
-    const float x0 = stroke.x0 < stroke.x1 ? stroke.x0 : stroke.x1;
-    const float x1 = stroke.x0 > stroke.x1 ? stroke.x0 : stroke.x1;
-    const float y0 = stroke.y0 < stroke.y1 ? stroke.y0 : stroke.y1;
-    const float y1 = stroke.y0 > stroke.y1 ? stroke.y0 : stroke.y1;
-    if (x0 - pad < minX) minX = x0 - pad;
-    if (y0 - pad < minY) minY = y0 - pad;
-    if (x1 + pad > maxX) maxX = x1 + pad;
-    if (y1 + pad > maxY) maxY = y1 + pad;
+    primBounds(buf.items[index], buf.items[index].radius + 2.2f, minX, minY, maxX, maxY);
   }
 
   int x0 = static_cast<int>(minX);
@@ -183,9 +304,7 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
       const float cy = static_cast<float>(py) + 0.5f;
       float sdf = 1e9f;
       for (uint8_t index = 0; index < buf.count; index++) {
-        const Stroke& stroke = buf.items[index];
-        const float dist =
-            distToSeg(cx, cy, stroke.x0, stroke.y0, stroke.x1, stroke.y1) - stroke.radius;
+        const float dist = primSdf(buf.items[index], cx, cy);
         if (dist < sdf) sdf = dist;
       }
       const float coverage = 1.0f - smoothstep(-aa, aa, sdf);
@@ -200,33 +319,61 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   }
 }
 
-void addSevenSeg(const Canvas& canvas, StrokeBuf& buf, float left, float top, float width, float height,
-                 uint8_t mask, float radius) {
-  const float pad = 0.45f * (width / 5.0f);
-  const float xL = left + pad;
-  const float xR = left + width - pad;
-  const float yT = top + pad;
-  const float yB = top + height - pad;
-  const float yM = top + height * 0.5f;
-  if (mask & SEG_A) addUnitStroke(canvas, buf, xL, yT, xR, yT, radius);
-  if (mask & SEG_B) addUnitStroke(canvas, buf, xR, yT, xR, yM, radius);
-  if (mask & SEG_C) addUnitStroke(canvas, buf, xR, yM, xR, yB, radius);
-  if (mask & SEG_D) addUnitStroke(canvas, buf, xL, yB, xR, yB, radius);
-  if (mask & SEG_E) addUnitStroke(canvas, buf, xL, yM, xL, yB, radius);
-  if (mask & SEG_F) addUnitStroke(canvas, buf, xL, yT, xL, yM, radius);
-  if (mask & SEG_G) addUnitStroke(canvas, buf, xL, yM, xR, yM, radius);
-}
-
 void addDigit(const Canvas& canvas, StrokeBuf& buf, uint8_t value, float left, float top, float width,
               float height, float radius) {
   if (value > 9) return;
+  const float cx = left + width * 0.50f;
+  const float xL = left + width * 0.12f;
+  const float xR = left + width * 0.88f;
+
+  if (value == 0) {
+    addUnitEllipse(canvas, buf, cx, top + height * 0.50f, width * 0.40f, height * 0.44f, radius);
+    return;
+  }
   if (value == 1) {
-    const float xMid = left + width * 0.50f;
-    addUnitStroke(canvas, buf, left + width * 0.22f, top + height * 0.16f, xMid, top + height * 0.06f,
+    addUnitStroke(canvas, buf, left + width * 0.22f, top + height * 0.16f, cx, top + height * 0.06f,
                   radius);
-    addUnitStroke(canvas, buf, xMid, top + height * 0.06f, xMid, top + height * 0.94f, radius);
+    addUnitStroke(canvas, buf, cx, top + height * 0.06f, cx, top + height * 0.94f, radius);
     addUnitStroke(canvas, buf, left + width * 0.16f, top + height * 0.94f, left + width * 0.84f,
                   top + height * 0.94f, radius);
+    return;
+  }
+  if (value == 2) {
+    addUnitArc(canvas, buf, cx, top + height * 0.24f, width * 0.38f, height * 0.20f, kPi * 0.90f,
+               kPi * 2.15f, radius);
+    addUnitStroke(canvas, buf, left + width * 0.84f, top + height * 0.36f, left + width * 0.16f,
+                  top + height * 0.92f, radius);
+    addUnitStroke(canvas, buf, left + width * 0.14f, top + height * 0.93f, left + width * 0.90f,
+                  top + height * 0.93f, radius);
+    return;
+  }
+  if (value == 3) {
+    addUnitArc(canvas, buf, cx, top + height * 0.27f, width * 0.38f, height * 0.24f, -kPi * 0.62f,
+               kPi * 0.85f, radius);
+    addUnitArc(canvas, buf, cx, top + height * 0.73f, width * 0.40f, height * 0.24f, -kPi * 0.85f,
+               kPi * 0.62f, radius);
+    return;
+  }
+  if (value == 4) {
+    addUnitStroke(canvas, buf, left + width * 0.78f, top + height * 0.06f, left + width * 0.78f,
+                  top + height * 0.94f, radius);
+    addUnitStroke(canvas, buf, left + width * 0.78f, top + height * 0.08f, left + width * 0.14f,
+                  top + height * 0.62f, radius);
+    addUnitStroke(canvas, buf, left + width * 0.12f, top + height * 0.62f, left + width * 0.90f,
+                  top + height * 0.62f, radius);
+    return;
+  }
+  if (value == 5) {
+    addUnitStroke(canvas, buf, xR, top + height * 0.08f, xL, top + height * 0.08f, radius);
+    addUnitStroke(canvas, buf, xL, top + height * 0.08f, xL, top + height * 0.42f, radius);
+    addUnitArc(canvas, buf, cx, top + height * 0.70f, width * 0.40f, height * 0.24f, -kPi * 0.85f,
+               kPi * 0.75f, radius);
+    return;
+  }
+  if (value == 6) {
+    addUnitEllipse(canvas, buf, cx, top + height * 0.68f, width * 0.38f, height * 0.26f, radius);
+    addUnitArc(canvas, buf, cx, top + height * 0.46f, width * 0.40f, height * 0.40f, kPi * 0.55f,
+               kPi * 1.85f, radius);
     return;
   }
   if (value == 7) {
@@ -236,7 +383,14 @@ void addDigit(const Canvas& canvas, StrokeBuf& buf, uint8_t value, float left, f
                   top + height * 0.94f, radius);
     return;
   }
-  addSevenSeg(canvas, buf, left, top, width, height, kSevenSeg[value], radius);
+  if (value == 8) {
+    addUnitEllipse(canvas, buf, cx, top + height * 0.27f, width * 0.36f, height * 0.21f, radius);
+    addUnitEllipse(canvas, buf, cx, top + height * 0.72f, width * 0.40f, height * 0.23f, radius);
+    return;
+  }
+  addUnitEllipse(canvas, buf, cx, top + height * 0.32f, width * 0.38f, height * 0.26f, radius);
+  addUnitArc(canvas, buf, cx, top + height * 0.54f, width * 0.40f, height * 0.40f, -kPi * 0.20f,
+             kPi * 1.10f, radius);
 }
 
 void drawDigit(const Canvas& canvas, uint8_t value, float left, float top, bool compact, uint32_t colour) {
@@ -273,79 +427,59 @@ void addWideLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left
   auto L = [&](float x0, float y0, float x1, float y1) {
     addUnitStroke(canvas, buf, left + x0, top + y0, left + x1, top + y1, radius);
   };
+  auto oval = [&](float cx, float cy, float rx, float ry) {
+    addUnitEllipse(canvas, buf, left + cx, top + cy, rx, ry, radius);
+  };
+  auto curve = [&](float cx, float cy, float rx, float ry, float a0, float a1) {
+    addUnitArc(canvas, buf, left + cx, top + cy, rx, ry, a0, a1, radius);
+  };
   switch (letter) {
     case 'A':
-      L(0.4f, 4.6f, 2.5f, 0.4f);
-      L(4.6f, 4.6f, 2.5f, 0.4f);
-      L(1.1f, 2.7f, 3.9f, 2.7f);
+      L(0.45f, 4.55f, 2.50f, 0.40f);
+      L(4.55f, 4.55f, 2.50f, 0.40f);
+      L(1.15f, 2.75f, 3.85f, 2.75f);
       break;
     case 'B':
-      L(0.5f, 0.4f, 0.5f, 4.6f);
-      L(0.5f, 0.4f, 3.4f, 0.4f);
-      L(3.4f, 0.4f, 4.4f, 1.3f);
-      L(4.4f, 1.3f, 3.3f, 2.3f);
-      L(0.5f, 2.3f, 3.3f, 2.3f);
-      L(3.3f, 2.3f, 4.5f, 3.4f);
-      L(4.5f, 3.4f, 3.3f, 4.6f);
-      L(0.5f, 4.6f, 3.3f, 4.6f);
+      L(0.55f, 0.40f, 0.55f, 4.60f);
+      curve(0.70f, 1.45f, 2.00f, 1.12f, -kPi * 0.52f, kPi * 0.52f);
+      curve(0.70f, 3.50f, 2.15f, 1.18f, -kPi * 0.52f, kPi * 0.52f);
       break;
     case 'C':
-      L(4.3f, 0.8f, 2.5f, 0.4f);
-      L(2.5f, 0.4f, 0.6f, 1.6f);
-      L(0.6f, 1.6f, 0.6f, 3.4f);
-      L(0.6f, 3.4f, 2.5f, 4.6f);
-      L(2.5f, 4.6f, 4.3f, 4.2f);
+      curve(2.50f, 2.50f, 2.05f, 2.15f, kPi * 0.28f, kPi * 1.72f);
       break;
     case 'D':
-      L(0.5f, 0.4f, 0.5f, 4.6f);
-      L(0.5f, 0.4f, 3.2f, 0.4f);
-      L(3.2f, 0.4f, 4.5f, 1.6f);
-      L(4.5f, 1.6f, 4.5f, 3.4f);
-      L(4.5f, 3.4f, 3.2f, 4.6f);
-      L(3.2f, 4.6f, 0.5f, 4.6f);
+      L(0.55f, 0.40f, 0.55f, 4.60f);
+      curve(0.70f, 2.50f, 2.55f, 2.15f, -kPi * 0.50f, kPi * 0.50f);
       break;
     case 'E':
-      L(0.5f, 0.4f, 0.5f, 4.6f);
-      L(0.5f, 0.4f, 4.5f, 0.4f);
-      L(0.5f, 2.5f, 3.6f, 2.5f);
-      L(0.5f, 4.6f, 4.5f, 4.6f);
+      L(0.55f, 0.40f, 0.55f, 4.60f);
+      L(0.55f, 0.40f, 4.40f, 0.40f);
+      L(0.55f, 2.50f, 3.50f, 2.50f);
+      L(0.55f, 4.60f, 4.40f, 4.60f);
       break;
     case 'K':
-      L(0.5f, 0.4f, 0.5f, 4.6f);
-      L(4.5f, 0.4f, 0.8f, 2.6f);
-      L(0.8f, 2.6f, 4.5f, 4.6f);
+      L(0.55f, 0.40f, 0.55f, 4.60f);
+      L(4.45f, 0.40f, 0.55f, 2.55f);
+      L(0.55f, 2.55f, 4.45f, 4.60f);
       break;
     case 'N':
-      L(0.5f, 4.6f, 0.5f, 0.4f);
-      L(0.5f, 0.4f, 4.5f, 4.6f);
-      L(4.5f, 4.6f, 4.5f, 0.4f);
+      L(0.55f, 4.55f, 0.55f, 0.45f);
+      L(0.55f, 0.45f, 4.45f, 4.55f);
+      L(4.45f, 4.55f, 4.45f, 0.45f);
       break;
     case 'O':
-      L(1.6f, 0.4f, 3.4f, 0.4f);
-      L(3.4f, 0.4f, 4.5f, 1.6f);
-      L(4.5f, 1.6f, 4.5f, 3.4f);
-      L(4.5f, 3.4f, 3.4f, 4.6f);
-      L(3.4f, 4.6f, 1.6f, 4.6f);
-      L(1.6f, 4.6f, 0.5f, 3.4f);
-      L(0.5f, 3.4f, 0.5f, 1.6f);
-      L(0.5f, 1.6f, 1.6f, 0.4f);
+      oval(2.50f, 2.50f, 2.00f, 2.10f);
       break;
     case 'R':
-      L(0.5f, 0.4f, 0.5f, 4.6f);
-      L(0.5f, 0.4f, 3.4f, 0.4f);
-      L(3.4f, 0.4f, 4.4f, 1.3f);
-      L(4.4f, 1.3f, 3.3f, 2.4f);
-      L(0.5f, 2.4f, 3.3f, 2.4f);
-      L(2.2f, 2.4f, 4.5f, 4.6f);
+      L(0.55f, 0.40f, 0.55f, 4.60f);
+      curve(0.70f, 1.50f, 2.05f, 1.18f, -kPi * 0.52f, kPi * 0.52f);
+      L(0.90f, 2.55f, 4.40f, 4.55f);
       break;
     case 'S':
-      L(4.3f, 0.8f, 2.6f, 0.4f);
-      L(2.6f, 0.4f, 0.7f, 1.2f);
-      L(0.7f, 1.2f, 2.0f, 2.3f);
-      L(2.0f, 2.3f, 3.6f, 3.0f);
-      L(3.6f, 3.0f, 4.3f, 3.8f);
-      L(4.3f, 3.8f, 2.4f, 4.6f);
-      L(2.4f, 4.6f, 0.6f, 4.1f);
+      addUnitBezier(canvas, buf, left + 4.15f, top + 0.55f, left + 0.45f, top + 0.25f, left + 0.45f,
+                    top + 2.55f, left + 2.50f, top + 2.50f, radius);
+      addUnitBezier(canvas, buf, left + 2.50f, top + 2.50f, left + 4.55f, top + 2.45f, left + 4.55f,
+                    top + 4.75f, left + 0.85f, top + 4.50f, radius);
       break;
     default:
       break;
@@ -357,60 +491,47 @@ void addNarrowLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float le
   auto L = [&](float x0, float y0, float x1, float y1) {
     addUnitStroke(canvas, buf, left + x0, top + y0, left + x1, top + y1, radius);
   };
+  auto curve = [&](float cx, float cy, float rx, float ry, float a0, float a1) {
+    addUnitArc(canvas, buf, left + cx, top + cy, rx, ry, a0, a1, radius);
+  };
   switch (letter) {
     case 'A':
-      L(0.3f, 4.6f, 1.5f, 0.4f);
-      L(2.7f, 4.6f, 1.5f, 0.4f);
-      L(0.6f, 2.7f, 2.4f, 2.7f);
+      L(0.30f, 4.55f, 1.50f, 0.40f);
+      L(2.70f, 4.55f, 1.50f, 0.40f);
+      L(0.60f, 2.75f, 2.40f, 2.75f);
       break;
     case 'B':
-      L(0.35f, 0.4f, 0.35f, 4.6f);
-      L(0.35f, 0.4f, 2.1f, 0.4f);
-      L(2.1f, 0.4f, 2.55f, 1.3f);
-      L(2.55f, 1.3f, 2.0f, 2.3f);
-      L(0.35f, 2.3f, 2.0f, 2.3f);
-      L(2.0f, 2.3f, 2.6f, 3.4f);
-      L(2.6f, 3.4f, 2.0f, 4.6f);
-      L(0.35f, 4.6f, 2.0f, 4.6f);
+      L(0.40f, 0.40f, 0.40f, 4.60f);
+      curve(0.50f, 1.45f, 1.20f, 1.12f, -kPi * 0.52f, kPi * 0.52f);
+      curve(0.50f, 3.50f, 1.25f, 1.18f, -kPi * 0.52f, kPi * 0.52f);
       break;
     case 'C':
-      L(2.6f, 0.9f, 1.5f, 0.4f);
-      L(1.5f, 0.4f, 0.4f, 1.5f);
-      L(0.4f, 1.5f, 0.4f, 3.5f);
-      L(0.4f, 3.5f, 1.5f, 4.6f);
-      L(1.5f, 4.6f, 2.6f, 4.1f);
+      curve(1.50f, 2.50f, 1.20f, 2.15f, kPi * 0.28f, kPi * 1.72f);
       break;
     case 'D':
-      L(0.35f, 0.4f, 0.35f, 4.6f);
-      L(0.35f, 0.4f, 1.8f, 0.4f);
-      L(1.8f, 0.4f, 2.6f, 1.6f);
-      L(2.6f, 1.6f, 2.6f, 3.4f);
-      L(2.6f, 3.4f, 1.8f, 4.6f);
-      L(1.8f, 4.6f, 0.35f, 4.6f);
+      L(0.40f, 0.40f, 0.40f, 4.60f);
+      curve(0.50f, 2.50f, 1.50f, 2.15f, -kPi * 0.50f, kPi * 0.50f);
       break;
     case 'E':
-      L(0.35f, 0.4f, 0.35f, 4.6f);
-      L(0.35f, 0.4f, 2.65f, 0.4f);
-      L(0.35f, 2.5f, 2.2f, 2.5f);
-      L(0.35f, 4.6f, 2.65f, 4.6f);
+      L(0.40f, 0.40f, 0.40f, 4.60f);
+      L(0.40f, 0.40f, 2.65f, 0.40f);
+      L(0.40f, 2.50f, 2.20f, 2.50f);
+      L(0.40f, 4.60f, 2.65f, 4.60f);
       break;
     case 'F':
-      L(0.35f, 0.4f, 0.35f, 4.6f);
-      L(0.35f, 0.4f, 2.65f, 0.4f);
-      L(0.35f, 2.5f, 2.2f, 2.5f);
+      L(0.40f, 0.40f, 0.40f, 4.60f);
+      L(0.40f, 0.40f, 2.65f, 0.40f);
+      L(0.40f, 2.50f, 2.20f, 2.50f);
       break;
     case 'G':
-      L(2.6f, 0.9f, 1.5f, 0.4f);
-      L(1.5f, 0.4f, 0.4f, 1.5f);
-      L(0.4f, 1.5f, 0.4f, 3.5f);
-      L(0.4f, 3.5f, 1.5f, 4.6f);
-      L(1.5f, 4.6f, 2.6f, 3.6f);
-      L(2.6f, 3.6f, 1.6f, 3.6f);
+      curve(1.50f, 2.50f, 1.20f, 2.15f, kPi * 0.30f, kPi * 1.70f);
+      L(2.65f, 3.55f, 2.65f, 2.55f);
+      L(2.65f, 2.55f, 1.75f, 2.55f);
       break;
     case 'H':
-      L(0.35f, 0.4f, 0.35f, 4.6f);
-      L(2.65f, 0.4f, 2.65f, 4.6f);
-      L(0.35f, 2.5f, 2.65f, 2.5f);
+      L(0.40f, 0.40f, 0.40f, 4.60f);
+      L(2.60f, 0.40f, 2.60f, 4.60f);
+      L(0.40f, 2.50f, 2.60f, 2.50f);
       break;
     default:
       break;
