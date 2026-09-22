@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "font_face.h"
 #include "small_font.h"
 
 namespace DisplayLogic {
@@ -27,63 +28,11 @@ struct Canvas {
   float sy = 1.0f;
 };
 
-enum class Prim : uint8_t { Capsule, Ellipse, Arc };
-
-struct Stroke {
-  Prim kind = Prim::Capsule;
-  float x0 = 0;
-  float y0 = 0;
-  float x1 = 0;
-  float y1 = 0;
-  float a0 = 0;
-  float a1 = 0;
-  float radius = 0;
+struct GlyphMap {
+  float scale = 1.0f;
+  float ox = 0;
+  float oy = 0;
 };
-
-struct StrokeBuf {
-  Stroke items[24];
-  uint8_t count = 0;
-
-  void add(float x0, float y0, float x1, float y1, float radius) {
-    if (count >= 24) return;
-    Stroke stroke;
-    stroke.kind = Prim::Capsule;
-    stroke.x0 = x0;
-    stroke.y0 = y0;
-    stroke.x1 = x1;
-    stroke.y1 = y1;
-    stroke.radius = radius;
-    items[count++] = stroke;
-  }
-
-  void ellipse(float cx, float cy, float rx, float ry, float radius) {
-    if (count >= 24) return;
-    Stroke stroke;
-    stroke.kind = Prim::Ellipse;
-    stroke.x0 = cx;
-    stroke.y0 = cy;
-    stroke.x1 = rx;
-    stroke.y1 = ry;
-    stroke.radius = radius;
-    items[count++] = stroke;
-  }
-
-  void arc(float cx, float cy, float rx, float ry, float a0, float a1, float radius) {
-    if (count >= 24) return;
-    Stroke stroke;
-    stroke.kind = Prim::Arc;
-    stroke.x0 = cx;
-    stroke.y0 = cy;
-    stroke.x1 = rx;
-    stroke.y1 = ry;
-    stroke.a0 = a0;
-    stroke.a1 = a1;
-    stroke.radius = radius;
-    items[count++] = stroke;
-  }
-};
-
-constexpr float kTwoPi = 6.2831853f;
 
 uint8_t mix8(uint8_t a, uint8_t b, uint8_t t) {
   return static_cast<uint8_t>((static_cast<uint16_t>(a) * (255 - t) + static_cast<uint16_t>(b) * t + 127) /
@@ -130,138 +79,78 @@ float distToSeg(float px, float py, float x0, float y0, float x1, float y1) {
   return sqrtf(dx * dx + dy * dy);
 }
 
-bool angleOnArc(float ang, float a0, float a1) {
-  float t = ang - a0;
-  while (t < 0.0f) t += kTwoPi;
-  while (t >= kTwoPi) t -= kTwoPi;
-  return t <= a1 - a0;
+float isLeft(float x0, float y0, float x1, float y1, float px, float py) {
+  return (x1 - x0) * (py - y0) - (px - x0) * (y1 - y0);
 }
 
-void ellipsePoint(float cx, float cy, float rx, float ry, float ang, float& x, float& y) {
-  x = cx + rx * cosf(ang);
-  y = cy + ry * sinf(ang);
-}
-
-float distToEllipse(float px, float py, float cx, float cy, float rx, float ry) {
-  if (rx < 0.01f) rx = 0.01f;
-  if (ry < 0.01f) ry = 0.01f;
-  const float u = (px - cx) / rx;
-  const float v = (py - cy) / ry;
-  const float len = sqrtf(u * u + v * v);
-  if (len < 1e-6f) return -(rx < ry ? rx : ry);
-  const float ex = cx + (u / len) * rx;
-  const float ey = cy + (v / len) * ry;
-  const float dx = px - ex;
-  const float dy = py - ey;
-  float dist = sqrtf(dx * dx + dy * dy);
-  if (len < 1.0f) dist = -dist;
-  return dist;
-}
-
-float distToArc(float px, float py, float cx, float cy, float rx, float ry, float a0, float a1) {
-  if (rx < 0.01f) rx = 0.01f;
-  if (ry < 0.01f) ry = 0.01f;
-  const float u = (px - cx) / rx;
-  const float v = (py - cy) / ry;
-  const float ang = atan2f(v, u);
-  if (angleOnArc(ang, a0, a1)) return fabsf(distToEllipse(px, py, cx, cy, rx, ry));
-  float x0 = 0;
-  float y0 = 0;
-  float x1 = 0;
-  float y1 = 0;
-  ellipsePoint(cx, cy, rx, ry, a0, x0, y0);
-  ellipsePoint(cx, cy, rx, ry, a1, x1, y1);
-  const float d0 = distToSeg(px, py, x0, y0, x0, y0);
-  const float d1 = distToSeg(px, py, x1, y1, x1, y1);
-  return d0 < d1 ? d0 : d1;
-}
-
-float primSdf(const Stroke& stroke, float px, float py) {
-  if (stroke.kind == Prim::Ellipse) {
-    return fabsf(distToEllipse(px, py, stroke.x0, stroke.y0, stroke.x1, stroke.y1)) - stroke.radius;
+float outlineSdf(const FontFace& face, const FontGlyph& glyph, float px, float py) {
+  float best = 1e9f;
+  int winding = 0;
+  for (uint8_t contour = 0; contour < glyph.contours; contour++) {
+    const GlyphContour& ring = face.contours[glyph.contour0 + contour];
+    if (ring.count < 2) continue;
+    for (uint16_t index = 0; index < ring.count; index++) {
+      const GlyphPoint& a = face.points[ring.first + index];
+      const GlyphPoint& b = face.points[ring.first + ((index + 1) % ring.count)];
+      const float x0 = static_cast<float>(a.x);
+      const float y0 = static_cast<float>(a.y);
+      const float x1 = static_cast<float>(b.x);
+      const float y1 = static_cast<float>(b.y);
+      const float dist = distToSeg(px, py, x0, y0, x1, y1);
+      if (dist < best) best = dist;
+      if (y0 <= py) {
+        if (y1 > py && isLeft(x0, y0, x1, y1, px, py) > 0.0f) winding++;
+      } else if (y1 <= py && isLeft(x0, y0, x1, y1, px, py) < 0.0f) {
+        winding--;
+      }
+    }
   }
-  if (stroke.kind == Prim::Arc) {
-    return distToArc(px, py, stroke.x0, stroke.y0, stroke.x1, stroke.y1, stroke.a0, stroke.a1) -
-           stroke.radius;
-  }
-  return distToSeg(px, py, stroke.x0, stroke.y0, stroke.x1, stroke.y1) - stroke.radius;
+  return winding == 0 ? best : -best;
 }
 
-void primBounds(const Stroke& stroke, float pad, float& minX, float& minY, float& maxX, float& maxY) {
-  if (stroke.kind == Prim::Ellipse || stroke.kind == Prim::Arc) {
-    const float x0 = stroke.x0 - stroke.x1 - pad;
-    const float y0 = stroke.y0 - stroke.y1 - pad;
-    const float x1 = stroke.x0 + stroke.x1 + pad;
-    const float y1 = stroke.y0 + stroke.y1 + pad;
-    if (x0 < minX) minX = x0;
-    if (y0 < minY) minY = y0;
-    if (x1 > maxX) maxX = x1;
-    if (y1 > maxY) maxY = y1;
-    return;
-  }
-  const float x0 = (stroke.x0 < stroke.x1 ? stroke.x0 : stroke.x1) - pad;
-  const float x1 = (stroke.x0 > stroke.x1 ? stroke.x0 : stroke.x1) + pad;
-  const float y0 = (stroke.y0 < stroke.y1 ? stroke.y0 : stroke.y1) - pad;
-  const float y1 = (stroke.y0 > stroke.y1 ? stroke.y0 : stroke.y1) + pad;
-  if (x0 < minX) minX = x0;
-  if (y0 < minY) minY = y0;
-  if (x1 > maxX) maxX = x1;
-  if (y1 > maxY) maxY = y1;
+GlyphMap mapGlyph(float left, float top, float width, float height, const FontFace& face,
+                  const FontGlyph& glyph) {
+  float cap = static_cast<float>(face.capHeight);
+  if (cap < 1.0f) cap = static_cast<float>(face.unitsPerEm) * 0.72f;
+  float inkW = static_cast<float>(glyph.maxX - glyph.minX);
+  float inkH = static_cast<float>(glyph.maxY - glyph.minY);
+  if (inkW < 1.0f) inkW = 1.0f;
+  if (inkH < 1.0f) inkH = 1.0f;
+  const float pad = 0.06f;
+  const float sH = (height * (1.0f - 2.0f * pad)) / cap;
+  const float sW = (width * (1.0f - 2.0f * pad)) / inkW;
+  float scale = sH < sW ? sH : sW;
+  if (scale < 1e-6f) scale = 1e-6f;
+  const float drawnW = inkW * scale;
+  const float drawnH = inkH * scale;
+  GlyphMap mapped;
+  mapped.scale = scale;
+  mapped.ox = left + (width - drawnW) * 0.5f - static_cast<float>(glyph.minX) * scale;
+  mapped.oy = top + (height - drawnH) * 0.5f + static_cast<float>(glyph.maxY) * scale;
+  return mapped;
 }
 
-float strokeRadius(const Canvas& canvas, float unitHalf) {
-  float radius = unitHalf * 0.5f * (canvas.sx + canvas.sy);
-  if (radius < 0.55f) radius = 0.55f;
-  return radius;
-}
+void stampGlyph(const Canvas& canvas, uint8_t code, float left, float top, float width, float height,
+                uint32_t colour) {
+  if (canvas.pixels == nullptr || canvas.destW == 0 || canvas.destH == 0) return;
+  const FontFace& face = activeFontFace();
+  const FontGlyph* glyph = findGlyph(face, code);
+  if (glyph == nullptr) return;
+  const GlyphMap mapped = mapGlyph(left, top, width, height, face, *glyph);
 
-void unitToDest(const Canvas& canvas, float ux, float uy, float& dx, float& dy) {
-  dx = static_cast<float>(canvas.destX) + ux * canvas.sx;
-  dy = static_cast<float>(canvas.destY) + uy * canvas.sy;
-}
+  const float x0u = mapped.ox + static_cast<float>(glyph->minX) * mapped.scale;
+  const float x1u = mapped.ox + static_cast<float>(glyph->maxX) * mapped.scale;
+  const float y0u = mapped.oy - static_cast<float>(glyph->maxY) * mapped.scale;
+  const float y1u = mapped.oy - static_cast<float>(glyph->minY) * mapped.scale;
+  float aa = 0.50f * (canvas.sx < canvas.sy ? canvas.sx : canvas.sy);
+  if (aa < 0.90f) aa = 0.90f;
+  if (aa > 1.70f) aa = 1.70f;
+  const float pad = (aa + 1.2f) / (canvas.sx < canvas.sy ? canvas.sx : canvas.sy);
 
-void addUnitStroke(const Canvas& canvas, StrokeBuf& buf, float ux0, float uy0, float ux1, float uy1,
-                   float radius) {
-  float x0 = 0;
-  float y0 = 0;
-  float x1 = 0;
-  float y1 = 0;
-  unitToDest(canvas, ux0, uy0, x0, y0);
-  unitToDest(canvas, ux1, uy1, x1, y1);
-  buf.add(x0, y0, x1, y1, radius);
-}
-
-void addUnitEllipse(const Canvas& canvas, StrokeBuf& buf, float ucx, float ucy, float urx, float ury,
-                    float radius) {
-  float cx = 0;
-  float cy = 0;
-  unitToDest(canvas, ucx, ucy, cx, cy);
-  buf.ellipse(cx, cy, urx * canvas.sx, ury * canvas.sy, radius);
-}
-
-void addUnitArc(const Canvas& canvas, StrokeBuf& buf, float ucx, float ucy, float urx, float ury,
-                float a0, float a1, float radius) {
-  float cx = 0;
-  float cy = 0;
-  unitToDest(canvas, ucx, ucy, cx, cy);
-  buf.arc(cx, cy, urx * canvas.sx, ury * canvas.sy, a0, a1, radius);
-}
-
-void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
-  if (buf.count == 0 || canvas.pixels == nullptr || canvas.destW == 0 || canvas.destH == 0) return;
-
-  float minX = 1e9f;
-  float minY = 1e9f;
-  float maxX = -1e9f;
-  float maxY = -1e9f;
-  for (uint8_t index = 0; index < buf.count; index++) {
-    primBounds(buf.items[index], buf.items[index].radius + 2.2f, minX, minY, maxX, maxY);
-  }
-
-  int x0 = static_cast<int>(minX);
-  int y0 = static_cast<int>(minY);
-  int x1 = static_cast<int>(maxX + 0.999f);
-  int y1 = static_cast<int>(maxY + 0.999f);
+  int x0 = static_cast<int>((x0u - pad) * canvas.sx + static_cast<float>(canvas.destX));
+  int y0 = static_cast<int>((y0u - pad) * canvas.sy + static_cast<float>(canvas.destY));
+  int x1 = static_cast<int>((x1u + pad) * canvas.sx + static_cast<float>(canvas.destX) + 0.999f);
+  int y1 = static_cast<int>((y1u + pad) * canvas.sy + static_cast<float>(canvas.destY) + 0.999f);
   const int clipX0 = canvas.destX;
   const int clipY0 = canvas.destY;
   const int clipX1 = static_cast<int>(canvas.destX + canvas.destW);
@@ -276,21 +165,15 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   if (y1 > static_cast<int>(canvas.rows)) y1 = canvas.rows;
   if (x0 >= x1 || y0 >= y1) return;
 
-  // Wide enough that an axis-aligned edge always lights a dimmer LED on
-  // each side. A half-pixel band falls between LED centres and reads as a
-  // staircase again.
-  float aa = 0.50f * (canvas.sx < canvas.sy ? canvas.sx : canvas.sy);
-  if (aa < 0.90f) aa = 0.90f;
-  if (aa > 1.70f) aa = 1.70f;
+  const float invS = 1.0f / mapped.scale;
   for (int py = y0; py < y1; py++) {
     for (int px = x0; px < x1; px++) {
-      const float cx = static_cast<float>(px) + 0.5f;
-      const float cy = static_cast<float>(py) + 0.5f;
-      float sdf = 1e9f;
-      for (uint8_t index = 0; index < buf.count; index++) {
-        const float dist = primSdf(buf.items[index], cx, cy);
-        if (dist < sdf) sdf = dist;
-      }
+      const float ux = (static_cast<float>(px) + 0.5f - static_cast<float>(canvas.destX)) / canvas.sx;
+      const float uy = (static_cast<float>(py) + 0.5f - static_cast<float>(canvas.destY)) / canvas.sy;
+      const float fx = (ux - mapped.ox) * invS;
+      const float fy = (mapped.oy - uy) * invS;
+      const float sdf = outlineSdf(face, *glyph, fx, fy) * mapped.scale *
+                        (0.5f * (canvas.sx + canvas.sy));
       const float coverage = 1.0f - smoothstep(-aa, aa, sdf);
       if (coverage <= 0.004f) continue;
       const uint8_t t = static_cast<uint8_t>(coverage * 255.0f + 0.5f);
@@ -303,254 +186,19 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   }
 }
 
-// Neutral sans-serif after Arial / Liberation Sans / Helvetica. One cell,
-// one stroke weight, and the same bowls and stems for digits and letters
-// so the clock reads as a single face.
-constexpr float kPi = 3.14159265f;
-
-struct Face {
-  float xL = 0;
-  float xR = 0;
-  float xM = 0;
-  float yT = 0;
-  float yB = 0;
-  float yM = 0;
-  float w = 0;
-  float h = 0;
-};
-
-Face makeFace(float left, float top, float width, float height) {
-  Face face;
-  face.w = width;
-  face.h = height;
-  const float insetX = width * 0.14f;
-  const float insetY = height <= 6.0f ? height * 0.12f : height * 0.08f;
-  face.xL = left + insetX;
-  face.xR = left + width - insetX;
-  face.xM = left + width * 0.50f;
-  face.yT = top + insetY;
-  face.yB = top + height - insetY;
-  face.yM = 0.5f * (face.yT + face.yB);
-  return face;
-}
-
-void unitEllipsePoint(float cx, float cy, float rx, float ry, float ang, float& x, float& y) {
-  x = cx + rx * cosf(ang);
-  y = cy + ry * sinf(ang);
-}
-
-// Rounded D used by B, D and R: stem on the left, flat right side, round corners.
-void addRoundBowl(const Canvas& canvas, StrokeBuf& buf, float xL, float xR, float y0, float y1,
-                  float radius) {
-  const float h = y1 - y0;
-  const float w = xR - xL;
-  if (h < 0.05f || w < 0.05f) return;
-  float cr = 0.38f * (h < w ? h : w);
-  if (cr < 0.10f) cr = 0.10f;
-  if (cr > 0.46f * h) cr = 0.46f * h;
-  addUnitStroke(canvas, buf, xL, y0, xR - cr, y0, radius);
-  addUnitArc(canvas, buf, xR - cr, y0 + cr, cr, cr, -kPi * 0.50f, 0.0f, radius);
-  addUnitStroke(canvas, buf, xR, y0 + cr, xR, y1 - cr, radius);
-  addUnitArc(canvas, buf, xR - cr, y1 - cr, cr, cr, 0.0f, kPi * 0.50f, radius);
-  addUnitStroke(canvas, buf, xR - cr, y1, xL, y1, radius);
-}
-
-void addDigit(const Canvas& canvas, StrokeBuf& buf, uint8_t value, float left, float top, float width,
-              float height, float radius) {
-  if (value > 9) return;
-  const Face f = makeFace(left, top, width, height);
-  const float rx = width * 0.36f;
-  const float ry = height * 0.42f;
-  const float bowlRy = height * (height <= 6.0f ? 0.24f : 0.22f);
-
-  switch (value) {
-    case 0:
-      addUnitEllipse(canvas, buf, f.xM, f.yM, rx, ry, radius);
-      return;
-    case 1: {
-      const float stemX = left + width * 0.56f;
-      addUnitStroke(canvas, buf, left + width * 0.20f, f.yT + height * 0.16f, stemX, f.yT, radius);
-      addUnitStroke(canvas, buf, stemX, f.yT, stemX, f.yB, radius);
-      addUnitStroke(canvas, buf, left + width * 0.18f, f.yB, left + width * 0.84f, f.yB, radius);
-      return;
-    }
-    case 2: {
-      const float cy = f.yT + height * 0.24f;
-      const float ary = height * (height <= 6.0f ? 0.24f : 0.22f);
-      const float a0 = kPi * 0.92f;
-      const float a1 = kPi * 2.20f;
-      addUnitArc(canvas, buf, f.xM, cy, rx, ary, a0, a1, radius);
-      float jx = 0;
-      float jy = 0;
-      unitEllipsePoint(f.xM, cy, rx, ary, a1, jx, jy);
-      addUnitStroke(canvas, buf, jx, jy, f.xL, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yB, f.xR, f.yB, radius);
-      return;
-    }
-    case 3: {
-      const float topCy = f.yT + height * (height <= 6.0f ? 0.20f : 0.25f);
-      const float botCy = f.yB - height * (height <= 6.0f ? 0.20f : 0.25f);
-      const float rBowl = height <= 6.0f ? height * 0.18f : bowlRy;
-      addUnitArc(canvas, buf, f.xM + width * 0.02f, topCy, rx, rBowl, -kPi * 0.62f, kPi * 0.78f,
-                 radius);
-      addUnitArc(canvas, buf, f.xM + width * 0.02f, botCy, rx, rBowl, -kPi * 0.78f, kPi * 0.62f,
-                 radius);
-      return;
-    }
-    case 4:
-      addUnitStroke(canvas, buf, f.xR - width * 0.06f, f.yT, f.xR - width * 0.06f, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xR - width * 0.06f, f.yT, f.xL, f.yT + height * 0.56f, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yT + height * 0.56f, f.xR, f.yT + height * 0.56f, radius);
-      return;
-    case 5:
-      addUnitStroke(canvas, buf, f.xR, f.yT, f.xL, f.yT, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yM, radius);
-      addUnitArc(canvas, buf, f.xM, f.yB - height * 0.26f, rx, bowlRy, -kPi * 0.82f, kPi * 0.70f,
-                 radius);
-      return;
-    case 6:
-      addUnitEllipse(canvas, buf, f.xM, f.yB - height * 0.26f, rx, height * 0.24f, radius);
-      addUnitArc(canvas, buf, f.xM, f.yM - height * 0.04f, rx, height * 0.38f, kPi * 0.52f,
-                 kPi * 1.88f, radius);
-      return;
-    case 7:
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yT, radius);
-      addUnitStroke(canvas, buf, f.xR, f.yT, f.xL + width * 0.16f, f.yB, radius);
-      return;
-    case 8:
-      addUnitEllipse(canvas, buf, f.xM, f.yT + height * 0.24f, width * 0.33f, height * 0.20f, radius);
-      addUnitEllipse(canvas, buf, f.xM, f.yB - height * 0.24f, width * 0.36f, height * 0.22f, radius);
-      return;
-    case 9:
-      addUnitEllipse(canvas, buf, f.xM, f.yT + height * 0.28f, rx * 0.95f, height * 0.22f, radius);
-      addUnitArc(canvas, buf, f.xM, f.yM + height * 0.06f, rx, height * 0.36f, -kPi * 0.08f,
-                 kPi * 0.82f, radius);
-      return;
-    default:
-      return;
-  }
-}
-
 void drawDigit(const Canvas& canvas, uint8_t value, float left, float top, bool compact, uint32_t colour) {
-  StrokeBuf buf;
-  const float width = DIGIT_WIDTH;
+  if (value > 9) return;
   const float height = compact ? static_cast<float>(SmallFont::DIGIT_HEIGHT) : DIGIT_HEIGHT;
-  const float radius = strokeRadius(canvas, compact ? 0.38f : 0.46f);
-  addDigit(canvas, buf, value, left, top, width, height, radius);
-  stampStrokes(canvas, buf, colour);
+  stampGlyph(canvas, static_cast<uint8_t>('0' + value), left, top, DIGIT_WIDTH, height, colour);
 }
 
 void drawColon(const Canvas& canvas, float origin, float top, bool compact, uint32_t colour) {
-  StrokeBuf buf;
-  const float radius = strokeRadius(canvas, compact ? 0.55f : 0.70f);
-  const float cx = origin + 13.5f;
-  if (compact) {
-    addUnitStroke(canvas, buf, cx, top + 1.5f, cx, top + 1.5f, radius);
-    addUnitStroke(canvas, buf, cx, top + 3.5f, cx, top + 3.5f, radius);
-  } else {
-    addUnitStroke(canvas, buf, cx, top + 3.5f, cx, top + 3.5f, radius);
-    addUnitStroke(canvas, buf, cx, top + 7.5f, cx, top + 7.5f, radius);
-  }
-  stampStrokes(canvas, buf, colour);
+  const float height = compact ? static_cast<float>(SmallFont::DIGIT_HEIGHT) : DIGIT_HEIGHT;
+  stampGlyph(canvas, ':', origin + 12.0f, top, 3.0f, height, colour);
 }
 
 void drawSeparator(const Canvas& canvas, uint32_t colour) {
-  StrokeBuf buf;
-  const float radius = strokeRadius(canvas, 0.70f);
-  addUnitStroke(canvas, buf, 14.4f, 8.0f, 17.6f, 8.0f, radius);
-  stampStrokes(canvas, buf, colour);
-}
-
-void addSansLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top,
-                   float width, float height, float radius) {
-  const Face f = makeFace(left, top, width, height);
-  const float rx = width * 0.36f;
-  const float ry = height * 0.40f;
-
-  switch (letter) {
-    case 'A':
-      addUnitStroke(canvas, buf, f.xL, f.yB, f.xM, f.yT, radius);
-      addUnitStroke(canvas, buf, f.xR, f.yB, f.xM, f.yT, radius);
-      addUnitStroke(canvas, buf, f.xL + width * 0.10f, f.yT + height * 0.58f,
-                    f.xR - width * 0.10f, f.yT + height * 0.58f, radius);
-      return;
-    case 'B': {
-      const float waist = f.yT + (f.yB - f.yT) * 0.44f;
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addRoundBowl(canvas, buf, f.xL, f.xR, f.yT, waist, radius);
-      addRoundBowl(canvas, buf, f.xL, f.xR, waist, f.yB, radius);
-      return;
-    }
-    case 'C':
-      addUnitArc(canvas, buf, f.xM, f.yM, rx, ry, kPi * 0.32f, kPi * 1.68f, radius);
-      return;
-    case 'D':
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addRoundBowl(canvas, buf, f.xL, f.xR, f.yT, f.yB, radius);
-      return;
-    case 'E':
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yT, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yM, f.xL + width * 0.58f, f.yM, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yB, f.xR, f.yB, radius);
-      return;
-    case 'F':
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yT, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yM, f.xL + width * 0.58f, f.yM, radius);
-      return;
-    case 'G':
-      addUnitArc(canvas, buf, f.xM, f.yM, rx, ry, kPi * 0.20f, kPi * 1.78f, radius);
-      addUnitStroke(canvas, buf, f.xM + width * 0.18f, f.yM, f.xR, f.yM, radius);
-      addUnitStroke(canvas, buf, f.xR, f.yM, f.xR, f.yM + height * 0.28f, radius);
-      return;
-    case 'H':
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xR, f.yT, f.xR, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yM, f.xR, f.yM, radius);
-      return;
-    case 'K':
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xR, f.yT, f.xL, f.yM, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yM, f.xR, f.yB, radius);
-      return;
-    case 'N':
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xR, f.yT, f.xR, f.yB, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yB, radius);
-      return;
-    case 'O':
-      addUnitEllipse(canvas, buf, f.xM, f.yM, rx, ry, radius);
-      return;
-    case 'R': {
-      const float waist = f.yT + (f.yB - f.yT) * 0.44f;
-      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
-      addRoundBowl(canvas, buf, f.xL, f.xR, f.yT, waist, radius);
-      addUnitStroke(canvas, buf, f.xL + width * 0.10f, waist, f.xR, f.yB, radius);
-      return;
-    }
-    case 'S':
-      addUnitArc(canvas, buf, f.xM, f.yT + height * 0.22f, rx, height * 0.22f, kPi * 1.00f,
-                 kPi * 1.92f, radius);
-      addUnitStroke(canvas, buf, f.xL, f.yT + height * 0.22f, f.xR, f.yB - height * 0.22f, radius);
-      addUnitArc(canvas, buf, f.xM, f.yB - height * 0.22f, rx, height * 0.22f, kPi * 0.08f, kPi,
-                 radius);
-      return;
-    default:
-      return;
-  }
-}
-
-void addWideLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top,
-                   float radius) {
-  addSansLetter(canvas, buf, letter, left, top, static_cast<float>(SmallFont::WIDE_WIDTH),
-                static_cast<float>(SmallFont::WIDE_HEIGHT), radius);
-}
-
-void addNarrowLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top,
-                     float radius) {
-  addSansLetter(canvas, buf, letter, left, top, static_cast<float>(SmallFont::NARROW_WIDTH),
-                static_cast<float>(SmallFont::NARROW_HEIGHT), radius);
+  stampGlyph(canvas, '-', 13.0f, DIGIT_TOP, 6.0f, DIGIT_HEIGHT, colour);
 }
 
 void drawWideWord(const Canvas& canvas, const char* word, float top, uint32_t colour) {
@@ -559,19 +207,16 @@ void drawWideWord(const Canvas& canvas, const char* word, float top, uint32_t co
   if (count == 0) return;
   const float width = static_cast<float>(count * SmallFont::WIDE_WIDTH + (count - 1) * LETTER_GAP);
   float left = width >= COLUMNS ? 0.0f : (static_cast<float>(COLUMNS) - width) * 0.5f;
-  const float radius = strokeRadius(canvas, 0.36f);
   for (uint8_t index = 0; index < count; index++) {
-    StrokeBuf buf;
-    addWideLetter(canvas, buf, word[index], left, top, radius);
-    stampStrokes(canvas, buf, colour);
+    stampGlyph(canvas, static_cast<uint8_t>(word[index]), left, top, SmallFont::WIDE_WIDTH,
+               SmallFont::WIDE_HEIGHT, colour);
     left += SmallFont::WIDE_WIDTH + LETTER_GAP;
   }
 }
 
 void drawNarrowLetter(const Canvas& canvas, char letter, float left, float top, uint32_t colour) {
-  StrokeBuf buf;
-  addNarrowLetter(canvas, buf, letter, left, top, strokeRadius(canvas, 0.34f));
-  stampStrokes(canvas, buf, colour);
+  stampGlyph(canvas, static_cast<uint8_t>(letter), left, top, SmallFont::NARROW_WIDTH,
+             SmallFont::NARROW_HEIGHT, colour);
 }
 
 uint8_t minTimeLeft(bool groupVertical) {

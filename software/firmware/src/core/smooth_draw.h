@@ -2,9 +2,9 @@
 
 #include "display_logic.h"
 
-// Sans-serif glyphs for cabinets larger than 32x16. The low-resolution
-// bitmap font stays on that original panel; everything else is drawn as
-// capsules, ellipses and arcs at the destination size so a curve reads as a
+// Generated typeface outlines for cabinets larger than 32x16. The
+// low-resolution bitmap font stays on that original panel; everything else
+// stamps a filled FontFace at the destination size so a curve reads as a
 // hill instead of a staircase of upscaled pixels.
 
 namespace DisplayLogic {
