@@ -232,16 +232,34 @@ float heightScale(float boxH) { return faceScale(activeFontFace(), 1000.0f, boxH
 
 float groupColumnWidth() { return boxWidthForScale(heightScale(SHOOT_GROUP_H)); }
 
+bool isDigitCode(uint8_t code) { return code >= '0' && code <= '9'; }
+
+float maxDigitInk(const FontFace& face, float scale) {
+  float best = 0.0f;
+  for (uint8_t digit = 0; digit < 10; digit++) {
+    const FontGlyph* glyph = findGlyph(face, static_cast<uint8_t>('0' + digit));
+    if (glyph == nullptr) continue;
+    const float width = inkWidth(*glyph, scale);
+    if (width > best) best = width;
+  }
+  return best > 1.0f ? best : scale;
+}
+
 void fitLine(const uint8_t* codes, uint8_t count, float boxH, float availableW, float extraGap,
-             float* outBoxW, float* outWidths, float* outTotal) {
+             bool tabularDigits, float* outBoxW, float* outWidths, float* outTotal) {
   const FontFace& face = activeFontFace();
   const float sH = heightScale(boxH);
+  const float digitCell = tabularDigits ? maxDigitInk(face, sH) : 0.0f;
   float inkSum = 0.0f;
   float inks[8] = {};
   const uint8_t used = count < 8 ? count : 8;
   for (uint8_t index = 0; index < used; index++) {
-    const FontGlyph* glyph = findGlyph(face, codes[index]);
-    inks[index] = glyph == nullptr ? boxH * 0.5f : inkWidth(*glyph, sH);
+    if (tabularDigits && isDigitCode(codes[index])) {
+      inks[index] = digitCell;
+    } else {
+      const FontGlyph* glyph = findGlyph(face, codes[index]);
+      inks[index] = glyph == nullptr ? boxH * 0.5f : inkWidth(*glyph, sH);
+    }
     inkSum += inks[index];
   }
   const float gaps = used > 1 ? LETTER_SPACE * static_cast<float>(used - 1) + extraGap : 0.0f;
@@ -266,7 +284,9 @@ void stampFitted(const Canvas& canvas, const uint8_t* codes, uint8_t count, floa
                  float boxW, float boxH, const float* widths, uint8_t extraAt, uint32_t colour) {
   float cursor = left;
   for (uint8_t index = 0; index < count; index++) {
-    stampPacked(canvas, codes[index], cursor, top, boxW, boxH, colour);
+    const float inkW = packedWidth(codes[index], boxW, boxH);
+    const float pad = widths[index] > inkW ? (widths[index] - inkW) * 0.5f : 0.0f;
+    stampPacked(canvas, codes[index], cursor + pad, top, boxW, boxH, colour);
     cursor += widths[index] + LETTER_SPACE;
     if (extraAt != 0 && index + 1 == extraAt) cursor += LETTER_SPACE;
   }
@@ -313,7 +333,8 @@ void drawWideWord(const Canvas& canvas, const char* word, float top, float boxH,
   float widths[8] = {};
   float boxW = 0.0f;
   float total = 0.0f;
-  fitLine(codes, count, boxH, static_cast<float>(COLUMNS) - EDGE_PAD, 0.0f, &boxW, widths, &total);
+  fitLine(codes, count, boxH, static_cast<float>(COLUMNS) - EDGE_PAD, 0.0f, false, &boxW, widths,
+          &total);
   const float left = total >= static_cast<float>(COLUMNS) ? 0.0f
                                                          : (static_cast<float>(COLUMNS) - total) * 0.5f;
   stampFitted(canvas, codes, count, left, top, boxW, boxH, widths, 0, colour);
@@ -357,7 +378,7 @@ void drawMmSs(const Canvas& canvas, uint32_t totalSeconds, uint32_t colour, floa
   float widths[5] = {};
   float boxW = 0.0f;
   float total = 0.0f;
-  fitLine(codes, 5, boxH, availableW, 0.0f, &boxW, widths, &total);
+  fitLine(codes, 5, boxH, availableW, 0.0f, true, &boxW, widths, &total);
   float left = origin + (availableW - total) * 0.5f;
   if (left < origin) left = origin;
   stampFitted(canvas, codes, 5, left, top, boxW, boxH, widths, 0, colour);
@@ -407,7 +428,8 @@ void drawEndLabel(const Canvas& canvas, const RenderRequest& request, uint32_t c
   float widths[2] = {};
   float boxW = 0.0f;
   float total = 0.0f;
-  fitLine(codes, 2, timeH, static_cast<float>(COLUMNS) - EDGE_PAD, 0.0f, &boxW, widths, &total);
+  fitLine(codes, 2, timeH, static_cast<float>(COLUMNS) - EDGE_PAD, 0.0f, true, &boxW, widths,
+          &total);
   const float left = (static_cast<float>(COLUMNS) - total) * 0.5f;
   stampFitted(canvas, codes, 2, left, timeTop, boxW, timeH, widths, 0, colour);
 }
@@ -448,7 +470,7 @@ void drawLargeSeconds(const Canvas& canvas, uint32_t totalSeconds, uint32_t colo
   float widths[3] = {};
   float boxW = 0.0f;
   float total = 0.0f;
-  fitLine(codes, count, SHOOT_DIGIT_H, available, 0.0f, &boxW, widths, &total);
+  fitLine(codes, count, SHOOT_DIGIT_H, available, 0.0f, true, &boxW, widths, &total);
   float left = static_cast<float>(COLUMNS) - total - EDGE_PAD;
   if (left < groupW) left = groupW;
   stampFitted(canvas, codes, count, left, SHOOT_TOP, boxW, SHOOT_DIGIT_H, widths, 0, colour);
@@ -511,7 +533,8 @@ void drawTwoPairs(const Canvas& canvas, uint16_t left, uint16_t right, uint32_t 
   float boxW = 0.0f;
   float total = 0.0f;
   const float boxH = static_cast<float>(DIGIT_HEIGHT);
-  fitLine(codes, 4, boxH, static_cast<float>(COLUMNS) - EDGE_PAD, LETTER_SPACE, &boxW, widths, &total);
+  fitLine(codes, 4, boxH, static_cast<float>(COLUMNS) - EDGE_PAD, LETTER_SPACE, true, &boxW, widths,
+          &total);
   const float cursor = (static_cast<float>(COLUMNS) - total) * 0.5f;
   stampFitted(canvas, codes, 4, cursor, DIGIT_TOP, boxW, boxH, widths, 2, colour);
 }
@@ -524,7 +547,7 @@ void drawPair(const Canvas& canvas, uint8_t value, uint32_t colour) {
   float boxW = 0.0f;
   float total = 0.0f;
   const float boxH = static_cast<float>(DIGIT_HEIGHT);
-  fitLine(codes, 2, boxH, static_cast<float>(COLUMNS) - EDGE_PAD, 0.0f, &boxW, widths, &total);
+  fitLine(codes, 2, boxH, static_cast<float>(COLUMNS) - EDGE_PAD, 0.0f, true, &boxW, widths, &total);
   const float left = (static_cast<float>(COLUMNS) - total) * 0.5f;
   stampFitted(canvas, codes, 2, left, DIGIT_TOP, boxW, boxH, widths, 0, colour);
 }

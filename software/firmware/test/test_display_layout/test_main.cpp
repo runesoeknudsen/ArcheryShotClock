@@ -245,6 +245,18 @@ void inkSpan(uint16_t x0, uint16_t x1, uint16_t columns, uint16_t rows, uint16_t
   }
 }
 
+void inkX(uint16_t columns, uint16_t rows, uint16_t* left, uint16_t* right) {
+  *left = columns;
+  *right = 0;
+  for (uint16_t y = 0; y < rows; y++) {
+    for (uint16_t x = 0; x < columns; x++) {
+      if (logicalAt(x, y, columns) == 0) continue;
+      if (x < *left) *left = x;
+      if (x > *right) *right = x;
+    }
+  }
+}
+
 void test_wide_and_narrow_glyphs_share_one_scale() {
   DisplayLogic::RenderRequest request;
   request.content = Core::DisplayContent::Clock;
@@ -316,6 +328,50 @@ void test_shooting_seconds_fill_the_large_panel() {
   const uint16_t delta = tensH > onesH ? static_cast<uint16_t>(tensH - onesH)
                                        : static_cast<uint16_t>(onesH - tensH);
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(4, delta);
+}
+
+void test_counting_ones_does_not_nudge_the_tens() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Green;
+  request.phase = Core::Phase::Shooting;
+  request.geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
+  request.lineCount = 1;
+  request.lines[0] = Core::DisplayContent::Clock;
+
+  // 20 vs 21: the tens 2 must keep the same left edge when the ones tick.
+  request.remainingMs = 20000;
+  DisplayLogic::renderFrame(request, large);
+  uint16_t twentyLeft = 0;
+  uint16_t twentyRight = 0;
+  inkX(96, 64, &twentyLeft, &twentyRight);
+
+  request.remainingMs = 21000;
+  DisplayLogic::renderFrame(request, large);
+  uint16_t twentyOneLeft = 0;
+  uint16_t twentyOneRight = 0;
+  inkX(96, 64, &twentyOneLeft, &twentyOneRight);
+
+  const uint16_t leftDelta = twentyLeft > twentyOneLeft
+                                 ? static_cast<uint16_t>(twentyLeft - twentyOneLeft)
+                                 : static_cast<uint16_t>(twentyOneLeft - twentyLeft);
+  TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, leftDelta);
+
+  request.remainingMs = 100000;
+  DisplayLogic::renderFrame(request, large);
+  uint16_t hundredLeft = 0;
+  uint16_t hundredRight = 0;
+  inkX(96, 64, &hundredLeft, &hundredRight);
+  request.remainingMs = 101000;
+  DisplayLogic::renderFrame(request, large);
+  uint16_t hundredOneLeft = 0;
+  uint16_t hundredOneRight = 0;
+  inkX(96, 64, &hundredOneLeft, &hundredOneRight);
+  const uint16_t hundredDelta = hundredLeft > hundredOneLeft
+                                    ? static_cast<uint16_t>(hundredLeft - hundredOneLeft)
+                                    : static_cast<uint16_t>(hundredOneLeft - hundredLeft);
+  TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, hundredDelta);
 }
 
 void test_last_line_takes_leftover_height() {
@@ -401,6 +457,7 @@ int main() {
   RUN_TEST(test_smooth_glyphs_use_in_between_levels);
   RUN_TEST(test_wide_and_narrow_glyphs_share_one_scale);
   RUN_TEST(test_shooting_seconds_fill_the_large_panel);
+  RUN_TEST(test_counting_ones_does_not_nudge_the_tens);
   RUN_TEST(test_last_line_takes_leftover_height);
   RUN_TEST(test_hero_line_is_larger_than_the_others);
   RUN_TEST(test_ws2812_32x16_matches_the_original_map);
