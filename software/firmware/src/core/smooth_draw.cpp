@@ -142,7 +142,7 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   float maxY = -1e9f;
   for (uint8_t index = 0; index < buf.count; index++) {
     const Stroke& stroke = buf.items[index];
-    const float pad = stroke.radius + 1.2f;
+    const float pad = stroke.radius + 2.2f;
     const float x0 = stroke.x0 < stroke.x1 ? stroke.x0 : stroke.x1;
     const float x1 = stroke.x0 > stroke.x1 ? stroke.x0 : stroke.x1;
     const float y0 = stroke.y0 < stroke.y1 ? stroke.y0 : stroke.y1;
@@ -171,7 +171,12 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   if (y1 > static_cast<int>(canvas.rows)) y1 = canvas.rows;
   if (x0 >= x1 || y0 >= y1) return;
 
-  constexpr float aa = 0.70f;
+  // Wide enough that an axis-aligned edge always lights a dimmer LED on
+  // each side. A half-pixel band falls between LED centres and reads as a
+  // staircase again.
+  float aa = 0.50f * (canvas.sx < canvas.sy ? canvas.sx : canvas.sy);
+  if (aa < 0.90f) aa = 0.90f;
+  if (aa > 1.70f) aa = 1.70f;
   for (int py = y0; py < y1; py++) {
     for (int px = x0; px < x1; px++) {
       const float cx = static_cast<float>(px) + 0.5f;
