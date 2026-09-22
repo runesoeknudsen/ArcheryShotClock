@@ -496,7 +496,6 @@
     } else {
       lines.push({ label: 'Clock on the panel', value: 'Minutes when idle; seconds while shooting' });
     }
-    else lines.push({ label: 'Clock on the panel', value: 'Minutes and seconds' });
     if (usesAbcd(state) && state.showAbcd !== false) {
       lines.push({
         label: 'AB / CD on the panel',
