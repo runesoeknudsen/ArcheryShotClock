@@ -4,15 +4,6 @@
 #include "small_font.h"
 
 namespace DisplayLogic {
-namespace {
-
-constexpr uint8_t DIGIT_WIDTH = 5;
-constexpr uint8_t DIGIT_HEIGHT = 11;
-constexpr uint8_t DIGIT_GAP = 2;
-constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
-constexpr uint8_t GROUP_LEFT = 0;
-constexpr uint8_t LETTER_GAP = 1;
-constexpr uint8_t ELEMENT_GAP = 1;
 
 uint8_t occupancy[PIXEL_COUNT];
 uint8_t currentElement = ELEMENT_NONE;
@@ -28,6 +19,16 @@ void plot(uint8_t x, uint8_t y, uint32_t colour, uint32_t* pixels) {
   pixels[ledIndex(x, y)] = colour;
   occupancy[static_cast<uint16_t>(y) * COLUMNS + x] = currentElement;
 }
+
+namespace {
+
+constexpr uint8_t DIGIT_WIDTH = 5;
+constexpr uint8_t DIGIT_HEIGHT = 11;
+constexpr uint8_t DIGIT_GAP = 2;
+constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
+constexpr uint8_t GROUP_LEFT = 0;
+constexpr uint8_t LETTER_GAP = 1;
+constexpr uint8_t ELEMENT_GAP = 1;
 
 uint8_t minTimeLeft(bool groupVertical) {
   if (!groupVertical) return 0;
