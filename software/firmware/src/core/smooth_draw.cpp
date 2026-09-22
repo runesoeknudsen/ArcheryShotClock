@@ -10,17 +10,16 @@ namespace {
 
 constexpr uint8_t DIGIT_WIDTH = 5;
 constexpr uint8_t DIGIT_HEIGHT = 11;
-constexpr uint8_t DIGIT_GAP = 2;
+constexpr uint8_t DIGIT_GAP = 1;
 constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
 constexpr uint8_t GROUP_LEFT = 0;
 constexpr uint8_t LETTER_GAP = 1;
+constexpr float LETTER_SPACE = 0.5f;
 constexpr uint8_t ELEMENT_GAP = 1;
 constexpr float SHOOT_GROUP_W = 5.0f;
 constexpr float SHOOT_GROUP_H = 7.0f;
 constexpr float SHOOT_DIGIT_W = 8.0f;
 constexpr float SHOOT_DIGIT_H = 15.0f;
-constexpr float SHOOT_DIGIT_GAP = 1.0f;
-constexpr float SHOOT_ONES_LEFT = 24.0f;
 constexpr float SHOOT_TOP = 0.5f;
 
 struct Canvas {
@@ -192,6 +191,36 @@ void stampGlyph(const Canvas& canvas, uint8_t code, float left, float top, float
   }
 }
 
+float faceScale(const FontFace& face, float width, float height) {
+  FontGlyph dummy;
+  dummy.minX = 0;
+  dummy.maxX = 1;
+  return mapGlyph(0.0f, 0.0f, width, height, face, dummy).scale;
+}
+
+float inkWidth(const FontGlyph& glyph, float scale) {
+  float inkW = static_cast<float>(glyph.maxX - glyph.minX);
+  if (inkW < 1.0f) inkW = 1.0f;
+  return inkW * scale;
+}
+
+float packedWidth(uint8_t code, float boxW, float boxH) {
+  const FontFace& face = activeFontFace();
+  const FontGlyph* glyph = findGlyph(face, code);
+  if (glyph == nullptr) return boxW;
+  return inkWidth(*glyph, faceScale(face, boxW, boxH));
+}
+
+void stampPacked(const Canvas& canvas, uint8_t code, float inkLeft, float top, float boxW, float boxH,
+                 uint32_t colour) {
+  const FontFace& face = activeFontFace();
+  const FontGlyph* glyph = findGlyph(face, code);
+  if (glyph == nullptr) return;
+  const float scale = faceScale(face, boxW, boxH);
+  const float left = inkLeft - (boxW - inkWidth(*glyph, scale)) * 0.5f;
+  stampGlyph(canvas, code, left, top, boxW, boxH, colour);
+}
+
 void drawDigit(const Canvas& canvas, uint8_t value, float left, float top, bool compact, uint32_t colour) {
   if (value > 9) return;
   const float height = compact ? static_cast<float>(SmallFont::DIGIT_HEIGHT) : DIGIT_HEIGHT;
@@ -211,12 +240,19 @@ void drawWideWord(const Canvas& canvas, const char* word, float top, uint32_t co
   uint8_t count = 0;
   while (word[count] != '\0') count++;
   if (count == 0) return;
-  const float width = static_cast<float>(count * SmallFont::WIDE_WIDTH + (count - 1) * LETTER_GAP);
-  float left = width >= COLUMNS ? 0.0f : (static_cast<float>(COLUMNS) - width) * 0.5f;
-  for (uint8_t index = 0; index < count; index++) {
-    stampGlyph(canvas, static_cast<uint8_t>(word[index]), left, top, SmallFont::WIDE_WIDTH,
-               SmallFont::WIDE_HEIGHT, colour);
-    left += SmallFont::WIDE_WIDTH + LETTER_GAP;
+  const float boxW = static_cast<float>(SmallFont::WIDE_WIDTH);
+  const float boxH = static_cast<float>(SmallFont::WIDE_HEIGHT);
+  float widths[8] = {};
+  float total = 0.0f;
+  for (uint8_t index = 0; index < count && index < 8; index++) {
+    widths[index] = packedWidth(static_cast<uint8_t>(word[index]), boxW, boxH);
+    if (index > 0) total += LETTER_SPACE;
+    total += widths[index];
+  }
+  float left = total >= COLUMNS ? 0.0f : (static_cast<float>(COLUMNS) - total) * 0.5f;
+  for (uint8_t index = 0; index < count && index < 8; index++) {
+    stampPacked(canvas, static_cast<uint8_t>(word[index]), left, top, boxW, boxH, colour);
+    left += widths[index] + LETTER_SPACE;
   }
 }
 
@@ -252,12 +288,24 @@ void drawMmSs(const Canvas& canvas, uint32_t totalSeconds, uint32_t colour, floa
               bool compact) {
   const uint32_t minutes = (totalSeconds / 60) % 100;
   const uint32_t seconds = totalSeconds % 60;
-  drawDigit(canvas, static_cast<uint8_t>(minutes / 10), origin, top, compact, colour);
-  drawDigit(canvas, static_cast<uint8_t>(minutes % 10), origin + DIGIT_WIDTH + DIGIT_GAP, top, compact,
-            colour);
-  drawDigit(canvas, static_cast<uint8_t>(seconds / 10), origin + 16.0f, top, compact, colour);
-  drawDigit(canvas, static_cast<uint8_t>(seconds % 10), origin + 23.0f, top, compact, colour);
-  drawColon(canvas, origin, top, compact, colour);
+  const float boxW = static_cast<float>(DIGIT_WIDTH);
+  const float boxH = compact ? static_cast<float>(SmallFont::DIGIT_HEIGHT) : DIGIT_HEIGHT;
+  const uint8_t codes[5] = {
+      static_cast<uint8_t>('0' + minutes / 10), static_cast<uint8_t>('0' + minutes % 10), ':',
+      static_cast<uint8_t>('0' + seconds / 10), static_cast<uint8_t>('0' + seconds % 10)};
+  const float boxes[5] = {boxW, boxW, 3.0f, boxW, boxW};
+  float widths[5] = {};
+  float total = 0.0f;
+  for (uint8_t index = 0; index < 5; index++) {
+    widths[index] = packedWidth(codes[index], boxes[index], boxH);
+    if (index > 0) total += LETTER_SPACE;
+    total += widths[index];
+  }
+  float left = compact ? (static_cast<float>(COLUMNS) - total) * 0.5f : origin;
+  for (uint8_t index = 0; index < 5; index++) {
+    stampPacked(canvas, codes[index], left, top, boxes[index], boxH, colour);
+    left += widths[index] + LETTER_SPACE;
+  }
 }
 
 uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
@@ -295,8 +343,16 @@ void drawEndLabel(const Canvas& canvas, const RenderRequest& request, uint32_t c
   drawWideWord(canvas, scoring ? "SCORE" : "END", 0.0f, colour);
   const uint16_t shown = request.endNumber > 99 ? 99 : request.endNumber;
   const float top = static_cast<float>(SmallFont::WIDE_HEIGHT + ELEMENT_GAP);
-  drawDigit(canvas, static_cast<uint8_t>(shown / 10), 10.0f, top, true, colour);
-  drawDigit(canvas, static_cast<uint8_t>(shown % 10), 17.0f, top, true, colour);
+  const float boxW = static_cast<float>(DIGIT_WIDTH);
+  const float boxH = static_cast<float>(SmallFont::DIGIT_HEIGHT);
+  const uint8_t tens = static_cast<uint8_t>('0' + shown / 10);
+  const uint8_t ones = static_cast<uint8_t>('0' + shown % 10);
+  const float tensW = packedWidth(tens, boxW, boxH);
+  const float onesW = packedWidth(ones, boxW, boxH);
+  const float total = tensW + LETTER_SPACE + onesW;
+  const float left = (static_cast<float>(COLUMNS) - total) * 0.5f;
+  stampPacked(canvas, tens, left, top, boxW, boxH, colour);
+  stampPacked(canvas, ones, left + tensW + LETTER_SPACE, top, boxW, boxH, colour);
 }
 
 void drawGroup(const Canvas& canvas, const char* letters, uint32_t colour, bool vertical, bool wide) {
@@ -312,30 +368,41 @@ void drawGroup(const Canvas& canvas, const char* letters, uint32_t colour, bool 
     drawNarrowLetter(canvas, letters[1], GROUP_LEFT, 9.0f, colour);
     return;
   }
-  const float width = static_cast<float>(SmallFont::NARROW_WIDTH * 2 + LETTER_GAP);
-  const float left = static_cast<float>(CLOCK_ONES_LEFT + DIGIT_WIDTH) - width;
-  drawNarrowLetter(canvas, letters[0], left, 11.0f, colour);
-  drawNarrowLetter(canvas, letters[1], left + SmallFont::NARROW_WIDTH + LETTER_GAP, 11.0f, colour);
+  const float boxW = static_cast<float>(SmallFont::NARROW_WIDTH);
+  const float boxH = static_cast<float>(SmallFont::NARROW_HEIGHT);
+  const float firstW = packedWidth(static_cast<uint8_t>(letters[0]), boxW, boxH);
+  const float total = firstW + LETTER_SPACE + packedWidth(static_cast<uint8_t>(letters[1]), boxW, boxH);
+  const float left = static_cast<float>(CLOCK_ONES_LEFT + DIGIT_WIDTH) - total;
+  stampPacked(canvas, static_cast<uint8_t>(letters[0]), left, 11.0f, boxW, boxH, colour);
+  stampPacked(canvas, static_cast<uint8_t>(letters[1]), left + firstW + LETTER_SPACE, 11.0f, boxW,
+              boxH, colour);
 }
 
 void drawLargeSeconds(const Canvas& canvas, uint32_t totalSeconds, uint32_t colour, bool withGroup) {
   uint32_t shown = totalSeconds > 999 ? 999 : totalSeconds;
   uint8_t digits[3] = {0};
   const uint8_t count = secondsDigits(shown, digits);
-  float left = SHOOT_ONES_LEFT - static_cast<float>(count - 1) * (SHOOT_DIGIT_W + SHOOT_DIGIT_GAP);
-  const float minLeft = withGroup ? SHOOT_GROUP_W + 1.0f : 0.0f;
+  float widths[3] = {};
+  float total = 0.0f;
+  for (uint8_t index = 0; index < count; index++) {
+    widths[index] = packedWidth(static_cast<uint8_t>('0' + digits[index]), SHOOT_DIGIT_W, SHOOT_DIGIT_H);
+    if (index > 0) total += LETTER_SPACE;
+    total += widths[index];
+  }
+  float left = static_cast<float>(COLUMNS) - total;
+  const float minLeft = withGroup ? SHOOT_GROUP_W + LETTER_SPACE : 0.0f;
   if (left < minLeft) left = minLeft;
   for (uint8_t index = 0; index < count; index++) {
-    stampGlyph(canvas, static_cast<uint8_t>('0' + digits[index]), left, SHOOT_TOP, SHOOT_DIGIT_W,
-               SHOOT_DIGIT_H, colour);
-    left += SHOOT_DIGIT_W + SHOOT_DIGIT_GAP;
+    stampPacked(canvas, static_cast<uint8_t>('0' + digits[index]), left, SHOOT_TOP, SHOOT_DIGIT_W,
+                SHOOT_DIGIT_H, colour);
+    left += widths[index] + LETTER_SPACE;
   }
 }
 
 void drawLargeGroup(const Canvas& canvas, const char* letters, uint32_t colour) {
   stampGlyph(canvas, static_cast<uint8_t>(letters[0]), 0.0f, SHOOT_TOP, SHOOT_GROUP_W, SHOOT_GROUP_H,
              colour);
-  stampGlyph(canvas, static_cast<uint8_t>(letters[1]), 0.0f, SHOOT_TOP + SHOOT_GROUP_H + 1.0f,
+  stampGlyph(canvas, static_cast<uint8_t>(letters[1]), 0.0f, SHOOT_TOP + SHOOT_GROUP_H + LETTER_SPACE,
              SHOOT_GROUP_W, SHOOT_GROUP_H, colour);
 }
 
@@ -377,16 +444,36 @@ void drawClock(const Canvas& canvas, const RenderRequest& request, uint32_t colo
 void drawTwoPairs(const Canvas& canvas, uint16_t left, uint16_t right, uint32_t colour) {
   const uint8_t a = left > 99 ? 99 : static_cast<uint8_t>(left);
   const uint8_t b = right > 99 ? 99 : static_cast<uint8_t>(right);
-  drawDigit(canvas, a / 10, 2.0f, DIGIT_TOP, false, colour);
-  drawDigit(canvas, a % 10, 9.0f, DIGIT_TOP, false, colour);
-  drawDigit(canvas, b / 10, 18.0f, DIGIT_TOP, false, colour);
-  drawDigit(canvas, b % 10, 25.0f, DIGIT_TOP, false, colour);
+  const float boxW = static_cast<float>(DIGIT_WIDTH);
+  const float boxH = static_cast<float>(DIGIT_HEIGHT);
+  const uint8_t codes[4] = {static_cast<uint8_t>('0' + a / 10), static_cast<uint8_t>('0' + a % 10),
+                            static_cast<uint8_t>('0' + b / 10), static_cast<uint8_t>('0' + b % 10)};
+  float widths[4] = {};
+  float total = 0.0f;
+  for (uint8_t index = 0; index < 4; index++) {
+    widths[index] = packedWidth(codes[index], boxW, boxH);
+    if (index > 0) total += (index == 2 ? LETTER_SPACE * 2.0f : LETTER_SPACE);
+    total += widths[index];
+  }
+  float cursor = (static_cast<float>(COLUMNS) - total) * 0.5f;
+  for (uint8_t index = 0; index < 4; index++) {
+    stampPacked(canvas, codes[index], cursor, DIGIT_TOP, boxW, boxH, colour);
+    cursor += widths[index] + (index == 1 ? LETTER_SPACE * 2.0f : LETTER_SPACE);
+  }
 }
 
 void drawPair(const Canvas& canvas, uint8_t value, uint32_t colour) {
   const uint8_t clamped = value > 99 ? 99 : value;
-  drawDigit(canvas, clamped / 10, 10.0f, DIGIT_TOP, false, colour);
-  drawDigit(canvas, clamped % 10, 17.0f, DIGIT_TOP, false, colour);
+  const float boxW = static_cast<float>(DIGIT_WIDTH);
+  const float boxH = static_cast<float>(DIGIT_HEIGHT);
+  const uint8_t tens = static_cast<uint8_t>('0' + clamped / 10);
+  const uint8_t ones = static_cast<uint8_t>('0' + clamped % 10);
+  const float tensW = packedWidth(tens, boxW, boxH);
+  const float onesW = packedWidth(ones, boxW, boxH);
+  const float total = tensW + LETTER_SPACE + onesW;
+  const float left = (static_cast<float>(COLUMNS) - total) * 0.5f;
+  stampPacked(canvas, tens, left, DIGIT_TOP, boxW, boxH, colour);
+  stampPacked(canvas, ones, left + tensW + LETTER_SPACE, DIGIT_TOP, boxW, boxH, colour);
 }
 
 }  // namespace

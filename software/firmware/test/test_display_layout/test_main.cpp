@@ -256,17 +256,14 @@ void test_wide_and_narrow_glyphs_share_one_scale() {
   request.lines[0] = Core::DisplayContent::Clock;
   DisplayLogic::renderFrame(request, large);
 
-  // 01:30. Digit cells are 5 tile units wide; the 96x64 cabinet is 3 dest
-  // pixels per tile column. A shared scale keeps the wide 0 as tall as the 1.
-  const uint16_t zeroLeft = 2 * 3;
-  const uint16_t oneLeft = 9 * 3;
-  const uint16_t cellW = 5 * 3;
+  // 01:30. Packed digit cells stay on one shared scale, so the wide 0 is as
+  // tall as the 1. The 96x64 cabinet is 3 dest pixels per tile column.
   uint16_t zeroTop = 0;
   uint16_t zeroBottom = 0;
   uint16_t oneTop = 0;
   uint16_t oneBottom = 0;
-  inkSpan(zeroLeft, static_cast<uint16_t>(zeroLeft + cellW), 96, 64, &zeroTop, &zeroBottom);
-  inkSpan(oneLeft, static_cast<uint16_t>(oneLeft + cellW), 96, 64, &oneTop, &oneBottom);
+  inkSpan(0, 24, 96, 64, &zeroTop, &zeroBottom);
+  inkSpan(24, 48, 96, 64, &oneTop, &oneBottom);
   TEST_ASSERT_LESS_THAN_UINT16(64, zeroTop);
   TEST_ASSERT_LESS_THAN_UINT16(64, oneTop);
   const uint16_t zeroH = static_cast<uint16_t>(zeroBottom - zeroTop + 1);
@@ -307,9 +304,9 @@ void test_shooting_seconds_fill_the_large_panel() {
   uint16_t onesBottom = 0;
   uint16_t aTop = 0;
   uint16_t aBottom = 0;
-  inkSpan(45, 69, 96, 64, &tensTop, &tensBottom);
+  inkSpan(40, 72, 96, 64, &tensTop, &tensBottom);
   inkSpan(72, 96, 96, 64, &onesTop, &onesBottom);
-  inkSpan(0, 15, 96, 64, &aTop, &aBottom);
+  inkSpan(0, 18, 96, 64, &aTop, &aBottom);
   const uint16_t tensH = static_cast<uint16_t>(tensBottom - tensTop + 1);
   const uint16_t onesH = static_cast<uint16_t>(onesBottom - onesTop + 1);
   const uint16_t aH = static_cast<uint16_t>(aBottom - aTop + 1);
