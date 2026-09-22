@@ -702,16 +702,19 @@ test('starts a break after scoring the configured number of ends', async ({ page
   await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add 1 min' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove 1 min' })).toBeVisible();
-  await expect(page.locator('#situation')).toContainText('Break will run for 15 min');
+  await expect(page.locator('#situation')).toContainText('Start the break when scoring is finished');
+  await expect(page.locator('#situation')).toContainText('15 min');
 
   await page.getByRole('button', { name: 'Add 1 min' }).click();
   expect(page.mock.requests).toContainEqual({ path: '/api/control', body: { action: 'adjust_break', seconds: 60 } });
-  await expect(page.locator('#situation')).toContainText('Break will run for 16 min');
+  await expect(page.locator('#situation')).toContainText('16 min');
 
   await page.getByRole('button', { name: 'Start break' }).click();
 
   await expect(page.locator('#phase')).toHaveText('BREAK');
   await expect(page.locator('#headline')).toContainText('Break after end 1');
+  await expect(page.locator('#situation')).toContainText('Start Shoot CD when the field is ready');
+  await expect(page.locator('#situation')).toContainText('End break returns to ready');
   await expect(page.locator('#clock')).toHaveText('BREAK 16:00');
   await expect(page.locator('#clockGroup')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Start Shoot CD' })).toBeVisible();

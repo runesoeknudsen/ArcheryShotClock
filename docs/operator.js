@@ -264,15 +264,16 @@
       return {
         headline: 'Scoring' + (state.end ? ' — end ' + state.end : ''),
         detail: breakDue(state)
-          ? 'Break will run for ' + configuredBreakMinutes(state) +
-            ' min. Add or remove a minute, then start the break when scoring is finished.'
+          ? 'Start the break when scoring is finished. Add or remove a minute first if ' +
+            configuredBreakMinutes(state) + ' min is too long or too short.'
           : 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + ' for the next end.'
       };
     }
     if (phase === 'BREAK') {
       return {
         headline: 'Break after end ' + (state.end || ''),
-        detail: 'The board shows BREAK and minutes:seconds, with a one-LED gap between them. Add or remove a minute if the field needs more or less time.'
+        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) +
+          ' when the field is ready. Add or remove a minute if the line still needs time. End break returns to ready without starting.'
       };
     }
     return { headline: phase, detail: '' };
