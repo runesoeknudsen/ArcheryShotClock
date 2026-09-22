@@ -239,11 +239,22 @@ def export_face(font_path: Path, name: str, characters: str, tolerance: float):
         print("missing glyphs: " + " ".join(repr(item) for item in missing), file=sys.stderr)
     if not glyphs:
         raise SystemExit("no glyphs were exported")
+    # One box for every letter and digit so a wide O is not scaled down
+    # relative to a narrow E. Punctuation keeps the same scale.
+    max_ink = 1
+    for glyph in glyphs:
+        code = glyph["code"]
+        if code < ord("0") or (code > ord("9") and code < ord("A")) or code > ord("Z"):
+            continue
+        width = glyph["maxX"] - glyph["minX"]
+        if width > max_ink:
+            max_ink = width
     return {
         "name": name,
         "source": source_name,
         "unitsPerEm": units,
         "capHeight": cap,
+        "maxInkWidth": max_ink,
         "points": points,
         "contours": contours,
         "glyphs": glyphs,
@@ -303,6 +314,7 @@ def render_header(face: dict) -> str:
     lines.append(f'    "{face["source"]}",')
     lines.append(f'    {face["unitsPerEm"]},')
     lines.append(f'    {face["capHeight"]},')
+    lines.append(f'    {face["maxInkWidth"]},')
     lines.append(f"    k{stem}Points,")
     lines.append(f"    {len(face['points'])},")
     lines.append(f"    k{stem}Contours,")

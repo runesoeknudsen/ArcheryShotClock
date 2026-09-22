@@ -31,5 +31,9 @@ python3 software/tools/font_to_glyphs.py \
 Use a freely licensed font. Generated outlines are a derived work of that
 font; keep its notice in `NOTICE.md`.
 
+Every letter and digit shares one scale: cap height and the widest
+alphanumeric ink box. A wide `O` is not shrunk relative to a narrow `E`.
+Punctuation keeps that same scale.
+
 The clock needs `0-9`, `A-H`, `K`, `N`, `O`, `R`, `S`, `:`, and `-`. Extra
 characters can be passed with `--chars`.

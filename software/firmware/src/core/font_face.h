@@ -34,6 +34,7 @@ struct FontFace {
   const char* sourceFont = nullptr;
   uint16_t unitsPerEm = 1000;
   uint16_t capHeight = 700;
+  uint16_t maxInkWidth = 700;
   const GlyphPoint* points = nullptr;
   uint16_t pointCount = 0;
   const GlyphContour* contours = nullptr;

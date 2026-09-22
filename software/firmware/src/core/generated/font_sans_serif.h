@@ -1203,6 +1203,7 @@ const FontFace kFontSansSerif = {
     "DejaVu Sans Bold",
     2048,
     1475,
+    1565,
     kSansSerifPoints,
     1116,
     kSansSerifContours,

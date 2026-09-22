@@ -233,6 +233,51 @@ void test_smooth_glyphs_use_in_between_levels() {
   TEST_ASSERT_TRUE(foundHill);
 }
 
+void inkSpan(uint16_t x0, uint16_t x1, uint16_t columns, uint16_t rows, uint16_t* top, uint16_t* bottom) {
+  *top = rows;
+  *bottom = 0;
+  for (uint16_t y = 0; y < rows; y++) {
+    for (uint16_t x = x0; x < x1; x++) {
+      if (logicalAt(x, y, columns) == 0) continue;
+      if (y < *top) *top = y;
+      if (y > *bottom) *bottom = y;
+    }
+  }
+}
+
+void test_wide_and_narrow_glyphs_share_one_scale() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Green;
+  request.remainingMs = 90000;
+  request.geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_96x64, DisplayLogic::Orientation::Landscape);
+  request.lineCount = 1;
+  request.lines[0] = Core::DisplayContent::Clock;
+  DisplayLogic::renderFrame(request, large);
+
+  // 01:30. Digit cells are 5 tile units wide; the 96x64 cabinet is 3 dest
+  // pixels per tile column. A shared scale keeps the wide 0 as tall as the 1.
+  const uint16_t zeroLeft = 2 * 3;
+  const uint16_t oneLeft = 9 * 3;
+  const uint16_t cellW = 5 * 3;
+  uint16_t zeroTop = 0;
+  uint16_t zeroBottom = 0;
+  uint16_t oneTop = 0;
+  uint16_t oneBottom = 0;
+  inkSpan(zeroLeft, static_cast<uint16_t>(zeroLeft + cellW), 96, 64, &zeroTop, &zeroBottom);
+  inkSpan(oneLeft, static_cast<uint16_t>(oneLeft + cellW), 96, 64, &oneTop, &oneBottom);
+  TEST_ASSERT_LESS_THAN_UINT16(64, zeroTop);
+  TEST_ASSERT_LESS_THAN_UINT16(64, oneTop);
+  const uint16_t zeroH = static_cast<uint16_t>(zeroBottom - zeroTop + 1);
+  const uint16_t oneH = static_cast<uint16_t>(oneBottom - oneTop + 1);
+  TEST_ASSERT_GREATER_THAN_UINT16(12, zeroH);
+  TEST_ASSERT_GREATER_THAN_UINT16(12, oneH);
+  const uint16_t delta = zeroH > oneH ? static_cast<uint16_t>(zeroH - oneH)
+                                      : static_cast<uint16_t>(oneH - zeroH);
+  TEST_ASSERT_LESS_OR_EQUAL_UINT16(4, delta);
+}
+
 void test_last_line_takes_leftover_height() {
   const DisplayLogic::Geometry geometry =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
@@ -314,6 +359,7 @@ int main() {
   RUN_TEST(test_hub75_vertical_panels_are_rotated);
   RUN_TEST(test_hub75_three_vertical_uses_every_chain_pixel);
   RUN_TEST(test_smooth_glyphs_use_in_between_levels);
+  RUN_TEST(test_wide_and_narrow_glyphs_share_one_scale);
   RUN_TEST(test_last_line_takes_leftover_height);
   RUN_TEST(test_hero_line_is_larger_than_the_others);
   RUN_TEST(test_ws2812_32x16_matches_the_original_map);

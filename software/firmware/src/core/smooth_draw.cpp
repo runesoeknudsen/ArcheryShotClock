@@ -112,21 +112,20 @@ GlyphMap mapGlyph(float left, float top, float width, float height, const FontFa
                   const FontGlyph& glyph) {
   float cap = static_cast<float>(face.capHeight);
   if (cap < 1.0f) cap = static_cast<float>(face.unitsPerEm) * 0.72f;
+  float faceW = static_cast<float>(face.maxInkWidth);
+  if (faceW < 1.0f) faceW = cap;
   float inkW = static_cast<float>(glyph.maxX - glyph.minX);
-  float inkH = static_cast<float>(glyph.maxY - glyph.minY);
   if (inkW < 1.0f) inkW = 1.0f;
-  if (inkH < 1.0f) inkH = 1.0f;
   const float pad = 0.06f;
   const float sH = (height * (1.0f - 2.0f * pad)) / cap;
-  const float sW = (width * (1.0f - 2.0f * pad)) / inkW;
+  const float sW = (width * (1.0f - 2.0f * pad)) / faceW;
   float scale = sH < sW ? sH : sW;
   if (scale < 1e-6f) scale = 1e-6f;
-  const float drawnW = inkW * scale;
-  const float drawnH = inkH * scale;
   GlyphMap mapped;
   mapped.scale = scale;
-  mapped.ox = left + (width - drawnW) * 0.5f - static_cast<float>(glyph.minX) * scale;
-  mapped.oy = top + (height - drawnH) * 0.5f + static_cast<float>(glyph.maxY) * scale;
+  mapped.ox = left + (width - inkW * scale) * 0.5f - static_cast<float>(glyph.minX) * scale;
+  const float capLine = top + (height - cap * scale) * 0.5f;
+  mapped.oy = capLine + cap * scale;
   return mapped;
 }
 
