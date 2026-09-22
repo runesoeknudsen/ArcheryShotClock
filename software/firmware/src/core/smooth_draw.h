@@ -2,10 +2,10 @@
 
 #include "display_logic.h"
 
-// Rounded-stroke glyphs for cabinets larger than 32x16. The low-resolution
+// Grotesque-sans glyphs for cabinets larger than 32x16. The low-resolution
 // bitmap font stays on that original panel; everything else is drawn as
-// capsules and dots at the destination size so a curve reads as a hill
-// instead of a staircase of upscaled pixels.
+// capsules, ellipses and arcs at the destination size so a curve reads as a
+// hill instead of a staircase of upscaled pixels.
 
 namespace DisplayLogic {
 

@@ -231,6 +231,21 @@ void addUnitStroke(const Canvas& canvas, StrokeBuf& buf, float ux0, float uy0, f
   buf.add(x0, y0, x1, y1, radius);
 }
 
+void addUnitEllipse(const Canvas& canvas, StrokeBuf& buf, float ucx, float ucy, float urx, float ury,
+                    float radius) {
+  float cx = 0;
+  float cy = 0;
+  unitToDest(canvas, ucx, ucy, cx, cy);
+  buf.ellipse(cx, cy, urx * canvas.sx, ury * canvas.sy, radius);
+}
+
+void addUnitArc(const Canvas& canvas, StrokeBuf& buf, float ucx, float ucy, float urx, float ury,
+                float a0, float a1, float radius) {
+  float cx = 0;
+  float cy = 0;
+  unitToDest(canvas, ucx, ucy, cx, cy);
+  buf.arc(cx, cy, urx * canvas.sx, ury * canvas.sy, a0, a1, radius);
+}
 
 void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   if (buf.count == 0 || canvas.pixels == nullptr || canvas.destW == 0 || canvas.destH == 0) return;
@@ -288,98 +303,106 @@ void stampStrokes(const Canvas& canvas, const StrokeBuf& buf, uint32_t colour) {
   }
 }
 
-// 7-segment and 14-segment cells, after DSEG / industrial LED modules.
-// Same bars for every glyph so the clock reads as one face, not a mix of
-// ellipses and homemade strokes.
-constexpr uint16_t SEG_A = 1u << 0;
-constexpr uint16_t SEG_B = 1u << 1;
-constexpr uint16_t SEG_C = 1u << 2;
-constexpr uint16_t SEG_D = 1u << 3;
-constexpr uint16_t SEG_E = 1u << 4;
-constexpr uint16_t SEG_F = 1u << 5;
-constexpr uint16_t SEG_G1 = 1u << 6;
-constexpr uint16_t SEG_G2 = 1u << 7;
-constexpr uint16_t SEG_H = 1u << 8;
-constexpr uint16_t SEG_I = 1u << 9;
-constexpr uint16_t SEG_J = 1u << 10;
-constexpr uint16_t SEG_K = 1u << 11;
-constexpr uint16_t SEG_L = 1u << 12;
-constexpr uint16_t SEG_M = 1u << 13;
-constexpr uint16_t SEG_G = static_cast<uint16_t>(SEG_G1 | SEG_G2);
+// Grotesque sans after Source Sans / Helvetica / DIN signage. One cell,
+// one stroke weight, and the same bowls and stems for digits and letters
+// so the clock reads as a single face.
+constexpr float kPi = 3.14159265f;
 
-const uint16_t kSevenSeg[10] = {
-    static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F),
-    static_cast<uint16_t>(SEG_B | SEG_C),
-    static_cast<uint16_t>(SEG_A | SEG_B | SEG_D | SEG_E | SEG_G),
-    static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_G),
-    static_cast<uint16_t>(SEG_B | SEG_C | SEG_F | SEG_G),
-    static_cast<uint16_t>(SEG_A | SEG_C | SEG_D | SEG_F | SEG_G),
-    static_cast<uint16_t>(SEG_A | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G),
-    static_cast<uint16_t>(SEG_A | SEG_B | SEG_C),
-    static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G),
-    static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_F | SEG_G),
+struct Face {
+  float xL = 0;
+  float xR = 0;
+  float xM = 0;
+  float yT = 0;
+  float yB = 0;
+  float yM = 0;
+  float w = 0;
+  float h = 0;
 };
 
-void addSegments(const Canvas& canvas, StrokeBuf& buf, float left, float top, float width, float height,
-                 uint16_t mask, float radius) {
-  const float scale = width < height ? width : height;
-  float inset = 0.12f * scale;
-  float gap = 0.10f * scale;
-  if (height >= 8.0f) {
-    inset = 0.16f * scale;
-    gap = 0.13f * scale;
-  }
-  const float xL = left + inset;
-  const float xR = left + width - inset;
-  const float xM = 0.5f * (xL + xR);
-  const float yT = top + inset;
-  const float yB = top + height - inset;
-  const float yM = 0.5f * (yT + yB);
-  auto bar = [&](float x0, float y0, float x1, float y1) {
-    addUnitStroke(canvas, buf, x0, y0, x1, y1, radius);
-  };
-  if (mask & SEG_A) bar(xL + gap, yT, xR - gap, yT);
-  if (mask & SEG_B) bar(xR, yT + gap, xR, yM - gap);
-  if (mask & SEG_C) bar(xR, yM + gap, xR, yB - gap);
-  if (mask & SEG_D) bar(xL + gap, yB, xR - gap, yB);
-  if (mask & SEG_E) bar(xL, yM + gap, xL, yB - gap);
-  if (mask & SEG_F) bar(xL, yT + gap, xL, yM - gap);
-  if (mask & SEG_G1) bar(xL + gap, yM, xM - gap * 0.4f, yM);
-  if (mask & SEG_G2) bar(xM + gap * 0.4f, yM, xR - gap, yM);
-  if (mask & SEG_H) bar(xL + gap, yT + gap, xM - gap, yM - gap);
-  if (mask & SEG_I) bar(xM, yT + gap, xM, yM - gap);
-  if (mask & SEG_J) bar(xR - gap, yT + gap, xM + gap, yM - gap);
-  if (mask & SEG_K) bar(xL + gap, yB - gap, xM - gap, yM + gap);
-  if (mask & SEG_L) bar(xM, yM + gap, xM, yB - gap);
-  if (mask & SEG_M) bar(xR - gap, yB - gap, xM + gap, yM + gap);
-}
-
-uint16_t fourteenFor(char letter) {
-  switch (letter) {
-    case 'A': return static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_E | SEG_F | SEG_G);
-    case 'B':
-      return static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G2 | SEG_I | SEG_L);
-    case 'C': return static_cast<uint16_t>(SEG_A | SEG_D | SEG_E | SEG_F);
-    case 'D': return static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_I | SEG_L);
-    case 'E': return static_cast<uint16_t>(SEG_A | SEG_D | SEG_E | SEG_F | SEG_G1);
-    case 'F': return static_cast<uint16_t>(SEG_A | SEG_E | SEG_F | SEG_G1);
-    case 'G': return static_cast<uint16_t>(SEG_A | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G2);
-    case 'H': return static_cast<uint16_t>(SEG_B | SEG_C | SEG_E | SEG_F | SEG_G);
-    case 'K': return static_cast<uint16_t>(SEG_E | SEG_F | SEG_G1 | SEG_J | SEG_M);
-    case 'N': return static_cast<uint16_t>(SEG_B | SEG_C | SEG_E | SEG_F | SEG_H | SEG_M);
-    case 'O': return static_cast<uint16_t>(SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F);
-    case 'R': return static_cast<uint16_t>(SEG_A | SEG_B | SEG_E | SEG_F | SEG_G | SEG_M);
-    case 'S': return static_cast<uint16_t>(SEG_A | SEG_C | SEG_D | SEG_F | SEG_G);
-    default: return 0;
-  }
+Face makeFace(float left, float top, float width, float height) {
+  Face face;
+  face.w = width;
+  face.h = height;
+  const float insetX = width * 0.14f;
+  const float insetY = height <= 6.0f ? height * 0.12f : height * 0.08f;
+  face.xL = left + insetX;
+  face.xR = left + width - insetX;
+  face.xM = left + width * 0.50f;
+  face.yT = top + insetY;
+  face.yB = top + height - insetY;
+  face.yM = 0.5f * (face.yT + face.yB);
+  return face;
 }
 
 void addDigit(const Canvas& canvas, StrokeBuf& buf, uint8_t value, float left, float top, float width,
               float height, float radius) {
   if (value > 9) return;
-  uint16_t mask = kSevenSeg[value];
-  if (height <= 6.0f && value == 1) mask = static_cast<uint16_t>(SEG_I | SEG_L);
-  addSegments(canvas, buf, left, top, width, height, mask, radius);
+  const Face f = makeFace(left, top, width, height);
+  const float rx = width * 0.36f;
+  const float ry = height * 0.42f;
+  const float bowlRy = height * (height <= 6.0f ? 0.24f : 0.22f);
+
+  switch (value) {
+    case 0:
+      addUnitEllipse(canvas, buf, f.xM, f.yM, rx, ry, radius);
+      return;
+    case 1: {
+      const float stemX = left + width * 0.56f;
+      addUnitStroke(canvas, buf, left + width * 0.20f, f.yT + height * 0.16f, stemX, f.yT, radius);
+      addUnitStroke(canvas, buf, stemX, f.yT, stemX, f.yB, radius);
+      addUnitStroke(canvas, buf, left + width * 0.18f, f.yB, left + width * 0.84f, f.yB, radius);
+      return;
+    }
+    case 2: {
+      const float topRy = height <= 6.0f ? height * 0.22f : height * 0.20f;
+      addUnitArc(canvas, buf, f.xM, f.yT + height * 0.22f, rx, topRy, kPi * 0.80f, kPi * 2.15f,
+                 radius);
+      addUnitStroke(canvas, buf, f.xR, f.yT + height * 0.36f, f.xL + width * 0.02f, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yB, f.xR, f.yB, radius);
+      return;
+    }
+    case 3: {
+      const float topCy = f.yT + height * (height <= 6.0f ? 0.20f : 0.25f);
+      const float botCy = f.yB - height * (height <= 6.0f ? 0.20f : 0.25f);
+      const float rBowl = height <= 6.0f ? height * 0.18f : bowlRy;
+      addUnitArc(canvas, buf, f.xM + width * 0.02f, topCy, rx, rBowl, -kPi * 0.62f, kPi * 0.78f,
+                 radius);
+      addUnitArc(canvas, buf, f.xM + width * 0.02f, botCy, rx, rBowl, -kPi * 0.78f, kPi * 0.62f,
+                 radius);
+      return;
+    }
+    case 4:
+      addUnitStroke(canvas, buf, f.xR - width * 0.06f, f.yT, f.xR - width * 0.06f, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xR - width * 0.06f, f.yT, f.xL, f.yT + height * 0.56f, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yT + height * 0.56f, f.xR, f.yT + height * 0.56f, radius);
+      return;
+    case 5:
+      addUnitStroke(canvas, buf, f.xR, f.yT, f.xL, f.yT, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yM, radius);
+      addUnitArc(canvas, buf, f.xM, f.yB - height * 0.26f, rx, bowlRy, -kPi * 0.82f, kPi * 0.70f,
+                 radius);
+      return;
+    case 6:
+      addUnitEllipse(canvas, buf, f.xM, f.yB - height * 0.26f, rx, height * 0.24f, radius);
+      addUnitArc(canvas, buf, f.xM, f.yM - height * 0.04f, rx, height * 0.38f, kPi * 0.52f,
+                 kPi * 1.88f, radius);
+      return;
+    case 7:
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yT, radius);
+      addUnitStroke(canvas, buf, f.xR, f.yT, f.xL + width * 0.16f, f.yB, radius);
+      return;
+    case 8:
+      addUnitEllipse(canvas, buf, f.xM, f.yT + height * 0.24f, width * 0.33f, height * 0.20f, radius);
+      addUnitEllipse(canvas, buf, f.xM, f.yB - height * 0.24f, width * 0.36f, height * 0.22f, radius);
+      return;
+    case 9:
+      addUnitEllipse(canvas, buf, f.xM, f.yT + height * 0.28f, rx * 0.95f, height * 0.22f, radius);
+      addUnitArc(canvas, buf, f.xM, f.yM + height * 0.06f, rx, height * 0.36f, -kPi * 0.08f,
+                 kPi * 0.82f, radius);
+      return;
+    default:
+      return;
+  }
 }
 
 void drawDigit(const Canvas& canvas, uint8_t value, float left, float top, bool compact, uint32_t colour) {
@@ -412,15 +435,98 @@ void drawSeparator(const Canvas& canvas, uint32_t colour) {
   stampStrokes(canvas, buf, colour);
 }
 
-void addWideLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top, float radius) {
-  addSegments(canvas, buf, left, top, static_cast<float>(SmallFont::WIDE_WIDTH),
-              static_cast<float>(SmallFont::WIDE_HEIGHT), fourteenFor(letter), radius);
+void addSansLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top,
+                   float width, float height, float radius) {
+  const Face f = makeFace(left, top, width, height);
+  const float rx = width * 0.36f;
+  const float ry = height * 0.40f;
+  const float bowlRx = f.xR - f.xL;
+  const float upperRy = height * 0.20f;
+  const float lowerRy = height * 0.22f;
+
+  switch (letter) {
+    case 'A':
+      addUnitStroke(canvas, buf, f.xL, f.yB, f.xM, f.yT, radius);
+      addUnitStroke(canvas, buf, f.xR, f.yB, f.xM, f.yT, radius);
+      addUnitStroke(canvas, buf, f.xL + width * 0.10f, f.yT + height * 0.58f,
+                    f.xR - width * 0.10f, f.yT + height * 0.58f, radius);
+      return;
+    case 'B':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitArc(canvas, buf, f.xL, f.yT + height * 0.22f, bowlRx, upperRy, -kPi * 0.50f,
+                 kPi * 0.50f, radius);
+      addUnitArc(canvas, buf, f.xL, f.yB - height * 0.24f, bowlRx, lowerRy, -kPi * 0.50f,
+                 kPi * 0.50f, radius);
+      return;
+    case 'C':
+      addUnitArc(canvas, buf, f.xM, f.yM, rx, ry, kPi * 0.32f, kPi * 1.68f, radius);
+      return;
+    case 'D':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitArc(canvas, buf, f.xL, f.yM, bowlRx, ry, -kPi * 0.50f, kPi * 0.50f, radius);
+      return;
+    case 'E':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yT, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yM, f.xL + width * 0.58f, f.yM, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yB, f.xR, f.yB, radius);
+      return;
+    case 'F':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yT, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yM, f.xL + width * 0.58f, f.yM, radius);
+      return;
+    case 'G':
+      addUnitArc(canvas, buf, f.xM, f.yM, rx, ry, kPi * 0.20f, kPi * 1.78f, radius);
+      addUnitStroke(canvas, buf, f.xM + width * 0.18f, f.yM, f.xR, f.yM, radius);
+      addUnitStroke(canvas, buf, f.xR, f.yM, f.xR, f.yM + height * 0.28f, radius);
+      return;
+    case 'H':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xR, f.yT, f.xR, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yM, f.xR, f.yM, radius);
+      return;
+    case 'K':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xR, f.yT, f.xL, f.yM, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yM, f.xR, f.yB, radius);
+      return;
+    case 'N':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xR, f.yT, f.xR, f.yB, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xR, f.yB, radius);
+      return;
+    case 'O':
+      addUnitEllipse(canvas, buf, f.xM, f.yM, rx, ry, radius);
+      return;
+    case 'R':
+      addUnitStroke(canvas, buf, f.xL, f.yT, f.xL, f.yB, radius);
+      addUnitArc(canvas, buf, f.xL, f.yT + height * 0.22f, bowlRx, upperRy, -kPi * 0.50f,
+                 kPi * 0.50f, radius);
+      addUnitStroke(canvas, buf, f.xL + width * 0.08f, f.yM, f.xR, f.yB, radius);
+      return;
+    case 'S':
+      addUnitArc(canvas, buf, f.xM, f.yT + height * 0.22f, rx, height * 0.22f, kPi * 1.00f,
+                 kPi * 1.92f, radius);
+      addUnitStroke(canvas, buf, f.xL, f.yT + height * 0.22f, f.xR, f.yB - height * 0.22f, radius);
+      addUnitArc(canvas, buf, f.xM, f.yB - height * 0.22f, rx, height * 0.22f, kPi * 0.08f, kPi,
+                 radius);
+      return;
+    default:
+      return;
+  }
+}
+
+void addWideLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top,
+                   float radius) {
+  addSansLetter(canvas, buf, letter, left, top, static_cast<float>(SmallFont::WIDE_WIDTH),
+                static_cast<float>(SmallFont::WIDE_HEIGHT), radius);
 }
 
 void addNarrowLetter(const Canvas& canvas, StrokeBuf& buf, char letter, float left, float top,
                      float radius) {
-  addSegments(canvas, buf, left, top, static_cast<float>(SmallFont::NARROW_WIDTH),
-              static_cast<float>(SmallFont::NARROW_HEIGHT), fourteenFor(letter), radius);
+  addSansLetter(canvas, buf, letter, left, top, static_cast<float>(SmallFont::NARROW_WIDTH),
+                static_cast<float>(SmallFont::NARROW_HEIGHT), radius);
 }
 
 void drawWideWord(const Canvas& canvas, const char* word, float top, uint32_t colour) {
