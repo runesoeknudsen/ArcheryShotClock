@@ -4,7 +4,7 @@
 
 #include "snapshot.h"
 
-// Named panel sizes and how a 32x16 content tile is placed on them.
+// Named panel sizes and how 32x16 content is placed on them.
 //
 // The original clock is two 8x32 WS2812B modules (32x16). P5 HUB75 modules are
 // 64x32. One stays horizontal (64x32). Two to five stand on end, long side

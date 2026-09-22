@@ -7,9 +7,9 @@
 
 // Turns a StateSnapshot into a panel frame.
 //
-// The original clock is a 32x16 tile. Larger HUB75 and WS2812B layouts reuse
-// that tile, scaled and stacked, so a tall cabinet can show more than one
-// piece of information.
+// The original clock is a 32x16 bitmap. Larger HUB75 and WS2812B layouts
+// draw the same content as rounded strokes at the cabinet resolution, so a
+// curve reads as a hill instead of a staircase of upscaled pixels.
 //
 // Colour carries the light state. Article 11.3.1 makes the digital clock
 // authoritative if the clock and the lights ever disagree, so the panel derives

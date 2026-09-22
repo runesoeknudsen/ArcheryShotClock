@@ -67,7 +67,7 @@ void test_landscape_defaults_to_one_clock_line() {
                           static_cast<uint8_t>(lines[0]));
 }
 
-void test_64x32_clock_is_a_2x_tile() {
+void test_64x32_clock_is_not_a_scaled_tile() {
   DisplayLogic::RenderRequest small;
   small.content = Core::DisplayContent::Clock;
   small.light = Core::Light::Green;
@@ -83,9 +83,23 @@ void test_64x32_clock_is_a_2x_tile() {
   const DisplayLogic::RenderResult result = DisplayLogic::renderFrame(largeReq, large);
 
   TEST_ASSERT_EQUAL_STRING("01:30", result.text);
-  TEST_ASSERT_EQUAL_HEX32(tile[DisplayLogic::ledIndex(15, 5)], logicalAt(30, 10, 64));
-  TEST_ASSERT_EQUAL_HEX32(tile[DisplayLogic::ledIndex(15, 5)], logicalAt(31, 11, 64));
-  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, logicalAt(30, 10, 64));
+  TEST_ASSERT_GREATER_THAN_UINT16(40, result.litPixels);
+
+  bool matchesNearestNeighbour = true;
+  for (uint8_t y = 0; y < DisplayLogic::ROWS && matchesNearestNeighbour; y++) {
+    for (uint8_t x = 0; x < DisplayLogic::COLUMNS; x++) {
+      const uint32_t colour = tile[DisplayLogic::ledIndex(x, y)];
+      for (uint8_t dy = 0; dy < 2; dy++) {
+        for (uint8_t dx = 0; dx < 2; dx++) {
+          if (logicalAt(static_cast<uint16_t>(x * 2 + dx), static_cast<uint16_t>(y * 2 + dy), 64) !=
+              colour) {
+            matchesNearestNeighbour = false;
+          }
+        }
+      }
+    }
+  }
+  TEST_ASSERT_FALSE(matchesNearestNeighbour);
 }
 
 void test_portrait_stacks_more_lines_in_order() {
@@ -177,7 +191,7 @@ void test_hub75_three_vertical_uses_every_chain_pixel() {
   }
 }
 
-void test_upscaled_glyphs_use_in_between_levels() {
+void test_smooth_glyphs_use_in_between_levels() {
   DisplayLogic::RenderRequest request;
   request.content = Core::DisplayContent::Clock;
   request.light = Core::Light::Green;
@@ -198,6 +212,25 @@ void test_upscaled_glyphs_use_in_between_levels() {
   }
   TEST_ASSERT_GREATER_THAN_UINT16(20, full);
   TEST_ASSERT_GREATER_THAN_UINT16(10, soft);
+
+  bool foundHill = false;
+  for (uint16_t y = 0; y < 64 && !foundHill; y++) {
+    bool risingThroughSoft = false;
+    for (uint16_t x = 0; x < 96; x++) {
+      const uint32_t colour = logicalAt(x, y, 96);
+      const uint16_t sum = static_cast<uint16_t>(((colour >> 16) & 0xFFu) + ((colour >> 8) & 0xFFu) +
+                                                 (colour & 0xFFu));
+      if (sum > 40 && sum < 400 && colour != DisplayLogic::COLOUR_GREEN) {
+        risingThroughSoft = true;
+      }
+      if (risingThroughSoft && colour == DisplayLogic::COLOUR_GREEN) {
+        foundHill = true;
+        break;
+      }
+      if (colour == 0) risingThroughSoft = false;
+    }
+  }
+  TEST_ASSERT_TRUE(foundHill);
 }
 
 void test_last_line_takes_leftover_height() {
@@ -275,12 +308,12 @@ int main() {
   UNITY_BEGIN();
   RUN_TEST(test_named_sizes_and_portrait_swap);
   RUN_TEST(test_landscape_defaults_to_one_clock_line);
-  RUN_TEST(test_64x32_clock_is_a_2x_tile);
+  RUN_TEST(test_64x32_clock_is_not_a_scaled_tile);
   RUN_TEST(test_portrait_stacks_more_lines_in_order);
   RUN_TEST(test_line_list_parsing);
   RUN_TEST(test_hub75_vertical_panels_are_rotated);
   RUN_TEST(test_hub75_three_vertical_uses_every_chain_pixel);
-  RUN_TEST(test_upscaled_glyphs_use_in_between_levels);
+  RUN_TEST(test_smooth_glyphs_use_in_between_levels);
   RUN_TEST(test_last_line_takes_leftover_height);
   RUN_TEST(test_hero_line_is_larger_than_the_others);
   RUN_TEST(test_ws2812_32x16_matches_the_original_map);

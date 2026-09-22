@@ -54,7 +54,7 @@ Supported P5 64×32 layouts, set from the web UI:
 - One panel, kept horizontal: 64×32, or 32×64 when the cabinet is rotated 90°
 - Two to five panels stood on end, long side against long side: 64×64, 96×64, 128×64 or 160×64. The Waveshare build defaults to three panels (96×64) with one clock line. Rotate the whole cabinet 90° for a tall stand (64×64, 64×96, 64×128 or 64×160) so more lines fit. Chain the HUB75 ribbon left to right; each of those modules is rotated 90° clockwise.
 
-A larger cabinet draws the same glyphs at the panel resolution, with in-between brightness on the edges so the digits are not blocky. Lines share the available height when you add more than one, and the last line takes any leftover pixels. You can instead pick one large line and keep the others the same size.
+A larger cabinet redraws the digits as rounded strokes at the panel resolution. Edges fall off smoothly so a curve reads as a hill instead of a staircase of upscaled pixels. Lines share the available height when you add more than one, and the last line takes any leftover pixels. You can instead pick one large line and keep the others the same size.
 
 The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.
 
