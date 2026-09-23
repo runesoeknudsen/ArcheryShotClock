@@ -208,6 +208,14 @@
             <option value="false">Off — one detail</option>
           </select>
         </div>
+        <div>
+          <label for="waves">Shooting waves</label>
+          <select id="waves">
+            <option value="1">1 wave</option>
+            <option value="2" selected>2 waves — A/B then C/D</option>
+            <option value="3">3 waves — A, B, then C</option>
+          </select>
+        </div>
       </div>
       <div class="row">
         <div>
@@ -224,8 +232,8 @@
       </div>
       <div class="row">
         <div>
-          <label for="breakSeconds">Break length (seconds)</label>
-          <input id="breakSeconds" type="number" min="10" max="3600" value="900">
+          <label for="breakMinutes">Break length (minutes)</label>
+          <input id="breakMinutes" type="number" min="1" max="180" value="15">
         </div>
         <div></div>
       </div>
