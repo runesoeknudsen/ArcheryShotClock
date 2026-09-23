@@ -234,9 +234,15 @@
       };
     }
     if (phase === 'IDLE') {
+      const ends = state.endsPerRound || 12;
+      const rounds = state.qualificationRounds || 2;
+      const round = state.round || 1;
+      const endInRound = state.endInRound || 1;
+      let progress = 'Round ' + round + ' of ' + rounds + ', end ' + endInRound + ' of ' + ends + '.';
+      if (state.qualificationComplete) progress = 'Qualification complete.';
       return {
         headline: 'Ready',
-        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
+        detail: progress + ' Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
       };
     }
     if (phase === 'OCCUPY') {
@@ -470,6 +476,13 @@
     if (state.mode !== 'PRACTICE') {
       lines.push({ label: 'Score', value: '3 sounds · red, when the line is clear' });
     }
+    const rounds = state.qualificationRounds || 2;
+    const ends = state.endsPerRound || state.breakAfterEnds || 12;
+    lines.push({
+      label: 'Qualification',
+      value: rounds + (rounds === 1 ? ' round of ' : ' rounds of ') + ends +
+        ' ends, ' + (state.arrowsPerEnd || 3) + ' arrows each'
+    });
     lines.push({
       label: 'Resume after a hold',
       value: state.resumeOccupy === false ? 'Straight back to shooting · 1 sound'

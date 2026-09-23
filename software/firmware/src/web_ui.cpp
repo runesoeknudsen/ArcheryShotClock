@@ -238,6 +238,18 @@ void WebUi::handleSession() {
   config.abcdRotation = readJsonBool(body, "abcdRotation", config.abcdRotation);
   config.shootOff = readJsonBool(body, "shootOff", config.shootOff);
   config.breakEnabled = readJsonBool(body, "breakEnabled", config.breakEnabled);
+  if (body.indexOf("endsPerRound") >= 0) {
+    const int endsPerRound = readJsonInteger(body, "endsPerRound");
+    if (endsPerRound >= 1 && endsPerRound <= 36) {
+      config.endsPerRound = static_cast<uint8_t>(endsPerRound);
+    }
+  }
+  if (body.indexOf("qualificationRounds") >= 0) {
+    const int qualificationRounds = readJsonInteger(body, "qualificationRounds");
+    if (qualificationRounds >= 1 && qualificationRounds <= 8) {
+      config.qualificationRounds = static_cast<uint8_t>(qualificationRounds);
+    }
+  }
   if (body.indexOf("breakAfterEnds") >= 0) {
     const int breakAfterEnds = readJsonInteger(body, "breakAfterEnds");
     if (breakAfterEnds >= 0 && breakAfterEnds <= 36) {

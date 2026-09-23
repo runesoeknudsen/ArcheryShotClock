@@ -77,6 +77,11 @@ struct SessionConfig {
   bool breakEnabled = true;
   uint8_t breakAfterEnds = 12;
   uint32_t breakMs = 15 * 60 * 1000;
+
+  // Qualification structure: arrows live on arrowsPerEnd, a round is this many
+  // ends, and a qualification is this many rounds. Outdoor default is 12×2.
+  uint8_t endsPerRound = 12;
+  uint8_t qualificationRounds = 2;
 };
 
 class ShotClock {
@@ -148,6 +153,7 @@ private:
   bool moreDetailsThisEnd() const;
   void setDetailForThisEnd();
   void applyWaves();
+  void applyProgress();
 
   Tracer& tracer_;
   SessionConfig config_;
