@@ -439,6 +439,7 @@ void test_break_time_can_be_lengthened_and_shortened() {
   harness.clock.start(harness.now);
   harness.advanceSeconds(12);
   harness.clock.stop(harness.now);
+  harness.clock.skipTechnicalControl(harness.now);
   harness.clock.lineClear(harness.now);
   harness.clock.nextEnd(harness.now);
   TEST_ASSERT_EQUAL(Core::Phase::Break, harness.clock.snapshot().phase);
@@ -469,6 +470,7 @@ void test_break_length_can_be_set_before_the_break_starts() {
   harness.clock.start(harness.now);
   harness.advanceSeconds(12);
   harness.clock.stop(harness.now);
+  harness.clock.skipTechnicalControl(harness.now);
   harness.clock.lineClear(harness.now);
   TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
 
@@ -1190,6 +1192,7 @@ void shootOneEnd(Harness& harness) {
   harness.clock.start(harness.now);
   harness.advanceSeconds(12);
   harness.clock.stop(harness.now);
+  if (harness.clock.snapshot().lastWaveOfRound) harness.clock.skipTechnicalControl(harness.now);
   harness.clock.lineClear(harness.now);
   TEST_ASSERT_EQUAL(Core::Phase::Scoring, harness.clock.snapshot().phase);
 }
