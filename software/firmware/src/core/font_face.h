@@ -12,11 +12,20 @@ namespace DisplayLogic {
 struct GlyphPoint {
   int16_t x = 0;
   int16_t y = 0;
+
+  // The ESP32 toolchain compiles as C++11, where a default member initializer
+  // stops a struct being an aggregate. The generated font tables use brace
+  // lists, so these constructors are what that list initialization calls.
+  GlyphPoint() = default;
+  GlyphPoint(int16_t x, int16_t y) : x(x), y(y) {}
 };
 
 struct GlyphContour {
   uint16_t first = 0;
   uint16_t count = 0;
+
+  GlyphContour() = default;
+  GlyphContour(uint16_t first, uint16_t count) : first(first), count(count) {}
 };
 
 struct FontGlyph {
@@ -27,6 +36,17 @@ struct FontGlyph {
   int16_t minY = 0;
   int16_t maxX = 0;
   int16_t maxY = 0;
+
+  FontGlyph() = default;
+  FontGlyph(uint8_t code, uint16_t contour0, uint8_t contours, int16_t minX, int16_t minY, int16_t maxX,
+            int16_t maxY)
+      : code(code),
+        contour0(contour0),
+        contours(contours),
+        minX(minX),
+        minY(minY),
+        maxX(maxX),
+        maxY(maxY) {}
 };
 
 struct FontFace {
@@ -41,6 +61,22 @@ struct FontFace {
   uint16_t contourCount = 0;
   const FontGlyph* glyphs = nullptr;
   uint8_t glyphCount = 0;
+
+  FontFace() = default;
+  FontFace(const char* name, const char* sourceFont, uint16_t unitsPerEm, uint16_t capHeight,
+           uint16_t maxInkWidth, const GlyphPoint* points, uint16_t pointCount, const GlyphContour* contours,
+           uint16_t contourCount, const FontGlyph* glyphs, uint8_t glyphCount)
+      : name(name),
+        sourceFont(sourceFont),
+        unitsPerEm(unitsPerEm),
+        capHeight(capHeight),
+        maxInkWidth(maxInkWidth),
+        points(points),
+        pointCount(pointCount),
+        contours(contours),
+        contourCount(contourCount),
+        glyphs(glyphs),
+        glyphCount(glyphCount) {}
 };
 
 const FontFace& activeFontFace();
