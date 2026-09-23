@@ -167,6 +167,16 @@ void WebUi::handleControl() {
   } else if (action == "adjust_break") {
     const int seconds = readJsonInteger(body, "seconds");
     if (seconds != 0) clock_.adjustBreak(now, seconds * 1000);
+  } else if (action == "technical_control") {
+    int arrows = readJsonInteger(body, "arrows");
+    if (arrows <= 0) arrows = clock_.snapshot().arrowsPerEnd;
+    clock_.startTechnicalControl(now, static_cast<uint8_t>(arrows));
+  } else if (action == "skip_technical_control") {
+    clock_.skipTechnicalControl(now);
+  } else if (action == "makeup_ends") {
+    int ends = readJsonInteger(body, "ends");
+    if (ends <= 0) ends = 1;
+    clock_.startMakeupEnds(now, static_cast<uint8_t>(ends));
   } else {
     server_.send(400, "application/json", "{\"error\":\"unknown action\"}");
     return;
