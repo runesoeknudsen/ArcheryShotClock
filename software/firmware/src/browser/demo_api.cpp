@@ -347,6 +347,7 @@ int demo_session(const char* json) {
   if (lookup(DIVISION_NAMES, text, index)) H().division = index;
 
   config.replayOccupyOnResume = readBool(json, "resumeOccupy", config.replayOccupyOnResume);
+  config.recalculateOnResume = readBool(json, "recalculateOnResume", config.recalculateOnResume);
   config.signalEachAlternatingPeriod = readBool(json, "signalEachPeriod", config.signalEachAlternatingPeriod);
   config.abcdRotation = readBool(json, "abcdRotation", config.abcdRotation);
   config.shootOff = readBool(json, "shootOff", config.shootOff);

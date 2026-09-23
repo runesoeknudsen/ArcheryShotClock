@@ -54,6 +54,7 @@ function draftFromForm(state) {
     endsPerRound: +$('endsPerRound').value,
     qualificationRounds: +$('qualificationRounds').value,
     resumeOccupy: $('resumeOccupy').value === 'true',
+    recalculateOnResume: $('recalculateOnResume').value === 'true',
     firstShooter: +$('firstShooter').value,
     abcdRotation: $('abcdRotation').value === 'true',
     waves: +$('waves').value,
@@ -101,6 +102,9 @@ function apply(state) {
     $('qualificationRounds').value = String(state.qualificationRounds);
   }
   if (document.activeElement !== $('resumeOccupy')) $('resumeOccupy').value = String(state.resumeOccupy);
+  if (document.activeElement !== $('recalculateOnResume')) {
+    $('recalculateOnResume').value = String(state.recalculateOnResume === true);
+  }
   if (document.activeElement !== $('firstShooter')) $('firstShooter').value = String(state.firstShooter || 1);
   if (document.activeElement !== $('abcdRotation')) $('abcdRotation').value = String(!!state.abcdRotation);
   if (document.activeElement !== $('waves')) {
@@ -270,6 +274,7 @@ try {
       division: 'RECURVE',
       matchLogic: $('matchLogic').value === 'true',
       resumeOccupy: $('resumeOccupy').value === 'true',
+      recalculateOnResume: $('recalculateOnResume').value === 'true',
       signalEachPeriod: true,
       abcdRotation: waves !== 1,
       shootOff: false,
@@ -290,6 +295,7 @@ try {
   $('endsPerRound').onchange = session;
   $('qualificationRounds').onchange = session;
   $('resumeOccupy').onchange = session;
+  $('recalculateOnResume').onchange = session;
   $('firstShooter').onchange = session;
   $('abcdRotation').onchange = () => {
     $('waves').value = $('abcdRotation').value === 'false' ? '1' : '2';

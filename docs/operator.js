@@ -230,7 +230,9 @@
     if (phase === 'SUSPENDED') {
       return {
         headline: 'Held — ' + (who || shooter || 'this period') + ' paused',
-        detail: 'Set how many arrows have already been shot, then resume. Time is recalculated from what is left.'
+        detail: state.recalculateOnResume
+          ? 'Set how many arrows have already been shot, then resume. Time is recalculated from what is left.'
+          : 'Resume continues from the remaining shot time. The full period is not restarted.'
       };
     }
     if (phase === 'IDLE') {
@@ -379,7 +381,7 @@
       list.push({ id: 'suspend', label: 'Suspend', action: 'suspend' });
     }
     if (phase === 'SUSPENDED') {
-      list.push({ id: 'resume', label: 'Resume remaining arrows', action: 'resume', primary: true });
+      list.push({ id: 'resume', label: 'Resume remaining time', action: 'resume', primary: true });
     }
 
     list.push({ id: 'emergency', label: 'Emergency', action: 'emergency', danger: true });

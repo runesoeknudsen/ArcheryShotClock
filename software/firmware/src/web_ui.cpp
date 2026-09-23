@@ -234,6 +234,7 @@ void WebUi::handleSession() {
   settings_.matchLogic = matchLogic;
 
   config.replayOccupyOnResume = readJsonBool(body, "resumeOccupy", config.replayOccupyOnResume);
+  config.recalculateOnResume = readJsonBool(body, "recalculateOnResume", config.recalculateOnResume);
   config.signalEachAlternatingPeriod = readJsonBool(body, "signalEachPeriod", config.signalEachAlternatingPeriod);
   config.abcdRotation = readJsonBool(body, "abcdRotation", config.abcdRotation);
   config.shootOff = readJsonBool(body, "shootOff", config.shootOff);
