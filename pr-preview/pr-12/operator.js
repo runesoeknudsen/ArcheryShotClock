@@ -1,19 +1,29 @@
 // Director-console helpers: shooter-facing names, the flow strip, and the
 // setup preview. Firmware and the browser demo share this file.
 (function (root) {
-  const GROUPS = ['AB', 'CD', 'EF', 'GH'];
+  const PAIR_GROUPS = ['AB', 'CD', 'EF', 'GH'];
+  const LETTER_GROUPS = ['A', 'B', 'C'];
 
-  function groupName(detail) {
+  function waveCount(state) {
+    if (state && state.waves >= 1) return Math.min(state.waves, 3);
+    if (state && state.abcdRotation && (state.details || 1) > 1) {
+      return Math.min(state.details, 3);
+    }
+    return 1;
+  }
+
+  function groupName(detail, state) {
     const index = Math.max(0, (detail || 1) - 1);
-    return GROUPS[index] || ('D' + (index + 1));
+    if (waveCount(state) === 3) return LETTER_GROUPS[index] || 'A';
+    return PAIR_GROUPS[index] || ('D' + (index + 1));
   }
 
   function usesAbcd(state) {
-    return !!(state && state.abcdRotation && (state.details || 1) > 1);
+    return waveCount(state) > 1;
   }
 
   function detailCount(state) {
-    return Math.min(Math.max(state && state.details ? state.details : 1, 1), 4);
+    return Math.min(Math.max(waveCount(state), 1), 3);
   }
 
   function firstDetailForEnd(state, end) {
@@ -89,20 +99,32 @@
     return String(minutes) + ':' + String(seconds).padStart(2, '0');
   }
 
+  function mmss(ms) {
+    const total = Math.ceil(Math.max(ms || 0, 0) / 1000);
+    return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+  }
+
+  function configuredBreakMinutes(state) {
+    if (state && typeof state.breakMinutes === 'number') return state.breakMinutes;
+    return Math.round((state && state.breakSeconds ? state.breakSeconds : 900) / 60);
+  }
+
   function clockFace(state, ms) {
     if (state && state.showEndLabels !== false) {
       if (state.phase === 'FINISHED') return 'End ' + (state.end || '');
       if (state.phase === 'SCORING') return 'Scoring ' + (state.end || '');
     }
+    if (state && state.phase === 'BREAK') return 'BREAK ' + mmss(ms);
     const total = Math.ceil(Math.max(ms || 0, 0) / 1000);
     if (!state || state.clockSeconds !== false) return String(total);
-    return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    return mmss(ms);
   }
 
   function groupOnClock(state) {
     if (!state || state.showAbcd === false || !usesAbcd(state)) return '';
+    if (state.phase === 'BREAK') return '';
     if (state.showEndLabels !== false && (state.phase === 'FINISHED' || state.phase === 'SCORING')) return '';
-    return groupName(state.detail || 1);
+    return groupName(state.detail || 1, state);
   }
 
   function programTitle(state) {
@@ -115,14 +137,18 @@
       PRACTICE: 'Practice'
     };
     let title = titles[state.mode] || state.mode || 'Shot clock';
-    if (usesAbcd(state)) title += ', ' + groupName(1) + ' then ' + groupName(2) + ', rotating each end';
+    if (usesAbcd(state)) {
+      const names = [];
+      for (let step = 1; step <= detailCount(state); step++) names.push(groupName(step, state));
+      title += ', ' + names.join(' then ') + ', rotating each end';
+    }
     if (state.shootOff) title += ' — shoot-off';
     return title;
   }
 
   function startShootLabel(state, detail) {
     if (state.mode === 'PRACTICE') return 'Start Practice';
-    if (usesAbcd(state)) return 'Start Shoot ' + groupName(detail || upcomingFirstDetail(state));
+    if (usesAbcd(state)) return 'Start Shoot ' + groupName(detail || upcomingFirstDetail(state), state);
     if (isAlternating(state)) return 'Start Shoot ' + sideName(state.firstShooter || 1, state);
     return 'Start Shoot';
   }
@@ -139,8 +165,8 @@
     add('ready', 'Ready');
     if (usesAbcd(state)) {
       detailOrder(state, state.end || 1).forEach(function (detail) {
-        add('occupy' + detail, 'Occupy ' + groupName(detail));
-        add('shoot' + detail, 'Shoot ' + groupName(detail));
+        add('occupy' + detail, 'Occupy ' + groupName(detail, state));
+        add('shoot' + detail, 'Shoot ' + groupName(detail, state));
       });
     } else if (isAlternating(state)) {
       add('occupy', 'Occupy line');
@@ -194,7 +220,7 @@
 
   function situation(state) {
     const phase = state.phase || 'IDLE';
-    const who = usesAbcd(state) ? groupName(state.detail || 1) : '';
+    const who = usesAbcd(state) ? groupName(state.detail || 1, state) : '';
     const shooter = isAlternating(state) ? sideName(state.shooter || state.firstShooter || 1, state) : '';
 
     if (phase === 'EMERGENCY') {
@@ -217,9 +243,15 @@
       };
     }
     if (phase === 'IDLE') {
+      const ends = state.endsPerRound || 12;
+      const rounds = state.qualificationRounds || 2;
+      const round = state.round || 1;
+      const endInRound = state.endInRound || 1;
+      let progress = 'Round ' + round + ' of ' + rounds + ', end ' + endInRound + ' of ' + ends + '.';
+      if (state.qualificationComplete) progress = 'Qualification complete.';
       return {
         headline: 'Ready',
-        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
+        detail: progress + ' Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + '. Two sounds, red, 10 seconds to occupy the line. Restart session returns to end 1.'
       };
     }
     if (phase === 'OCCUPY') {
@@ -239,7 +271,7 @@
       if (moreDetails(state)) {
         return {
           headline: who + ' shooting',
-          detail: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details)) + ' when ' + who + ' has finished.'
+          detail: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details), state) + ' when ' + who + ' has finished.'
         };
       }
       if (state.mode === 'PRACTICE') {
@@ -263,14 +295,16 @@
       return {
         headline: 'Scoring' + (state.end ? ' — end ' + state.end : ''),
         detail: breakDue(state)
-          ? 'Start the break when scoring is finished.'
+          ? 'Start the break when scoring is finished. Add or remove a minute first if ' +
+            configuredBreakMinutes(state) + ' min is too long or too short.'
           : 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) + ' for the next end.'
       };
     }
     if (phase === 'BREAK') {
       return {
         headline: 'Break after end ' + (state.end || ''),
-        detail: 'Start Shoot when the break is over. Remaining time already excludes Technical Control.'
+        detail: 'Next: ' + startShootLabel(state, upcomingFirstDetail(state)) +
+          ' when the field is ready. Remaining time already excludes Technical Control. Add or remove a minute if the line still needs time. End break returns to ready without starting.'
       };
     }
     return { headline: phase, detail: '' };
@@ -347,14 +381,14 @@
     } else if (running(phase) && moreDetails(state)) {
       list.push({
         id: 'jump',
-        label: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details)),
+        label: 'Start Shoot ' + groupName(nextDetail(state.detail, state.details), state),
         action: 'stop',
         primary: true
       });
     } else if (phase === 'SHOOTING' || phase === 'WARNING') {
       const label = state.technicalControl ? 'Stop Technical Control'
         : state.mode === 'PRACTICE' ? 'Stop practice'
-        : usesAbcd(state) ? 'Stop shooting ' + groupName(state.detail || 1)
+        : usesAbcd(state) ? 'Stop shooting ' + groupName(state.detail || 1, state)
         : 'Stop shooting';
       list.push({ id: 'stop', label: label, action: 'stop', primary: true });
     } else if (phase === 'OCCUPY' && !moreDetails(state)) {
@@ -412,6 +446,14 @@
     if (running(phase) || phase === 'SUSPENDED') {
       extras.push({ id: 'extend', label: 'Add time', action: 'extend' });
     }
+    if (phase === 'SCORING' && breakDue(state)) {
+      extras.push({ id: 'add_minute', label: 'Add 1 min', action: 'adjust_break', seconds: 60 });
+      extras.push({ id: 'remove_minute', label: 'Remove 1 min', action: 'adjust_break', seconds: -60 });
+    }
+    if (phase === 'BREAK') {
+      extras.push({ id: 'add_minute', label: 'Add 1 min', action: 'extend', seconds: 60 });
+      extras.push({ id: 'remove_minute', label: 'Remove 1 min', action: 'extend', seconds: -60 });
+    }
     if (phase === 'IDLE' || phase === 'FINISHED' || phase === 'SCORING' || phase === 'BREAK') {
       extras.push({ id: 'reset', label: 'Reset this end', action: 'reset_end' });
     }
@@ -449,8 +491,8 @@
 
     if (usesAbcd(state)) {
       lines.push({
-        label: 'Details',
-        value: detailOrder(state, state.end || 1).map(groupName).join(' then ') +
+        label: 'Waves',
+        value: detailOrder(state, state.end || 1).map(function (detail) { return groupName(detail, state); }).join(' then ') +
           ', rotating each end · 10 s changeover'
       });
     }
@@ -458,6 +500,13 @@
     if (state.mode !== 'PRACTICE') {
       lines.push({ label: 'Score', value: '3 sounds · red, when the line is clear' });
     }
+    const rounds = state.qualificationRounds || 2;
+    const ends = state.endsPerRound || state.breakAfterEnds || 12;
+    lines.push({
+      label: 'Qualification',
+      value: rounds + (rounds === 1 ? ' round of ' : ' rounds of ') + ends +
+        ' ends, ' + (state.arrowsPerEnd || 3) + ' arrows each'
+    });
     lines.push({
       label: 'Resume after a hold',
       value: state.resumeOccupy === false ? 'Straight back to shooting · 1 sound'
@@ -483,7 +532,7 @@
       lines.push({
         label: 'Break',
         value: 'After the last wave of every ' + state.breakAfterEnds +
-          ' ends, ' + (state.breakSeconds || 900) + ' s, including Technical Control time'
+          ' ends, ' + configuredBreakMinutes(state) + ' min, including Technical Control time'
       });
     }
     return lines;
@@ -536,7 +585,7 @@
     host.replaceChildren();
     const extras = auxActions(state);
     extras.forEach(function (spec) {
-      if (spec.action === 'extend') return;
+      if (spec.action === 'extend' && spec.seconds == null) return;
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = spec.label;
@@ -544,7 +593,7 @@
       button.onclick = function () { onAction(spec); };
       host.appendChild(button);
     });
-    return extras.some(function (spec) { return spec.action === 'extend'; });
+    return extras.some(function (spec) { return spec.action === 'extend' && spec.seconds == null; });
   }
 
   root.Operator = {
