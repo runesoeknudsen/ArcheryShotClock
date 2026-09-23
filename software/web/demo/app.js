@@ -195,6 +195,7 @@ try {
     return [
       state.phase, state.mode, state.detail, state.details, state.waves, state.shooter,
       state.arrowsShot, state.arrowsPerEnd, state.abcdRotation, state.firstShooter,
+      state.technicalControl, state.lastWaveOfRound,
       state.end, state.round, state.endInRound, state.breakEnabled, state.breakAfterEnds,
       state.breakMinutes, state.endsPerRound, state.qualificationRounds
     ].join('|');
@@ -235,6 +236,11 @@ try {
     }
     if (spec.action === 'adjust_break') {
       engine.control('adjust_break', spec.seconds);
+      refresh();
+      return;
+    }
+    if (spec.action === 'technical_control') {
+      engine.control('technical_control', spec.arrows || 3);
       refresh();
       return;
     }
