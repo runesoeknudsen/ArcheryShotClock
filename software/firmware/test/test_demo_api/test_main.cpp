@@ -130,6 +130,7 @@ void test_browser_host_adjusts_upcoming_break_without_leaving_scoring() {
   TEST_ASSERT_EQUAL_INT(0, demo_control("start", 0));
   demo_tick(12000);
   TEST_ASSERT_EQUAL_INT(0, demo_control("stop", 0));
+  TEST_ASSERT_EQUAL_INT(0, demo_control("skip_technical_control", 0));
   TEST_ASSERT_EQUAL_INT(0, demo_control("line_clear", 0));
   TEST_ASSERT_NOT_NULL(strstr(demo_state_json(), "\"phase\":\"SCORING\""));
   TEST_ASSERT_EQUAL_INT(0, demo_control("adjust_break", 60));
