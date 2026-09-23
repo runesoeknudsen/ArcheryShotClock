@@ -26,6 +26,7 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
     json.pair("sideRemainingMs", state.sideRemainingMs[0], state.sideRemainingMs[1]);
     json.unsigned32("detail", state.detail);
     json.unsigned32("details", state.details);
+    json.unsigned32("waves", state.waves);
     json.boolean("shootOff", state.shootOff);
     json.boolean("running", state.running);
     json.boolean("finished", state.finished);

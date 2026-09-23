@@ -39,6 +39,7 @@ function mockApi(page) {
     sideRemainingMs: [0, 0],
     detail: 1,
     details: 2,
+    waves: 2,
     shootOff: false,
     firstShooter: 1,
     signalEachPeriod: true,
@@ -177,9 +178,14 @@ function mockApi(page) {
     if (body.mode) state.mode = body.mode;
     if (body.division) state.division = body.division;
     if (typeof body.matchLogic === 'boolean') state.matchEnabled = body.matchLogic;
-    if (typeof body.abcdRotation === 'boolean') {
+    if (typeof body.waves === 'number') {
+      state.waves = body.waves;
+      state.abcdRotation = body.waves !== 1;
+      state.details = body.waves === 1 ? 1 : body.waves;
+    } else if (typeof body.abcdRotation === 'boolean') {
       state.abcdRotation = body.abcdRotation;
       state.details = body.abcdRotation ? Math.max(Number(body.details) || 0, 2) : 1;
+      state.waves = body.abcdRotation ? Math.min(state.details, 3) : 1;
     }
     if (typeof body.firstShooter === 'number') state.firstShooter = body.firstShooter;
     if (typeof body.breakEnabled === 'boolean') state.breakEnabled = body.breakEnabled;
@@ -556,6 +562,34 @@ test('can turn AB CD rotation off for a single-detail end', async ({ page }) => 
   await page.getByRole('link', { name: 'Field' }).click();
   await expect(page.getByRole('button', { name: /^Start Shoot$/ })).toBeVisible();
   await expect(page.locator('#clockGroup')).toBeHidden();
+});
+
+test('one wave is a single shooting group', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#waves').selectOption('1');
+  await page.getByRole('link', { name: 'Field' }).click();
+  await expect(page.getByRole('button', { name: /^Start Shoot$/ })).toBeVisible();
+  await expect(page.locator('#clockGroup')).toBeHidden();
+  await expect(page.locator('#flow .step', { hasText: 'Occupy AB' })).toHaveCount(0);
+});
+
+test('three waves shoot A then B then C', async ({ page }) => {
+  await page.getByRole('link', { name: 'Setup' }).click();
+  await page.locator('#waves').selectOption('3');
+  await expect(page.locator('#preview')).toContainText('A then B then C');
+  await page.getByRole('link', { name: 'Field' }).click();
+  await expect(page.getByRole('button', { name: 'Start Shoot A' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start Shoot A' }).click();
+  await expect(page.getByRole('button', { name: 'Start Shoot B' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start Shoot B' }).click();
+  await expect(page.locator('#clockGroup')).toHaveText('B');
+  await expect(page.getByRole('button', { name: 'Start Shoot C' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start Shoot C' }).click();
+  await expect(page.locator('#clockGroup')).toHaveText('C');
+  const labels = await page.locator('#flow .step').allTextContents();
+  expect(labels.slice(0, 7)).toEqual([
+    'Ready', 'Occupy A', 'Shoot A', 'Occupy B', 'Shoot B', 'Occupy C', 'Shoot C'
+  ]);
 });
 
 test('second end starts with CD then AB', async ({ page }) => {

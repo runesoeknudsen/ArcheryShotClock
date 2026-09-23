@@ -15,8 +15,8 @@
 
 namespace Core {
 
-// 3: added the optional break after scoring, shown as its own phase.
-constexpr uint16_t SCHEMA_VERSION = 3;
+// 4: configurable shooting waves (1, AB/CD, or A/B/C).
+constexpr uint16_t SCHEMA_VERSION = 4;
 
 // Where the shooting sequence currently is. Phase 0 only ever reports Idle,
 // Shooting and Finished; the remaining values are the World Archery sequence
@@ -92,6 +92,7 @@ struct StateSnapshot {
   // AB/CD rotation (Art. 11.2.3.1): which detail is on the line.
   uint8_t detail = 1;
   uint8_t details = 1;
+  uint8_t waves = 1;
 
   // Art. 12.5: a shoot-off is a separate one-off end, not part of the normal
   // end or set count.
@@ -113,7 +114,7 @@ struct StateSnapshot {
            sideArrows[0] == other.sideArrows[0] &&
            sideArrows[1] == other.sideArrows[1] && sideRemainingMs[0] == other.sideRemainingMs[0] &&
            sideRemainingMs[1] == other.sideRemainingMs[1] && detail == other.detail && details == other.details &&
-           shootOff == other.shootOff;
+           waves == other.waves && shootOff == other.shootOff;
   }
 };
 
