@@ -25,7 +25,7 @@ private:
   DisplayLogic::Geometry geometry_{};
 #ifdef DISPLAY_HUB75
   MatrixPanel_I2S_DMA* dma_ = nullptr;
-  using FourScanMapping = ScanTypeMapping<FOUR_SCAN_64X32_DOUBLE_WIDTH>;
+  using FourScanMapping = ScanTypeMapping<FOUR_SCAN_32PX_HIGH>;
   VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN, FourScanMapping>* virtual_ = nullptr;
   uint32_t lastFrameChecksum_ = 0;
   bool hasFrame_ = false;
