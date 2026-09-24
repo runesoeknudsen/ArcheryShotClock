@@ -1,26 +1,76 @@
-// Draws the WASM 32x16 frame and the size-conversation overlays.
+// Draws the WASM firmware frame at its real column and row count.
+export const REFERENCE_PITCH_MM = 5;
+export const LED_PX_MIN = 0.5;
+export const LED_PX_MAX = 32;
+
+export function clampLedPx(value) {
+  return Math.min(LED_PX_MAX, Math.max(LED_PX_MIN, value));
+}
+
+export function cellMetrics(ledPx, pitchMm) {
+  const pitch = pitchMm > 0 ? pitchMm : REFERENCE_PITCH_MM;
+  const cell = Math.max(0.25, ledPx * (pitch / REFERENCE_PITCH_MM));
+  const gap = Math.max(0.15, cell * 0.18);
+  const disc = Math.max(0.2, cell - gap);
+  return { cell, gap, disc };
+}
+
+export function ledPxForWidth(columns, pitchMm, availableWidth) {
+  const cols = Math.max(1, columns);
+  const cell = Math.max(0.25, availableWidth / (cols + 0.18));
+  const pitch = pitchMm > 0 ? pitchMm : REFERENCE_PITCH_MM;
+  return clampLedPx(cell * REFERENCE_PITCH_MM / pitch);
+}
+
+const STACKED_P5 = {
+  P5_64X64: 2,
+  P5_96X64: 3,
+  P5_128X64: 4,
+  P5_160X64: 5
+};
+
+export function moduleSeams(preset, orientation) {
+  const count = STACKED_P5[preset];
+  if (!count) return [];
+  const seams = [];
+  for (let index = 1; index < count; index++) {
+    const at = index * 32;
+    if (orientation === 'PORTRAIT') seams.push({ x: 0, y: at, w: 64, h: 0 });
+    else seams.push({ x: at, y: 0, w: 0, h: 64 });
+  }
+  return seams;
+}
+
 export function createPanel(canvas, engine) {
   const ctx = canvas.getContext('2d');
-  const firmware = engine.panelSize();
 
   const settings = {
-    ledPx: 12,
-    gapPx: 2,
+    ledPx: 8,
     pitchMm: 5,
-    preview: '32x16'
+    preset: 'LED_32X16',
+    orientation: 'LANDSCAPE'
   };
 
-  function gridSize() {
-    if (settings.preview === '64x32') return { columns: 64, rows: 32 };
-    if (settings.preview === '64x16') return { columns: 64, rows: 16 };
-    return { columns: firmware.columns, rows: firmware.rows };
+  function firmwareSize() {
+    return engine.panelSize();
+  }
+
+  function metrics() {
+    return cellMetrics(settings.ledPx, settings.pitchMm);
+  }
+
+  function rememberMetrics(drawn) {
+    canvas.dataset.cell = String(drawn.cell);
+    canvas.dataset.gap = String(drawn.gap);
+    canvas.dataset.disc = String(drawn.disc);
   }
 
   function resize() {
-    const grid = gridSize();
-    const cell = settings.ledPx + settings.gapPx;
-    canvas.width = grid.columns * cell + settings.gapPx;
-    canvas.height = grid.rows * cell + settings.gapPx;
+    const grid = firmwareSize();
+    const drawn = metrics();
+    canvas.width = Math.max(1, Math.round(grid.columns * drawn.cell + drawn.gap));
+    canvas.height = Math.max(1, Math.round(grid.rows * drawn.cell + drawn.gap));
+    rememberMetrics(drawn);
   }
 
   function colour(pixel) {
@@ -31,31 +81,48 @@ export function createPanel(canvas, engine) {
   }
 
   function draw() {
-    const grid = gridSize();
+    const grid = firmwareSize();
     const pixels = engine.pixels();
-    const cell = settings.ledPx + settings.gapPx;
+    const drawn = metrics();
+    rememberMetrics(drawn);
     ctx.fillStyle = '#05070a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const scaleX = grid.columns / firmware.columns;
-    const scaleY = grid.rows / firmware.rows;
-
     for (let y = 0; y < grid.rows; y++) {
       for (let x = 0; x < grid.columns; x++) {
-        const srcX = Math.floor(x / scaleX);
-        const srcY = Math.floor(y / scaleY);
-        const pixel = pixels[srcY * firmware.columns + srcX] || 0;
+        const pixel = pixels[y * grid.columns + x] || 0;
         ctx.fillStyle = pixel ? colour(pixel) : '#10151b';
-        ctx.beginPath();
-        ctx.roundRect(
-          settings.gapPx + x * cell,
-          settings.gapPx + y * cell,
-          settings.ledPx,
-          settings.ledPx,
-          Math.max(1, settings.ledPx / 4)
-        );
-        ctx.fill();
+        const x0 = drawn.gap + x * drawn.cell;
+        const y0 = drawn.gap + y * drawn.cell;
+        if (drawn.disc >= 1.5 && typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(x0, y0, drawn.disc, drawn.disc, drawn.disc / 4);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x0, y0, drawn.disc, drawn.disc);
+        }
       }
+    }
+    drawSeams(drawn);
+  }
+
+  function drawSeams(drawn) {
+    const seams = moduleSeams(settings.preset, settings.orientation);
+    if (!seams.length) return;
+    ctx.strokeStyle = 'rgba(255,150,56,0.55)';
+    ctx.lineWidth = Math.max(1, drawn.gap);
+    for (const seam of seams) {
+      const x0 = drawn.gap + seam.x * drawn.cell;
+      const y0 = drawn.gap + seam.y * drawn.cell;
+      ctx.beginPath();
+      if (seam.w) {
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x0 + seam.w * drawn.cell, y0);
+      } else {
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x0, y0 + seam.h * drawn.cell);
+      }
+      ctx.stroke();
     }
   }
 
@@ -64,17 +131,15 @@ export function createPanel(canvas, engine) {
   }
 
   function summary() {
-    const grid = gridSize();
-    const firmwareMm = physicalMm(firmware.columns, firmware.rows);
-    const previewMm = physicalMm(grid.columns, grid.rows);
-    const same = grid.columns === firmware.columns && grid.rows === firmware.rows;
+    const grid = firmwareSize();
+    const size = physicalMm(grid.columns, grid.rows);
     return {
-      firmware: `${firmware.columns}×${firmware.rows}`,
+      firmware: `${grid.columns}×${grid.rows}`,
       preview: `${grid.columns}×${grid.rows}`,
       pitchMm: settings.pitchMm,
-      firmwareMm,
-      previewMm,
-      same
+      firmwareMm: size,
+      previewMm: size,
+      same: true
     };
   }
 
@@ -85,6 +150,9 @@ export function createPanel(canvas, engine) {
     resize,
     draw,
     summary,
-    firmware
+    metrics,
+    get firmware() {
+      return firmwareSize();
+    }
   };
 }

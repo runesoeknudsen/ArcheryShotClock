@@ -25,6 +25,15 @@ function mockApi(page) {
     mode: 'IND_NONALT',
     eventClass: 'OTHER',
     display: 'CLOCK',
+    displayDriver: 'WS2812B',
+    panelPreset: 'LED_32X16',
+    orientation: 'LANDSCAPE',
+    panelColumns: 32,
+    panelRows: 16,
+    panelMaxLines: 1,
+    panelLines: 'CLOCK',
+    lineScale: 'FILL',
+    heroLine: 0,
     clockSeconds: true,
     showAbcd: true,
     abcdVertical: true,
@@ -257,6 +266,9 @@ function mockApi(page) {
       requests.push({ path: `/api/${path}`, body });
       Object.assign(state, body);
       if (body.content) state.display = body.content;
+      if (body.lines) state.panelLines = body.lines;
+      delete state.lines;
+      delete state.content;
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(state) });
     });
   }
@@ -445,6 +457,11 @@ test('changes what the panel shows', async ({ page }) => {
     path: '/api/display',
     body: {
       content: 'CLOCK_END',
+      panelPreset: 'LED_32X16',
+      orientation: 'LANDSCAPE',
+      lines: 'CLOCK_END',
+      lineScale: 'FILL',
+      heroLine: 0,
       clockSeconds: true,
       showAbcd: true,
       abcdVertical: true,
@@ -466,6 +483,11 @@ test('offers arrows on the panel only for alternating shooting', async ({ page }
     path: '/api/display',
     body: {
       content: 'ARROWS',
+      panelPreset: 'LED_32X16',
+      orientation: 'LANDSCAPE',
+      lines: 'ARROWS',
+      lineScale: 'FILL',
+      heroLine: 0,
       clockSeconds: true,
       showAbcd: true,
       abcdVertical: true,
@@ -486,6 +508,11 @@ test('defaults to seconds and can switch to minutes', async ({ page }) => {
     path: '/api/display',
     body: {
       content: 'CLOCK',
+      panelPreset: 'LED_32X16',
+      orientation: 'LANDSCAPE',
+      lines: 'CLOCK',
+      lineScale: 'FILL',
+      heroLine: 0,
       clockSeconds: false,
       showAbcd: true,
       abcdVertical: true,
@@ -708,6 +735,11 @@ test('AB CD colour can follow the timer or use a custom colour', async ({ page }
     path: '/api/display',
     body: {
       content: 'CLOCK',
+      panelPreset: 'LED_32X16',
+      orientation: 'LANDSCAPE',
+      lines: 'CLOCK',
+      lineScale: 'FILL',
+      heroLine: 0,
       clockSeconds: true,
       showAbcd: true,
       abcdVertical: true,
@@ -732,6 +764,11 @@ test('AB CD colour can follow the timer or use a custom colour', async ({ page }
     path: '/api/display',
     body: {
       content: 'CLOCK',
+      panelPreset: 'LED_32X16',
+      orientation: 'LANDSCAPE',
+      lines: 'CLOCK',
+      lineScale: 'FILL',
+      heroLine: 0,
       clockSeconds: true,
       showAbcd: true,
       abcdVertical: true,

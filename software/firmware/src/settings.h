@@ -25,6 +25,12 @@ struct Settings {
   uint8_t eventClass;       // Rules::EventClass
   uint8_t arrowsPerEnd;     // Art. 10.1: three or six
   uint8_t displayContent;   // Core::DisplayContent
+  uint8_t panelPreset;      // DisplayLogic::PanelPreset
+  uint8_t orientation;      // DisplayLogic::Orientation
+  uint8_t lineCount;
+  uint8_t lines[10];
+  uint8_t lineScale;        // DisplayLogic::LineScaleMode
+  uint8_t heroLine;
   bool replayOccupyOnResume;
   uint8_t firstShooter;     // Art. 11.1.4.1 / 11.1.4.3
   bool signalEachPeriod;    // Art. 11.3.4

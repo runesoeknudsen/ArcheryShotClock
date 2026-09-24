@@ -2,17 +2,9 @@
 
 #include "big_digits.h"
 #include "small_font.h"
+#include "smooth_draw.h"
 
 namespace DisplayLogic {
-namespace {
-
-constexpr uint8_t DIGIT_WIDTH = 5;
-constexpr uint8_t DIGIT_HEIGHT = 11;
-constexpr uint8_t DIGIT_GAP = 2;
-constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
-constexpr uint8_t GROUP_LEFT = 0;
-constexpr uint8_t LETTER_GAP = 1;
-constexpr uint8_t ELEMENT_GAP = 1;
 
 uint8_t occupancy[PIXEL_COUNT];
 uint8_t currentElement = ELEMENT_NONE;
@@ -29,9 +21,20 @@ void plot(uint8_t x, uint8_t y, uint32_t colour, uint32_t* pixels) {
   occupancy[static_cast<uint16_t>(y) * COLUMNS + x] = currentElement;
 }
 
-uint8_t minTimeLeft(bool groupVertical) {
+namespace {
+
+constexpr uint8_t DIGIT_WIDTH = 5;
+constexpr uint8_t DIGIT_HEIGHT = 11;
+constexpr uint8_t DIGIT_GAP = 2;
+constexpr uint8_t DIGIT_TOP = (ROWS - DIGIT_HEIGHT) / 2;
+constexpr uint8_t GROUP_LEFT = 0;
+constexpr uint8_t LETTER_GAP = 1;
+constexpr uint8_t ELEMENT_GAP = 1;
+
+uint8_t minTimeLeft(bool groupVertical, bool wideGroup) {
   if (!groupVertical) return 0;
-  return static_cast<uint8_t>(GROUP_LEFT + SmallFont::NARROW_WIDTH + ELEMENT_GAP);
+  const uint8_t groupW = wideGroup ? SmallFont::WIDE_WIDTH : SmallFont::NARROW_WIDTH;
+  return static_cast<uint8_t>(GROUP_LEFT + groupW + ELEMENT_GAP);
 }
 
 const char* groupLetters(const RenderRequest& request) {
@@ -137,9 +140,14 @@ void drawWideWord(const char* word, uint8_t top, uint32_t colour, uint32_t* pixe
   }
 }
 
-void drawGroupVertical(const char* letters, uint32_t colour, uint32_t* pixels) {
+void drawGroupVertical(const char* letters, uint32_t colour, uint32_t* pixels, bool wide) {
   if (letters[1] == '\0') {
     drawNarrowLetter(letters[0], GROUP_LEFT, 5, colour, pixels);
+    return;
+  }
+  if (wide) {
+    drawWideLetter(letters[0], GROUP_LEFT, 2, colour, pixels);
+    drawWideLetter(letters[1], GROUP_LEFT, 9, colour, pixels);
     return;
   }
   drawNarrowLetter(letters[0], GROUP_LEFT, 2, colour, pixels);
@@ -248,7 +256,7 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
   uint8_t reversed[4] = {0};
   uint8_t n = 0;
   uint32_t value = shown;
-  while (value > 0 && n < 4) {
+  while (value > 0 && n < 3) {
     reversed[n++] = static_cast<uint8_t>(value % 10);
     value /= 10;
   }
@@ -258,7 +266,7 @@ uint8_t secondsDigits(uint32_t shown, uint8_t* digits) {
 
 void drawRightSeconds(uint32_t totalSeconds, uint8_t top, uint32_t colour, uint32_t* pixels,
                       RenderResult& result, uint8_t textAt, uint8_t minLeft, bool compact) {
-  uint32_t shown = totalSeconds > 9999 ? 9999 : totalSeconds;
+  uint32_t shown = totalSeconds > 999 ? 999 : totalSeconds;
   uint8_t digits[4] = {0};
   const uint8_t count = secondsDigits(shown, digits);
   uint8_t left = static_cast<uint8_t>(CLOCK_ONES_LEFT - (count - 1) * (DIGIT_WIDTH + DIGIT_GAP));
@@ -350,14 +358,16 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
     return;
   }
 
-  const uint32_t totalSeconds = (request.remainingMs + 999) / 1000;
+  const bool seconds = secondsClock(request);
+  const uint32_t totalSeconds =
+      seconds ? countdownSeconds(request.remainingMs) : (request.remainingMs + 999) / 1000;
   const bool group = showGroup(request);
-  const bool groupVertical = group && request.abcdVertical;
-  const bool groupUnder = group && !request.abcdVertical;
+  const bool stackGroup = group && (request.abcdVertical || shotCountdown(request.phase));
+  const bool groupUnder = group && !stackGroup;
   const char* letters = groupLetters(request);
   const bool compactTime = request.phase == Core::Phase::Break || groupUnder;
   const uint8_t top = compactTime ? 0 : DIGIT_TOP;
-  const uint8_t origin = groupVertical ? minTimeLeft(true) : 2;
+  const uint8_t origin = stackGroup ? minTimeLeft(true, seconds) : 2;
 
   if (request.phase == Core::Phase::Break) {
     setElement(ELEMENT_LABEL);
@@ -370,8 +380,8 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
   }
 
   setElement(ELEMENT_TIME);
-  if (request.clockSeconds) {
-    drawRightSeconds(totalSeconds, top, colour, pixels, result, 0, minTimeLeft(groupVertical),
+  if (seconds) {
+    drawRightSeconds(totalSeconds, top, colour, pixels, result, 0, minTimeLeft(stackGroup, true),
                      compactTime);
   } else {
     drawMmSs(totalSeconds, colour, pixels, result, top, origin, compactTime);
@@ -380,8 +390,8 @@ void drawClock(const RenderRequest& request, uint32_t colour, uint32_t* pixels,
   if (!group) return;
   setElement(ELEMENT_GROUP);
   const uint32_t letterColour = groupColour(request, colour);
-  if (groupVertical) {
-    drawGroupVertical(letters, letterColour, pixels);
+  if (stackGroup) {
+    drawGroupVertical(letters, letterColour, pixels, seconds);
   } else {
     drawGroupUnder(letters, letterColour, pixels);
   }
@@ -469,6 +479,7 @@ bool contentAvailable(Core::DisplayContent content) {
 
 void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state) {
   request.content = state.display;
+  if (request.lineCount > 0) request.lines[0] = state.display;
   request.light = state.light;
   request.phase = state.phase;
   request.remainingMs = state.remainingMs;
@@ -485,7 +496,45 @@ void fillFromSnapshot(RenderRequest& request, const Core::StateSnapshot& state) 
   request.waves = state.waves;
 }
 
-RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
+bool usesWired32x16(const RenderRequest& request) {
+  return request.geometry.columns == COLUMNS && request.geometry.rows == ROWS && request.lineCount <= 1;
+}
+
+uint16_t logicalIndex(uint16_t x, uint16_t y, uint16_t columns) {
+  return static_cast<uint16_t>(x + y * columns);
+}
+
+namespace {
+
+void hashPixels(RenderResult& result, const uint32_t* pixels, uint16_t count) {
+  uint32_t checksum = 2166136261u;
+  result.litPixels = 0;
+  for (uint16_t index = 0; index < count; index++) {
+    if (pixels[index] != 0) result.litPixels++;
+    checksum ^= pixels[index] + index;
+    checksum *= 16777619u;
+  }
+  result.checksum = checksum;
+}
+
+void appendText(RenderResult& result, const char* text) {
+  if (text == nullptr || text[0] == '\0') return;
+  uint8_t index = 0;
+  while (result.text[index] != '\0') index++;
+  if (index > 0) {
+    if (index + 3 >= sizeof(result.text)) return;
+    result.text[index++] = ' ';
+    result.text[index++] = '|';
+    result.text[index++] = ' ';
+  }
+  uint8_t cursor = 0;
+  while (text[cursor] != '\0' && index + 1 < sizeof(result.text)) {
+    result.text[index++] = text[cursor++];
+  }
+  result.text[index] = '\0';
+}
+
+RenderResult renderWired32x16(const RenderRequest& request, uint32_t* pixels) {
   for (uint16_t index = 0; index < PIXEL_COUNT; index++) pixels[index] = 0;
   clearOccupancy();
   setElement(ELEMENT_TIME);
@@ -542,17 +591,47 @@ RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
       break;
   }
 
-  // A cheap order-sensitive hash. Enough to say "the panel is showing a
-  // different frame now" in the log without printing 512 pixels.
-  uint32_t checksum = 2166136261u;
-  for (uint16_t index = 0; index < PIXEL_COUNT; index++) {
-    if (pixels[index] != 0) result.litPixels++;
-    checksum ^= pixels[index] + index;
-    checksum *= 16777619u;
-  }
-  result.checksum = checksum;
+  hashPixels(result, pixels, PIXEL_COUNT);
   return result;
 }
+
+RenderResult renderComposed(const RenderRequest& request, uint32_t* pixels) {
+  const uint16_t count = pixelCount(request.geometry);
+  for (uint16_t index = 0; index < count; index++) pixels[index] = 0;
+
+  Core::DisplayContent lines[MAX_CONTENT_LINES] = {};
+  uint8_t lineCount = request.lineCount;
+  if (lineCount == 0) {
+    lines[0] = request.content;
+    lineCount = 1;
+  } else {
+    for (uint8_t index = 0; index < lineCount && index < MAX_CONTENT_LINES; index++) {
+      lines[index] = request.lines[index];
+    }
+  }
+
+  const LayoutPlan plan =
+      planLayout(request.geometry, lines, lineCount, request.lineScale, request.heroLine);
+  RenderResult result;
+  uint32_t tile[PIXEL_COUNT];
+
+  for (uint8_t index = 0; index < plan.lineCount; index++) {
+    RenderRequest tileRequest = request;
+    tileRequest.geometry = Geometry{};
+    tileRequest.lineCount = 0;
+    tileRequest.content = plan.lines[index].content;
+    const RenderResult tileResult = renderWired32x16(tileRequest, tile);
+    drawSmoothLine(tileRequest, plan.lines[index].content, plan.lines[index].x, plan.lines[index].y,
+                   plan.lines[index].width, plan.lines[index].height, request.geometry.columns,
+                   request.geometry.rows, pixels);
+    appendText(result, tileResult.text);
+  }
+
+  hashPixels(result, pixels, count);
+  return result;
+}
+
+}  // namespace
 
 bool lastFrameDistinctElementsSeparated() {
   for (uint8_t y = 0; y < ROWS; y++) {
@@ -572,6 +651,23 @@ bool lastFrameDistinctElementsSeparated() {
     }
   }
   return true;
+}
+
+RenderResult renderFrame(const RenderRequest& request, uint32_t* pixels) {
+  if (usesWired32x16(request)) return renderWired32x16(request, pixels);
+  return renderComposed(request, pixels);
+}
+
+void applyLayout(RenderRequest& request, PanelPreset preset, Orientation orientation, const uint8_t* lines,
+                 uint8_t lineCount, LineScaleMode scaleMode, uint8_t heroLine) {
+  request.geometry = geometryFor(preset, orientation);
+  request.lineCount = lineCount > MAX_CONTENT_LINES ? MAX_CONTENT_LINES : lineCount;
+  for (uint8_t index = 0; index < request.lineCount; index++) {
+    request.lines[index] = static_cast<Core::DisplayContent>(lines[index]);
+  }
+  if (request.lineCount > 0) request.content = request.lines[0];
+  request.lineScale = scaleMode;
+  request.heroLine = heroLine < request.lineCount ? heroLine : 0;
 }
 
 }  // namespace DisplayLogic

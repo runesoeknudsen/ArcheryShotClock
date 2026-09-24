@@ -2,7 +2,7 @@
 
 This folder is a full shot clock that runs in a web browser. It uses the same
 C++ core as the ESP32, compiled to WebAssembly. There is no board and no
-Wi-Fi. Share the URL so people can tap the buttons and see the 32×16 panel.
+Wi-Fi. Share the URL so people can tap the buttons and see the firmware panel.
 
 The firmware page in `software/web/index.html` is unchanged. This demo is not copied
 into flash.
@@ -14,9 +14,16 @@ into flash.
 - Setup page: the timing program and a live preview of occupy / shoot / score
 - Start, occupy 10 s, shoot, stop, score
 - The LED grid is the real firmware frame, including colour
-- **What-if panel size** scales those same digits onto 64×16 or 64×32 so you
-  can talk about resolution. Firmware still draws 32×16
-- **Module pitch** turns pixels into millimetres
+- **Panel size** and **format** select the same 32×16, one horizontal 64×32, and
+  two to five P5s stood on end (64×64, 96×64, 128×64, 160×64) the ESP32 and
+  Waveshare HUB75 builds use. Rotate the cabinet 90° for more stacked lines.
+  Defaults are one clock line on three P5s. Shooting shows seconds only, at
+  most three digits, so the remaining time and AB/CD can fill the cabinet.
+  Larger cabinets stamp generated sans-serif outlines at the panel resolution,
+  so edges look like a hill instead of a staircase. Line height fills leftover
+  space; one line can be kept larger.
+- **On-screen LED size** defaults to the browser width; the slider goes down to half a pixel
+- **Module pitch** scales the preview cells (P5 is 5 mm) and the millimetre readout
 - Beeps play in the browser speaker (after the first tap)
 
 ## Run locally

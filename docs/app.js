@@ -1,5 +1,5 @@
 import { createEngine } from './engine.js';
-import { createPanel } from './panel.js';
+import { createPanel, ledPxForWidth } from './panel.js';
 
 const $ = id => document.getElementById(id);
 const MODES = [
@@ -64,10 +64,135 @@ function draftFromForm(state) {
     showEndLabels: $('showEndLabels').value === 'true',
     abcdFollowTimer: $('abcdFollowTimer').value === 'true',
     abcdColour: $('abcdColour').value,
+    panelLines: collectLines(),
+    lineScale: $('lineScale') ? $('lineScale').value : 'FILL',
+    heroLine: $('heroLine') ? +$('heroLine').value : 0,
     breakEnabled: $('breakEnabled').value === 'true',
     breakAfterEnds: +$('breakAfterEnds').value,
     breakMinutes: +$('breakMinutes').value
   });
+}
+
+const CONTENT_OPTIONS = [
+  ['CLOCK', 'Clock'],
+  ['CLOCK_END', 'End number'],
+  ['ARROWS', 'Arrows shot'],
+  ['SCORE', 'Score'],
+  ['SET_POINTS', 'Set points'],
+  ['SHOOTER', 'Shooting side'],
+  ['BLANK', 'Blank']
+];
+
+const DEFAULT_LINE_ORDER = ['CLOCK', 'CLOCK_END', 'SCORE', 'ARROWS', 'SET_POINTS', 'SHOOTER'];
+
+function stackedP5Count(preset) {
+  return ({ P5_64X32: 1, P5_64X64: 2, P5_96X64: 3, P5_128X64: 4, P5_160X64: 5 })[preset] || 0;
+}
+
+function maxLinesFor(preset, orientation) {
+  if (preset === 'LED_32X16') return 1;
+  const count = stackedP5Count(preset);
+  let rows = count === 1 ? 32 : 64;
+  if (orientation === 'PORTRAIT') rows = count === 1 ? 64 : count * 32;
+  return Math.max(1, Math.min(10, Math.floor(rows / 8)));
+}
+
+function defaultLinesFor(preset, orientation) {
+  if (preset === 'LED_32X16' || orientation !== 'PORTRAIT') return ['CLOCK'];
+  const maxLines = maxLinesFor(preset, orientation);
+  const used = maxLines > DEFAULT_LINE_ORDER.length ? DEFAULT_LINE_ORDER.length : maxLines;
+  return DEFAULT_LINE_ORDER.slice(0, used);
+}
+
+function collectLines() {
+  const selected = [];
+  const count = $('lineCount') ? +$('lineCount').value : 10;
+  for (let index = 0; index < count; index++) {
+    const field = $('line' + index);
+    if (!field) continue;
+    selected.push(field.value);
+  }
+  return selected.join(',') || ($('display') ? $('display').value : 'CLOCK');
+}
+
+function fillSelect(field, count, labelFor) {
+  if (!field) return;
+  if (field.options.length !== count) {
+    field.innerHTML = '';
+    for (let index = 0; index < count; index++) {
+      const option = document.createElement('option');
+      option.value = String(labelFor ? index : index + 1);
+      option.textContent = labelFor ? labelFor(index) : String(index + 1);
+      field.appendChild(option);
+    }
+  }
+}
+
+function layoutHint(preset) {
+  return ({
+    P5_64X32: 'one horizontal P5',
+    P5_64X64: 'two P5 stood on end',
+    P5_96X64: 'three P5 stood on end',
+    P5_128X64: 'four P5 stood on end',
+    P5_160X64: 'five P5 stood on end'
+  })[preset] || '';
+}
+
+let onLineChange = () => {};
+
+function syncLineSlots(state) {
+  const maxLines = state.panelMaxLines || 1;
+  const chosen = (state.panelLines || state.display || 'CLOCK').split(',').filter(Boolean);
+  const shown = Math.max(1, Math.min(maxLines, chosen.length || 1));
+  fillSelect($('lineCount'), maxLines);
+  if ($('lineCount') && document.activeElement !== $('lineCount')) $('lineCount').value = String(shown);
+  fillSelect($('heroLine'), shown, index => 'Line ' + (index + 1));
+  const hero = Math.min(state.heroLine || 0, shown - 1);
+  if ($('heroLine') && document.activeElement !== $('heroLine')) $('heroLine').value = String(hero);
+  const scale = ($('lineScale') && $('lineScale').value) || state.lineScale || 'FILL';
+  if ($('lineScaleRow')) $('lineScaleRow').hidden = maxLines <= 1;
+  if ($('heroLineWrap')) $('heroLineWrap').hidden = maxLines <= 1 || scale !== 'HERO';
+  const box = $('lineSlots');
+  if (!box) return;
+  if (box.childElementCount !== shown) {
+    box.innerHTML = '';
+    for (let index = 0; index < shown; index++) {
+      const wrap = document.createElement('div');
+      const label = document.createElement('label');
+      label.htmlFor = 'line' + index;
+      label.textContent = shown === 1 ? 'Panel shows' : 'Line ' + (index + 1);
+      const select = document.createElement('select');
+      select.id = 'line' + index;
+      select.onchange = () => {
+        if (index === 0) $('display').value = select.value;
+        onLineChange();
+      };
+      for (const [value, text] of CONTENT_OPTIONS) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        select.appendChild(option);
+      }
+      wrap.appendChild(label);
+      wrap.appendChild(select);
+      box.appendChild(wrap);
+    }
+  }
+  for (let index = 0; index < shown; index++) {
+    const field = $('line' + index);
+    if (field && document.activeElement !== field) field.value = chosen[index] || 'BLANK';
+  }
+  if ($('layoutNote')) {
+    const preset = state.panelPreset || '';
+    let note = (state.displayDriver || 'WS2812B') + ' ' + (state.panelColumns || 32) + '×' +
+      (state.panelRows || 16);
+    const hint = layoutHint(preset);
+    if (hint) note += ' — ' + hint;
+    note += ' — ' + shown + ' of ' + maxLines + ' line' + (maxLines === 1 ? '' : 's');
+    if (shown > 1 && scale === 'HERO') note += ', line ' + (hero + 1) + ' larger';
+    else if (shown > 1) note += ', equal height';
+    $('layoutNote').innerHTML = note;
+  }
 }
 
 function apply(state) {
@@ -107,6 +232,16 @@ function apply(state) {
     $('waves').value = String(state.waves || (state.abcdRotation ? Math.min(state.details || 2, 3) : 1));
   }
   if (document.activeElement !== $('display')) $('display').value = state.display;
+  if ($('panelPreset') && document.activeElement !== $('panelPreset')) {
+    $('panelPreset').value = state.panelPreset || 'LED_32X16';
+  }
+  if ($('orientation') && document.activeElement !== $('orientation')) {
+    $('orientation').value = state.orientation || 'LANDSCAPE';
+  }
+  if ($('lineScale') && document.activeElement !== $('lineScale')) {
+    $('lineScale').value = state.lineScale || 'FILL';
+  }
+  syncLineSlots(state);
   if (document.activeElement !== $('clockSeconds')) $('clockSeconds').value = String(state.clockSeconds !== false);
   if (document.activeElement !== $('showAbcd')) $('showAbcd').value = String(state.showAbcd !== false);
   if (document.activeElement !== $('abcdVertical')) $('abcdVertical').value = String(state.abcdVertical !== false);
@@ -142,9 +277,8 @@ function updateSize(panel) {
   const info = panel.summary();
   const firmware = `${info.firmwareMm.width} × ${info.firmwareMm.height} mm`;
   const preview = `${info.previewMm.width} × ${info.previewMm.height} mm`;
-  $('sizeReadout').innerHTML = info.same
-    ? `<b>${info.firmware}</b> firmware panel is <b>${firmware}</b> at ${info.pitchMm} mm pitch.`
-    : `Firmware stays <b>${info.firmware}</b> (${firmware}). Preview <b>${info.preview}</b> would be <b>${preview}</b> if we drew the same digits larger.`;
+  $('sizeReadout').innerHTML =
+    `<b>${info.firmware}</b> firmware panel is <b>${firmware}</b> at ${info.pitchMm} mm pitch.`;
 }
 
 function setupBeep(engine) {
@@ -211,6 +345,8 @@ try {
       $('extendBox').hidden = !canExtend;
       $('extras').hidden = !canExtend && !$('aux').childElementCount;
     }
+    panel.settings.preset = state.panelPreset || 'LED_32X16';
+    panel.settings.orientation = state.orientation || 'LANDSCAPE';
     panel.draw();
     updateSize(panel);
     beep();
@@ -300,7 +436,10 @@ try {
   $('breakAfterEnds').onchange = session;
   $('breakMinutes').onchange = session;
   $('matchLogic').onchange = session;
-  $('display').onchange = () => { engine.display($('display').value); refresh(); };
+  $('display').onchange = () => {
+    engine.display($('display').value);
+    savePanelOptions();
+  };
   function savePanelOptions() {
     engine.panelOptions({
       clockSeconds: $('clockSeconds').value === 'true',
@@ -308,10 +447,16 @@ try {
       abcdVertical: $('abcdVertical').value === 'true',
       showEndLabels: $('showEndLabels').value === 'true',
       abcdFollowTimer: $('abcdFollowTimer').value === 'true',
-      abcdColour: $('abcdColour').value
+      abcdColour: $('abcdColour').value,
+      panelPreset: $('panelPreset').value,
+      orientation: $('orientation').value,
+      lines: collectLines(),
+      lineScale: $('lineScale') ? $('lineScale').value : 'FILL',
+      heroLine: $('heroLine') ? +$('heroLine').value : 0
     });
     refresh();
   }
+  onLineChange = savePanelOptions;
   $('clockSeconds').onchange = savePanelOptions;
   $('showAbcd').onchange = savePanelOptions;
   $('abcdVertical').onchange = savePanelOptions;
@@ -323,21 +468,89 @@ try {
   $('btnTestSound').onclick = () => { engine.testTone(2000); refresh(); };
   $('traceLevel').onchange = () => { engine.traceLevel($('traceLevel').value); refresh(); refreshLog(); };
 
+  function availablePanelWidth() {
+    const stage = $('stage');
+    const style = getComputedStyle(stage);
+    return Math.max(64, stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+  }
+
+  function formatLedPx(value) {
+    const rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  }
+
+  let autoFitLed = true;
+
+  function fitLedToStage() {
+    $('ledPx').value = String(ledPxForWidth(panel.firmware.columns, +$('pitchMm').value, availablePanelWidth()));
+  }
+
   function applyPreview() {
     panel.settings.ledPx = +$('ledPx').value;
     panel.settings.pitchMm = +$('pitchMm').value;
-    panel.settings.preview = $('previewSize').value;
-    $('ledPxValue').textContent = panel.settings.ledPx;
+    panel.settings.preset = $('panelPreset').value;
+    panel.settings.orientation = $('orientation').value;
+    $('ledPxValue').textContent = formatLedPx(panel.settings.ledPx);
     $('pitchMmValue').textContent = panel.settings.pitchMm;
     panel.resize();
     panel.draw();
     updateSize(panel);
   }
-  $('ledPx').oninput = applyPreview;
+  function onLineCountChange() {
+    const count = $('lineCount') ? +$('lineCount').value : 1;
+    const current = collectLines().split(',').filter(Boolean);
+    while (current.length < count) current.push(DEFAULT_LINE_ORDER[current.length] || 'BLANK');
+    if (lastState) {
+      lastState.panelLines = current.slice(0, count).join(',');
+      lastState.lineScale = $('lineScale') ? $('lineScale').value : lastState.lineScale;
+      lastState.heroLine = $('heroLine') ? +$('heroLine').value : lastState.heroLine;
+      syncLineSlots(lastState);
+    }
+    savePanelOptions();
+  }
+  function onLayoutChange() {
+    const preset = $('panelPreset').value;
+    const orientation = $('orientation').value;
+    const lines = defaultLinesFor(preset, orientation);
+    $('display').value = lines[0];
+    if ($('lineScale')) $('lineScale').value = 'FILL';
+    if ($('heroLine')) $('heroLine').value = '0';
+    if (lastState) {
+      lastState.panelPreset = preset;
+      lastState.orientation = orientation;
+      lastState.panelLines = lines.join(',');
+      lastState.panelMaxLines = maxLinesFor(preset, orientation);
+      lastState.lineScale = 'FILL';
+      lastState.heroLine = 0;
+      syncLineSlots(lastState);
+    }
+    engine.display(lines[0]);
+    autoFitLed = true;
+    savePanelOptions();
+    fitLedToStage();
+    applyPreview();
+  }
+  $('ledPx').oninput = () => {
+    autoFitLed = false;
+    applyPreview();
+  };
   $('pitchMm').oninput = applyPreview;
-  $('previewSize').onchange = applyPreview;
+  $('panelPreset').onchange = onLayoutChange;
+  $('orientation').onchange = onLayoutChange;
+  if ($('lineCount')) $('lineCount').onchange = onLineCountChange;
+  if ($('lineScale')) $('lineScale').onchange = () => {
+    if ($('heroLineWrap')) $('heroLineWrap').hidden = $('lineScale').value !== 'HERO';
+    savePanelOptions();
+  };
+  if ($('heroLine')) $('heroLine').onchange = savePanelOptions;
+  window.addEventListener('resize', () => {
+    if (!autoFitLed) return;
+    fitLedToStage();
+    applyPreview();
+  });
 
   refresh();
+  fitLedToStage();
   applyPreview();
   setInterval(() => {
     paint(engine.state());

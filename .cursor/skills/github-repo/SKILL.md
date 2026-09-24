@@ -81,6 +81,7 @@ There are two jobs. They run in parallel.
 4. Run `pio test -e native`.
 5. Run `python software/tools/logcheck.py --selftest`.
 6. Build the ESP32 program with `pio run -e esp32dev`.
+7. Build the Waveshare ESP32-S3 HUB75 program with `pio run -e waveshare_s3_hub75`.
 
 This job does not flash a board.
 
@@ -116,6 +117,7 @@ Run the same checks GitHub will run:
 pio test -e native -d software/firmware
 python3 software/tools/logcheck.py --selftest
 pio run -e esp32dev -d software/firmware
+pio run -e waveshare_s3_hub75 -d software/firmware
 npm ci
 npx playwright install chromium
 npm test
