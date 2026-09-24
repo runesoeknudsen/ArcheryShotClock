@@ -15,7 +15,7 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
   if (geometry_.columns == geometry.columns && geometry_.rows == geometry.rows &&
       geometry_.preset == geometry.preset && geometry_.orientation == geometry.orientation &&
 #ifdef DISPLAY_HUB75
-      dma_ != nullptr
+      dma_ != nullptr && virtual_ != nullptr
 #else
       true
 #endif
@@ -25,6 +25,10 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
   geometry_ = geometry;
 
 #ifdef DISPLAY_HUB75
+  if (virtual_ != nullptr) {
+    delete virtual_;
+    virtual_ = nullptr;
+  }
   if (dma_ != nullptr) {
     delete dma_;
     dma_ = nullptr;
@@ -34,12 +38,16 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
                                   Config::HUB75_G2,  Config::HUB75_B2, Config::HUB75_A,  Config::HUB75_B,
                                   Config::HUB75_C,   Config::HUB75_D,  Config::HUB75_E,  Config::HUB75_LAT,
                                   Config::HUB75_OE,  Config::HUB75_CLK};
-  HUB75_I2S_CFG mxconfig(64, 32, canvas.chain, pins);
-  mxconfig.driver = HUB75_I2S_CFG::SHIFTREG;
+  // YS-P5 64x32 is 1/8 scan ("four-scan"). The DMA engine sees each module as
+  // 128x16; VirtualMatrixPanel maps the 64x32 cabinet back onto that buffer.
+  HUB75_I2S_CFG mxconfig(128, 16, canvas.chain, pins);
+  mxconfig.driver = HUB75_I2S_CFG::FM6124;
   mxconfig.clkphase = false;
   dma_ = new MatrixPanel_I2S_DMA(mxconfig);
   dma_->begin();
   dma_->clearScreen();
+  virtual_ = new VirtualMatrixPanel(*dma_, 1, canvas.chain, 64, 32, CHAIN_NONE);
+  virtual_->setPhysicalPanelScanRate(FOUR_SCAN_32PX_HIGH);
 #else
   const uint16_t count = DisplayLogic::pixelCount(geometry);
   leds_.updateLength(count == 0 ? Config::LED_COUNT : count);
@@ -49,7 +57,7 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
 void Display::showFrame(const DisplayLogic::RenderRequest& request, const uint32_t* frame,
                         uint8_t brightness) {
 #ifdef DISPLAY_HUB75
-  if (dma_ == nullptr) return;
+  if (dma_ == nullptr || virtual_ == nullptr) return;
   dma_->setBrightness8(brightness);
   const bool wired = DisplayLogic::usesWired32x16(request);
   const uint16_t columns = request.geometry.columns;
@@ -62,8 +70,9 @@ void Display::showFrame(const DisplayLogic::RenderRequest& request, const uint32
       uint16_t dmaX = x;
       uint16_t dmaY = y;
       if (!DisplayLogic::mapLogicalToHub75(request.geometry, x, y, dmaX, dmaY)) continue;
-      dma_->drawPixelRGB888(dmaX, dmaY, static_cast<uint8_t>(colour >> 16),
-                            static_cast<uint8_t>(colour >> 8), static_cast<uint8_t>(colour));
+      virtual_->drawPixelRGB888(static_cast<int16_t>(dmaX), static_cast<int16_t>(dmaY),
+                                static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 8),
+                                static_cast<uint8_t>(colour));
     }
   }
 #else

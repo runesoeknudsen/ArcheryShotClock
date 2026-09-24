@@ -37,7 +37,7 @@ Do not power the speaker amplifier from the ESP32 3.3 V pin. Pin and panel defau
 
 ## Waveshare ESP32-S3 HUB75
 
-Build `waveshare_s3_hub75` for the Waveshare ESP32-S3 RGB Matrix Driver Board. The HUB75 ribbon pins are fixed on that board:
+Build `waveshare_s3_hub75` for the Waveshare ESP32-S3-RGB-Matrix board (ESP32-S3-N32R16: 32 MB OPI flash, 16 MB OPI PSRAM). The HUB75 ribbon pins are fixed on that board:
 
 | HUB75 | GPIO | HUB75 | GPIO |
 |---|---|---|---|
@@ -45,9 +45,11 @@ Build `waveshare_s3_hub75` for the Waveshare ESP32-S3 RGB Matrix Driver Board. T
 | G1 | 5 | G2 | 15 |
 | B1 | 6 | B2 | 16 |
 | A | 18 | B | 8 |
-| C | 3 | D | 42 |
-| E | 9 | CLK | 41 |
+| C | 3 | D | unused (1/8 scan) |
+| E | unused (1/8 scan) | CLK | 41 |
 | LAT | 40 | OE | 2 |
+
+The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; `VirtualMatrixPanel` with `FOUR_SCAN_32PX_HIGH` maps the 64×32 cabinet back onto that buffer.
 
 Supported P5 64×32 layouts, set from the web UI:
 

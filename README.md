@@ -24,7 +24,7 @@ pio run -e esp32dev -d software/firmware -t upload
 pio device monitor -b 921600
 ```
 
-For a Waveshare ESP32-S3-RGB-Matrix board and P5 HUB75 panels:
+For a Waveshare ESP32-S3-RGB-Matrix board (32 MB flash) and YS-P5 1/8-scan HUB75 panels:
 
 ```text
 pio run -e waveshare_s3_hub75 -d software/firmware

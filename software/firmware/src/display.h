@@ -2,6 +2,7 @@
 
 #ifdef DISPLAY_HUB75
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
 #else
 #include <Adafruit_NeoPixel.h>
 #endif
@@ -24,6 +25,7 @@ private:
   DisplayLogic::Geometry geometry_{};
 #ifdef DISPLAY_HUB75
   MatrixPanel_I2S_DMA* dma_ = nullptr;
+  VirtualMatrixPanel* virtual_ = nullptr;
 #else
   Adafruit_NeoPixel leds_{Config::LED_COUNT, Config::DATA_PIN, NEO_GRB + NEO_KHZ800};
 #endif

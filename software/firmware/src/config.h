@@ -6,20 +6,22 @@ namespace Config {
 #ifdef BOARD_WAVESHARE_S3
 // Waveshare ESP32-S3-RGB-Matrix HUB75 connector. These GPIOs are fixed on the
 // driver board; do not reassign them to the console or the speaker.
-constexpr uint8_t HUB75_R1 = 4;
-constexpr uint8_t HUB75_G1 = 5;
-constexpr uint8_t HUB75_B1 = 6;
-constexpr uint8_t HUB75_R2 = 7;
-constexpr uint8_t HUB75_G2 = 15;
-constexpr uint8_t HUB75_B2 = 16;
-constexpr uint8_t HUB75_A = 18;
-constexpr uint8_t HUB75_B = 8;
-constexpr uint8_t HUB75_C = 3;
-constexpr uint8_t HUB75_D = 42;
-constexpr uint8_t HUB75_E = 9;
-constexpr uint8_t HUB75_LAT = 40;
-constexpr uint8_t HUB75_OE = 2;
-constexpr uint8_t HUB75_CLK = 41;
+// YS-P5 64x32 modules are 1/8 scan (A, B, C only). D (GPIO 42) and E (GPIO 9)
+// stay unmapped so the FM6124 driver does not strobe unused address lines.
+constexpr int8_t HUB75_R1 = 4;
+constexpr int8_t HUB75_G1 = 5;
+constexpr int8_t HUB75_B1 = 6;
+constexpr int8_t HUB75_R2 = 7;
+constexpr int8_t HUB75_G2 = 15;
+constexpr int8_t HUB75_B2 = 16;
+constexpr int8_t HUB75_A = 18;
+constexpr int8_t HUB75_B = 8;
+constexpr int8_t HUB75_C = 3;
+constexpr int8_t HUB75_D = -1;
+constexpr int8_t HUB75_E = -1;
+constexpr int8_t HUB75_LAT = 40;
+constexpr int8_t HUB75_OE = 2;
+constexpr int8_t HUB75_CLK = 41;
 
 // Remaining expansion GPIOs, kept off the HUB75, USB, and Octal PSRAM pins.
 constexpr uint8_t DATA_PIN = 13;
