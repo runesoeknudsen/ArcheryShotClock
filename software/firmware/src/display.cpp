@@ -42,6 +42,7 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
   // 128x16; VirtualMatrixPanel maps the 64x32 cabinet back onto that buffer.
   HUB75_I2S_CFG mxconfig(128, 16, canvas.chain, pins);
   mxconfig.driver = HUB75_I2S_CFG::FM6124;
+  mxconfig.line_decoder = HUB75_I2S_CFG::TYPE595;
   mxconfig.clkphase = false;
   dma_ = new MatrixPanel_I2S_DMA(mxconfig);
   dma_->begin();
