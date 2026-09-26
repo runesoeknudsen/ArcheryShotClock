@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "display_geometry.h"
 #include "match_logic.h"
 #include "rules.h"
 #include "shot_clock.h"
@@ -18,7 +19,7 @@
 namespace Core {
 
 // Comfortably larger than the longest response, including six arrows a side.
-constexpr uint16_t STATE_JSON_BYTES = 1536;
+constexpr uint16_t STATE_JSON_BYTES = 2048;
 
 struct StateView {
   const StateSnapshot* snapshot = nullptr;
@@ -35,6 +36,15 @@ struct StateView {
   bool showEndLabels = true;
   bool abcdFollowTimer = false;
   uint32_t abcdColour = 0xFFFFFF;
+  const char* displayDriver = DisplayLogic::DISPLAY_DRIVER;
+  const char* panelPreset = "LED_32X16";
+  const char* orientation = "LANDSCAPE";
+  uint16_t panelColumns = 32;
+  uint16_t panelRows = 16;
+  uint8_t panelMaxLines = 1;
+  const char* panelLines = "CLOCK";
+  const char* lineScale = "FILL";
+  uint8_t heroLine = 0;
   uint16_t beepMs = 0;
   uint16_t gapMs = 0;
   bool soundEnabled = true;

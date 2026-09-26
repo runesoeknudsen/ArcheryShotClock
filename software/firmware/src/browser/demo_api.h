@@ -29,7 +29,7 @@ const char* demo_log_json(uint32_t after_seq);
 
 uint16_t demo_panel_columns(void);
 uint16_t demo_panel_rows(void);
-// 512 pixels, packed 0x00RRGGBB, logical x + y * 32 (not the LED wiring order).
+// Packed 0x00RRGGBB, logical x + y * columns (not the LED wiring order).
 const uint32_t* demo_logical_pixels(void);
 uint32_t demo_pixel(uint16_t index);
 int demo_sound_active(void);

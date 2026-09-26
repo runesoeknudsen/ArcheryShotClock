@@ -1,6 +1,6 @@
-# ESP32 WS2812B Archery Shot Clock
+# ESP32 Archery Shot Clock
 
-An independent, unofficial World Archery shot clock running on an ESP32-WROOM with two 8x32 WS2812B panels and a MAX98357A speaker output. It implements timing programs, match logic, display, sound signals, web UI, and trace logging for field testing.
+An independent, unofficial World Archery shot clock. The default build runs on an ESP32-WROOM with two 8x32 WS2812B panels and a MAX98357A speaker. A second build targets the Waveshare ESP32-S3 RGB Matrix Driver Board and HUB75 P5 panels. It defaults to three 64×32 modules stood on end (96×64) with one clock line, or one horizontal 64×32, two, four or five modules (64×64, 128×64, 160×64), each rotatable 90° for more stacked lines. It implements timing programs, match logic, display, sound signals, web UI, and trace logging for field testing.
 
 This project is not affiliated with or endorsed by World Archery.
 
@@ -22,6 +22,13 @@ Install PlatformIO and run these commands from the repository root:
 pio run -e esp32dev -d software/firmware
 pio run -e esp32dev -d software/firmware -t upload
 pio device monitor -b 921600
+```
+
+For a Waveshare ESP32-S3-RGB-Matrix board (32 MB flash) and YS-P5 1/8-scan HUB75 panels:
+
+```text
+pio run -e waveshare_s3_hub75 -d software/firmware
+pio run -e waveshare_s3_hub75 -d software/firmware -t upload
 ```
 
 The firmware project is in [software/firmware](software/firmware). Its web page is sourced from [software/web/index.html](software/web/index.html) and embedded into the firmware during the build.

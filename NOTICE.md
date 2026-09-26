@@ -17,3 +17,5 @@ This project is an independent, unofficial implementation and is not affiliated 
 ## Generated files
 
 Generated web pages, embedded firmware headers, WebAssembly output, and synchronized deployment files inherit the license of their project-owned source where applicable. Generated output may also contain third-party runtime material, which remains under its original license.
+
+The default large-panel face in `software/firmware/src/core/generated/font_sans_serif.h` is exported from DejaVu Sans Bold. DejaVu changes are public domain; the Bitstream Vera license still applies to that typeface. See `software/tools/fonts/LICENSE-DejaVu.txt`.

@@ -1,8 +1,9 @@
 #pragma once
 
-// Compact glyphs for the 32x16 panel. 3x5 letters sit beside the clock;
-// 5x5 letters spell END / SCORE / BREAK on their own row. 5x5 digits share
-// that row height so a label and the time can stack with a one-LED gap.
+// Compact glyphs for the 32x16 panel. 3x5 letters sit under a compact clock;
+// 5x5 letters stack beside the seconds clock and spell END / SCORE / BREAK.
+// 5x5 digits share that row height so a label and the time can stack with a
+// one-LED gap.
 
 namespace SmallFont {
 
@@ -38,6 +39,9 @@ constexpr char WIDE_B[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#### ", "#   #", "#### ",
 constexpr char WIDE_C[WIDE_HEIGHT][WIDE_WIDTH + 1] = {" ### ", "#    ", "#    ", "#    ", " ### "};
 constexpr char WIDE_D[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#### ", "#   #", "#   #", "#   #", "#### "};
 constexpr char WIDE_E[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#####", "#    ", "#### ", "#    ", "#####"};
+constexpr char WIDE_F[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#####", "#    ", "#### ", "#    ", "#    "};
+constexpr char WIDE_G[WIDE_HEIGHT][WIDE_WIDTH + 1] = {" ### ", "#    ", "#  ##", "#   #", " ### "};
+constexpr char WIDE_H[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#   #", "#   #", "#####", "#   #", "#   #"};
 constexpr char WIDE_K[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#   #", "#  # ", "###  ", "#  # ", "#   #"};
 constexpr char WIDE_N[WIDE_HEIGHT][WIDE_WIDTH + 1] = {"#   #", "##  #", "# # #", "#  ##", "#   #"};
 constexpr char WIDE_O[WIDE_HEIGHT][WIDE_WIDTH + 1] = {" ### ", "#   #", "#   #", "#   #", " ### "};
@@ -64,6 +68,9 @@ inline const char* wideRow(char letter, uint8_t row) {
     case 'C': return WIDE_C[row];
     case 'D': return WIDE_D[row];
     case 'E': return WIDE_E[row];
+    case 'F': return WIDE_F[row];
+    case 'G': return WIDE_G[row];
+    case 'H': return WIDE_H[row];
     case 'K': return WIDE_K[row];
     case 'N': return WIDE_N[row];
     case 'O': return WIDE_O[row];
