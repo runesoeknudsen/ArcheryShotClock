@@ -49,7 +49,7 @@ Build `waveshare_s3_hub75` for the Waveshare ESP32-S3-RGB-Matrix board (ESP32-S3
 | E | unused (1/8 scan) | CLK | 41 |
 | LAT | 40 | OE | 2 |
 
-The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; `VirtualMatrixPanel` with `FOUR_SCAN_32PX_HIGH` maps the 64×32 cabinet back onto that buffer.
+The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; the fork's `VirtualMatrixPanel_T` with `FOUR_SCAN_64X32_DOUBLE_WIDTH` maps the 64×32 cabinet onto that buffer.
 
 Supported P5 64×32 layouts, set from the web UI:
 

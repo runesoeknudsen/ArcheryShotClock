@@ -2,7 +2,7 @@
 
 #ifdef DISPLAY_HUB75
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
-#include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
+#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>
 #else
 #include <Adafruit_NeoPixel.h>
 #endif
@@ -25,7 +25,12 @@ private:
   DisplayLogic::Geometry geometry_{};
 #ifdef DISPLAY_HUB75
   MatrixPanel_I2S_DMA* dma_ = nullptr;
-  VirtualMatrixPanel* virtual_ = nullptr;
+  using FourScanMapping = ScanTypeMapping<FOUR_SCAN_64X32_DOUBLE_WIDTH>;
+  VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN, FourScanMapping>* virtual_ = nullptr;
+  uint32_t lastFrameChecksum_ = 0;
+  bool hasFrame_ = false;
+  uint8_t lastBrightness_ = 0;
+  bool hasBrightness_ = false;
 #else
   Adafruit_NeoPixel leds_{Config::LED_COUNT, Config::DATA_PIN, NEO_GRB + NEO_KHZ800};
 #endif
