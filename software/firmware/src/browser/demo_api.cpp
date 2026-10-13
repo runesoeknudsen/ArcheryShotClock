@@ -157,11 +157,18 @@ struct Host {
   uint8_t division;
   uint32_t now;
   uint32_t toneUntil;
-  uint32_t pixels[DisplayLogic::PIXEL_COUNT];
-  uint32_t logical[DisplayLogic::PIXEL_COUNT];
-  char panelText[16];
+  uint32_t pixels[DisplayLogic::MAX_PIXEL_COUNT];
+  uint32_t logical[DisplayLogic::MAX_PIXEL_COUNT];
+  char panelText[64];
+  char panelLines[128];
   char stateJson[Core::STATE_JSON_BYTES];
   char logJson[8192];
+  DisplayLogic::PanelPreset panelPreset;
+  DisplayLogic::Orientation orientation;
+  uint8_t lineCount;
+  uint8_t lines[DisplayLogic::MAX_CONTENT_LINES];
+  DisplayLogic::LineScaleMode lineScale;
+  uint8_t heroLine;
   bool ready;
 
   Host()
@@ -180,10 +187,17 @@ struct Host {
         division(static_cast<uint8_t>(Core::Division::Recurve)),
         now(0),
         toneUntil(0),
+        panelPreset(DisplayLogic::PanelPreset::Led32x16),
+        orientation(DisplayLogic::Orientation::Landscape),
+        lineCount(1),
+        lineScale(DisplayLogic::LineScaleMode::Fill),
+        heroLine(0),
         ready(false) {
     std::memset(pixels, 0, sizeof(pixels));
     std::memset(logical, 0, sizeof(logical));
+    std::memset(lines, 0, sizeof(lines));
     panelText[0] = '\0';
+    panelLines[0] = '\0';
     stateJson[0] = '\0';
     logJson[0] = '\0';
   }
@@ -194,6 +208,10 @@ Host* hostPtr = nullptr;
 
 Host& H() { return *hostPtr; }
 
+DisplayLogic::Geometry hostGeometry() {
+  return DisplayLogic::geometryFor(H().panelPreset, H().orientation);
+}
+
 void renderPanel() {
   const Core::StateSnapshot& snapshot = H().clock.snapshot();
   DisplayLogic::RenderRequest request;
@@ -203,15 +221,24 @@ void renderPanel() {
   request.showEndLabels = H().showEndLabels;
   request.abcdFollowTimer = H().abcdFollowTimer;
   request.abcdColour = H().abcdColour;
+  DisplayLogic::applyLayout(request, H().panelPreset, H().orientation, H().lines, H().lineCount,
+                            H().lineScale, H().heroLine);
   DisplayLogic::fillFromSnapshot(request, snapshot);
   const DisplayLogic::RenderResult result = DisplayLogic::renderFrame(request, H().pixels);
   std::strncpy(H().panelText, result.text, sizeof(H().panelText) - 1);
   H().panelText[sizeof(H().panelText) - 1] = '\0';
 
-  for (uint8_t y = 0; y < DisplayLogic::ROWS; y++) {
-    for (uint8_t x = 0; x < DisplayLogic::COLUMNS; x++) {
-      H().logical[static_cast<uint16_t>(y) * DisplayLogic::COLUMNS + x] = H().pixels[DisplayLogic::ledIndex(x, y)];
+  const DisplayLogic::Geometry geometry = request.geometry;
+  if (DisplayLogic::usesWired32x16(request)) {
+    for (uint8_t y = 0; y < DisplayLogic::ROWS; y++) {
+      for (uint8_t x = 0; x < DisplayLogic::COLUMNS; x++) {
+        H().logical[static_cast<uint16_t>(y) * DisplayLogic::COLUMNS + x] =
+            H().pixels[DisplayLogic::ledIndex(x, y)];
+      }
     }
+  } else {
+    const uint16_t count = DisplayLogic::pixelCount(geometry);
+    std::memcpy(H().logical, H().pixels, count * sizeof(uint32_t));
   }
 }
 
@@ -392,6 +419,8 @@ int demo_display(const char* content) {
   const Core::DisplayContent requested = static_cast<Core::DisplayContent>(index);
   if (!DisplayLogic::contentAvailable(requested)) return 2;
   H().clock.setDisplayContent(H().now, requested);
+  if (H().lineCount == 0) H().lineCount = 1;
+  H().lines[0] = index;
   sync(H().now);
   return 0;
 }
@@ -417,6 +446,47 @@ int demo_panel_options(const char* json) {
   if (colour[0] != '\0') {
     H().abcdColour = DisplayLogic::parseCssColour(colour, H().abcdColour);
   }
+  char presetName[16] = {};
+  readString(json, "panelPreset", presetName, sizeof(presetName));
+  DisplayLogic::PanelPreset preset = H().panelPreset;
+  DisplayLogic::Orientation orientation = H().orientation;
+  bool layoutChanged = false;
+  if (presetName[0] != '\0' && DisplayLogic::parsePreset(presetName, preset)) layoutChanged = true;
+  char orientationName[16] = {};
+  readString(json, "orientation", orientationName, sizeof(orientationName));
+  if (orientationName[0] != '\0' && DisplayLogic::parseOrientation(orientationName, orientation)) {
+    layoutChanged = true;
+  }
+  char linesText[128] = {};
+  readString(json, "lines", linesText, sizeof(linesText));
+  Core::DisplayContent parsed[DisplayLogic::MAX_CONTENT_LINES] = {};
+  uint8_t parsedCount = 0;
+  if (linesText[0] != '\0') {
+    parsedCount = DisplayLogic::parseLines(linesText, parsed, DisplayLogic::MAX_CONTENT_LINES);
+  }
+  if (layoutChanged || parsedCount > 0) {
+    const DisplayLogic::Geometry geometry = DisplayLogic::geometryFor(preset, orientation);
+    const uint8_t maxLines = DisplayLogic::maxLinesFor(geometry);
+    H().panelPreset = preset;
+    H().orientation = orientation;
+    if (parsedCount == 0) parsedCount = DisplayLogic::defaultLines(geometry, parsed, maxLines);
+    if (parsedCount > maxLines) parsedCount = maxLines;
+    H().lineCount = parsedCount;
+    for (uint8_t index = 0; index < parsedCount; index++) {
+      H().lines[index] = static_cast<uint8_t>(parsed[index]);
+    }
+    H().clock.setDisplayContent(H().now, parsed[0]);
+  }
+  char scaleName[12] = {};
+  readString(json, "lineScale", scaleName, sizeof(scaleName));
+  DisplayLogic::LineScaleMode scaleMode = H().lineScale;
+  if (scaleName[0] != '\0' && DisplayLogic::parseLineScale(scaleName, scaleMode)) {
+    H().lineScale = scaleMode;
+  }
+  if (std::strstr(json, "heroLine") != nullptr) {
+    H().heroLine = static_cast<uint8_t>(readInt(json, "heroLine", H().heroLine));
+  }
+  if (H().heroLine >= H().lineCount) H().heroLine = 0;
   sync(H().now);
   return 0;
 }
@@ -520,6 +590,21 @@ const char* demo_state_json(void) {
   view.showEndLabels = H().showEndLabels;
   view.abcdFollowTimer = H().abcdFollowTimer;
   view.abcdColour = H().abcdColour;
+  const DisplayLogic::Geometry geometry = hostGeometry();
+  view.displayDriver = DisplayLogic::DISPLAY_DRIVER;
+  view.panelPreset = DisplayLogic::name(H().panelPreset);
+  view.orientation = DisplayLogic::name(H().orientation);
+  view.panelColumns = geometry.columns;
+  view.panelRows = geometry.rows;
+  view.panelMaxLines = DisplayLogic::maxLinesFor(geometry);
+  Core::DisplayContent lines[DisplayLogic::MAX_CONTENT_LINES] = {};
+  for (uint8_t index = 0; index < H().lineCount && index < DisplayLogic::MAX_CONTENT_LINES; index++) {
+    lines[index] = static_cast<Core::DisplayContent>(H().lines[index]);
+  }
+  DisplayLogic::formatLines(lines, H().lineCount, H().panelLines, sizeof(H().panelLines));
+  view.panelLines = H().panelLines;
+  view.lineScale = DisplayLogic::name(H().lineScale);
+  view.heroLine = H().heroLine;
   view.beepMs = H().sound.beepMs();
   view.gapMs = H().sound.gapMs();
   view.soundEnabled = H().sound.isEnabled();
@@ -559,11 +644,12 @@ const char* demo_log_json(uint32_t after_seq) {
   return H().logJson;
 }
 
-uint16_t demo_panel_columns(void) { return DisplayLogic::COLUMNS; }
-uint16_t demo_panel_rows(void) { return DisplayLogic::ROWS; }
+uint16_t demo_panel_columns(void) { return hostPtr && H().ready ? hostGeometry().columns : DisplayLogic::COLUMNS; }
+uint16_t demo_panel_rows(void) { return hostPtr && H().ready ? hostGeometry().rows : DisplayLogic::ROWS; }
 const uint32_t* demo_logical_pixels(void) { return hostPtr && H().ready ? H().logical : nullptr; }
 uint32_t demo_pixel(uint16_t index) {
-  if (!hostPtr || !H().ready || index >= DisplayLogic::PIXEL_COUNT) return 0;
+  if (!hostPtr || !H().ready) return 0;
+  if (index >= DisplayLogic::pixelCount(hostGeometry())) return 0;
   return H().logical[index];
 }
 int demo_sound_active(void) { return (H().ready && H().beeper.active()) ? 1 : 0; }

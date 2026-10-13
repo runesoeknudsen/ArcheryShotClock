@@ -97,6 +97,31 @@ void test_clock_can_show_seconds_only() {
 
   request.remainingMs = 120000;
   TEST_ASSERT_EQUAL_STRING("120", DisplayLogic::renderFrame(request, frame).text);
+
+  request.remainingMs = 1000 * 1000;
+  TEST_ASSERT_EQUAL_STRING("999", DisplayLogic::renderFrame(request, frame).text);
+}
+
+void test_shooting_clock_is_seconds_capped_at_three_digits() {
+  DisplayLogic::RenderRequest request;
+  request.content = Core::DisplayContent::Clock;
+  request.light = Core::Light::Green;
+  request.clockSeconds = false;
+  request.phase = Core::Phase::Shooting;
+
+  request.remainingMs = 90000;
+  TEST_ASSERT_EQUAL_STRING("90", DisplayLogic::renderFrame(request, frame).text);
+
+  request.remainingMs = 120000;
+  TEST_ASSERT_EQUAL_STRING("120", DisplayLogic::renderFrame(request, frame).text);
+
+  request.remainingMs = 1000 * 1000;
+  TEST_ASSERT_EQUAL_STRING("999", DisplayLogic::renderFrame(request, frame).text);
+
+  request.phase = Core::Phase::Occupy;
+  request.light = Core::Light::Red;
+  request.remainingMs = 10000;
+  TEST_ASSERT_EQUAL_STRING("10", DisplayLogic::renderFrame(request, frame).text);
 }
 
 void test_break_uses_minutes_and_seconds_even_when_the_clock_is_seconds_only() {
@@ -245,6 +270,7 @@ void test_abcd_sits_with_the_seconds_clock() {
   DisplayLogic::RenderResult result = DisplayLogic::renderFrame(request, frame);
   TEST_ASSERT_EQUAL_STRING("AB 20", result.text);
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixelAt(1, 2));
+  TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_WHITE, pixelAt(4, 3));
   TEST_ASSERT_EQUAL_HEX32(DisplayLogic::COLOUR_GREEN, pixelAt(26, 2));
 
   request.abcdVertical = false;
@@ -403,6 +429,7 @@ int main() {
   RUN_TEST(test_idle_cannot_be_mistaken_for_the_warning_colour);
   RUN_TEST(test_clock_shows_minutes_and_seconds);
   RUN_TEST(test_clock_can_show_seconds_only);
+  RUN_TEST(test_shooting_clock_is_seconds_capped_at_three_digits);
   RUN_TEST(test_break_uses_minutes_and_seconds_even_when_the_clock_is_seconds_only);
   RUN_TEST(test_clock_seconds_are_right_aligned);
   RUN_TEST(test_abcd_sits_with_the_seconds_clock);

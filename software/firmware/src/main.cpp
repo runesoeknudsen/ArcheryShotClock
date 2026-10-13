@@ -38,9 +38,56 @@ EmergencyStop emergencyStop;
 
 namespace {
 Core::StateSnapshot lastSnapshot;
+Core::StateSnapshot lastPanelSnapshot;
+Settings lastPanelSettings{};
 uint32_t lastHeartbeat = 0;
 uint32_t lastFrameChecksum = 0;
 bool haveFrame = false;
+bool havePanelRender = false;
+
+uint32_t displayedSeconds(uint32_t remainingMs) {
+  return remainingMs / 1000U + (remainingMs % 1000U != 0 ? 1U : 0U);
+}
+
+bool isClockContent(Core::DisplayContent content) {
+  return content == Core::DisplayContent::Clock || content == Core::DisplayContent::ClockAndEnd;
+}
+
+bool panelShowsClock(const Core::StateSnapshot& state) {
+  if (settings.lineCount == 0 || isClockContent(state.display)) return true;
+  for (uint8_t index = 1; index < settings.lineCount; index++) {
+    if (isClockContent(static_cast<Core::DisplayContent>(settings.lines[index]))) return true;
+  }
+  return false;
+}
+
+bool samePanelSnapshot(const Core::StateSnapshot& previous, const Core::StateSnapshot& current,
+                       bool compareClock) {
+  return previous.phase == current.phase && previous.light == current.light &&
+         previous.display == current.display &&
+         (!compareClock || displayedSeconds(previous.remainingMs) == displayedSeconds(current.remainingMs)) &&
+         previous.endNumber == current.endNumber && previous.arrowsShot == current.arrowsShot &&
+         previous.arrowsPerEnd == current.arrowsPerEnd && previous.score[0] == current.score[0] &&
+         previous.score[1] == current.score[1] && previous.setPoints[0] == current.setPoints[0] &&
+         previous.setPoints[1] == current.setPoints[1] && previous.shooter == current.shooter &&
+         previous.detail == current.detail && previous.details == current.details &&
+         previous.waves == current.waves;
+}
+
+bool samePanelSettings(const Settings& previous, const Settings& current) {
+  if (previous.brightness != current.brightness || previous.clockSeconds != current.clockSeconds ||
+      previous.showAbcd != current.showAbcd || previous.abcdVertical != current.abcdVertical ||
+      previous.showEndLabels != current.showEndLabels || previous.abcdFollowTimer != current.abcdFollowTimer ||
+      previous.abcdColour != current.abcdColour || previous.panelPreset != current.panelPreset ||
+      previous.orientation != current.orientation || previous.lineCount != current.lineCount ||
+      previous.lineScale != current.lineScale || previous.heroLine != current.heroLine) {
+    return false;
+  }
+  for (uint8_t index = 0; index < current.lineCount; index++) {
+    if (previous.lines[index] != current.lines[index]) return false;
+  }
+  return true;
+}
 
 const char* changeCause(const Core::StateSnapshot& previous, const Core::StateSnapshot& current) {
   if (previous.phase != current.phase) return Core::name(current.phase);
@@ -50,6 +97,12 @@ const char* changeCause(const Core::StateSnapshot& previous, const Core::StateSn
 }
 
 void drawPanel(uint32_t now, const Core::StateSnapshot& state) {
+  const bool compareClock = panelShowsClock(state);
+  if (havePanelRender && samePanelSnapshot(lastPanelSnapshot, state, compareClock) &&
+      samePanelSettings(lastPanelSettings, settings)) {
+    return;
+  }
+
   DisplayLogic::RenderRequest style;
   style.clockSeconds = settings.clockSeconds;
   style.showAbcd = settings.showAbcd;
@@ -57,11 +110,18 @@ void drawPanel(uint32_t now, const Core::StateSnapshot& state) {
   style.showEndLabels = settings.showEndLabels;
   style.abcdFollowTimer = settings.abcdFollowTimer;
   style.abcdColour = settings.abcdColour;
+  DisplayLogic::applyLayout(style, static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
+                            static_cast<DisplayLogic::Orientation>(settings.orientation), settings.lines,
+                            settings.lineCount, static_cast<DisplayLogic::LineScaleMode>(settings.lineScale),
+                            settings.heroLine);
   const DisplayLogic::RenderResult result = display.render(state, settings.brightness, style);
-  webUi.setPanelText(result.text);
+  lastPanelSnapshot = state;
+  lastPanelSettings = settings;
+  havePanelRender = true;
   if (haveFrame && result.checksum == lastFrameChecksum) return;
   lastFrameChecksum = result.checksum;
   haveFrame = true;
+  webUi.setPanelText(result.text);
   tracer.render(now, Core::name(state.display), Core::name(state.light), result.text, result.checksum,
                 result.litPixels);
 }
@@ -98,7 +158,6 @@ void publishState(uint32_t now) {
     tracer.state(now, snapshot, changeCause(lastSnapshot, snapshot));
     lastSnapshot = snapshot;
     lastHeartbeat = now;
-    drawPanel(now, snapshot);
     return;
   }
 
@@ -133,6 +192,8 @@ void setup() {
   amplifier.setVolume(settings.volume);
   amplifier.begin();
   display.begin();
+  display.configure(DisplayLogic::geometryFor(static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
+                                             static_cast<DisplayLogic::Orientation>(settings.orientation)));
   buttons.begin();
   // Armed before Wi-Fi comes up, so the emergency stop works from the first
   // moment the board is running rather than from the moment the AP is ready.
@@ -177,6 +238,7 @@ void loop() {
 
   shotClock.setMatchTotals(match.state().runningTotal, match.state().setPoints);
   publishState(now);
+  drawPanel(now, shotClock.snapshot());
 
   const uint32_t droppedRecords = serialTrace.takeDropped();
   if (droppedRecords > 0) tracer.dropped(now, droppedRecords);

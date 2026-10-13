@@ -1,6 +1,11 @@
 #pragma once
 
+#ifdef DISPLAY_HUB75
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <ESP32-HUB75-VirtualMatrixPanel_T.hpp>
+#else
 #include <Adafruit_NeoPixel.h>
+#endif
 
 #include "config.h"
 #include "core/display_logic.h"
@@ -9,11 +14,24 @@
 class Display {
 public:
   void begin();
+  void configure(const DisplayLogic::Geometry& geometry);
   // Draws the snapshot and returns what was drawn, so the caller can trace it.
   DisplayLogic::RenderResult render(const Core::StateSnapshot& state, uint8_t brightness,
                                     const DisplayLogic::RenderRequest& style);
 
 private:
-  uint16_t ledIndex(uint8_t x, uint8_t y) const;
+  void showFrame(const DisplayLogic::RenderRequest& request, const uint32_t* frame, uint8_t brightness);
+
+  DisplayLogic::Geometry geometry_{};
+#ifdef DISPLAY_HUB75
+  MatrixPanel_I2S_DMA* dma_ = nullptr;
+  using FourScanMapping = ScanTypeMapping<FOUR_SCAN_64X32_DOUBLE_WIDTH>;
+  VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN, FourScanMapping>* virtual_ = nullptr;
+  uint32_t lastFrameChecksum_ = 0;
+  bool hasFrame_ = false;
+  uint8_t lastBrightness_ = 0;
+  bool hasBrightness_ = false;
+#else
   Adafruit_NeoPixel leds_{Config::LED_COUNT, Config::DATA_PIN, NEO_GRB + NEO_KHZ800};
+#endif
 };

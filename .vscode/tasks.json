@@ -1,20 +1,33 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "PlatformIO: Test (native)",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "test",
-                "-e",
-                "native"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
-            "problemMatcher": []
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "PlatformIO: Test (native)",
+			"type": "shell",
+			"command": "pio",
+			"args": [
+				"test",
+				"-e",
+				"native"
+			],
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify HUB75 firmware build",
+			"type": "shell",
+			"command": "C:\\Users\\rune\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run",
+				"-e",
+				"waveshare_s3_hub75"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
 }

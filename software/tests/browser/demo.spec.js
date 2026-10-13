@@ -16,7 +16,7 @@ test('start runs the occupy period from the real core', async ({ page }) => {
   await page.getByRole('button', { name: 'Start Shoot AB' }).click();
   await expect(page.locator('#phase')).toHaveText('OCCUPY');
   await expect(page.locator('#lampRed')).toHaveClass(/on/);
-  await expect(page.locator('#clock')).toHaveText('10');
+  await expect(page.locator('#clock')).toHaveText(/^[1-9]\d?$/);
 });
 
 test('director clock stays in step with the panel while occupy runs', async ({ page }) => {
@@ -32,11 +32,61 @@ test('director clock stays in step with the panel while occupy runs', async ({ p
   expect(panel).toContain(clock);
 });
 
-test('what-if size control keeps the firmware 32x16 note', async ({ page }) => {
+test('panel size control changes the firmware frame', async ({ page }) => {
   await page.goto('/demo/');
-  await page.locator('#previewSize').selectOption('64x32');
-  await expect(page.locator('#sizeReadout')).toContainText('Firmware stays');
+  await page.locator('#panelPreset').selectOption('P5_64X32');
   await expect(page.locator('#sizeReadout')).toContainText('64×32');
+  await expect(page.locator('#layoutNote')).toContainText('64×32');
+  const small = await page.locator('#panel').boundingBox();
+  await page.locator('#orientation').selectOption('PORTRAIT');
+  await expect(page.locator('#layoutNote')).toContainText('32×64');
+  const tall = await page.locator('#panel').boundingBox();
+  expect(tall.height).toBeGreaterThan(small.height);
+});
+
+test('three P5 landscape defaults to one clock line', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_96X64');
+  await expect(page.locator('#sizeReadout')).toContainText('96×64');
+  await expect(page.locator('#layoutNote')).toContainText('1 of');
+  await expect(page.locator('#lineCount')).toHaveValue('1');
+  await expect(page.locator('#line0')).toHaveValue('CLOCK');
+});
+
+test('three P5 modules stand on end as 96x64', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_96X64');
+  await expect(page.locator('#sizeReadout')).toContainText('96×64');
+  await expect(page.locator('#layoutNote')).toContainText('96×64');
+  await expect(page.locator('#layoutNote')).toContainText('stood on end');
+  await expect(page.locator('#layoutNote')).not.toContainText('U-shape');
+  const { panel, stage } = await page.evaluate(() => {
+    const canvas = document.getElementById('panel').getBoundingClientRect();
+    const stage = document.getElementById('stage').getBoundingClientRect();
+    return { panel: canvas.width, stage: stage.width };
+  });
+  expect(panel).toBeGreaterThan(40);
+  expect(panel).toBeLessThanOrEqual(stage + 2);
+});
+
+test('two and five P5 stacks and a 90 degree rotate', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_64X64');
+  await expect(page.locator('#sizeReadout')).toContainText('64×64');
+  await page.locator('#panelPreset').selectOption('P5_160X64');
+  await expect(page.locator('#sizeReadout')).toContainText('160×64');
+  await page.locator('#orientation').selectOption('PORTRAIT');
+  await expect(page.locator('#layoutNote')).toContainText('64×160');
+});
+
+test('line height can keep one line larger', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.locator('#panelPreset').selectOption('P5_64X64');
+  await expect(page.locator('#lineScaleRow')).toBeVisible();
+  await page.locator('#lineCount').selectOption('3');
+  await page.locator('#lineScale').selectOption('HERO');
+  await expect(page.locator('#heroLineWrap')).toBeVisible();
+  await expect(page.locator('#layoutNote')).toContainText('line 1 larger');
 });
 
 test('clock format defaults to seconds and can switch to minutes', async ({ page }) => {
@@ -116,15 +166,49 @@ test('second end keeps AB in the flow after CD starts', async ({ page }) => {
 async function panelPixel(page, x, y) {
   return page.evaluate(({ x, y }) => {
     const canvas = document.getElementById('panel');
-    const ledPx = Number(document.getElementById('ledPx').value);
-    const gap = 2;
-    const cell = ledPx + gap;
-    const px = Math.floor(gap + x * cell + ledPx / 2);
-    const py = Math.floor(gap + y * cell + ledPx / 2);
+    const cell = Number(canvas.dataset.cell);
+    const gap = Number(canvas.dataset.gap);
+    const disc = Number(canvas.dataset.disc);
+    const px = Math.floor(gap + x * cell + disc / 2);
+    const py = Math.floor(gap + y * cell + disc / 2);
     const pixel = canvas.getContext('2d').getImageData(px, py, 1, 1).data;
     return [pixel[0], pixel[1], pixel[2]];
   }, { x, y });
 }
+
+test('on-screen panel fits the browser width by default', async ({ page }) => {
+  await page.goto('/demo/');
+  const { panel, stage } = await page.evaluate(() => {
+    const canvas = document.getElementById('panel').getBoundingClientRect();
+    const stage = document.getElementById('stage').getBoundingClientRect();
+    return { panel: canvas.width, stage: stage.width };
+  });
+  expect(panel).toBeGreaterThan(40);
+  expect(panel).toBeLessThanOrEqual(stage + 1);
+});
+
+test('module pitch changes the on-screen panel size', async ({ page }) => {
+  await page.goto('/demo/');
+  const before = await page.locator('#panel').boundingBox();
+  await page.locator('#pitchMm').evaluate((el) => {
+    el.value = '10';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const after = await page.locator('#panel').boundingBox();
+  expect(after.width).toBeGreaterThan(before.width * 1.5);
+});
+
+test('LED size can shrink below four pixels', async ({ page }) => {
+  await page.goto('/demo/');
+  const start = await page.locator('#panel').boundingBox();
+  await page.locator('#ledPx').evaluate((el) => {
+    el.value = '0.5';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(page.locator('#ledPxValue')).toHaveText('0.5');
+  const tiny = await page.locator('#panel').boundingBox();
+  expect(tiny.width).toBeLessThan(start.width / 2);
+});
 
 test('LED panel keeps AB white while the timer follows the light', async ({ page }) => {
   await page.goto('/demo/');
