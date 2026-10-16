@@ -33,6 +33,12 @@ uint16_t renderStateJson(const StateView& view, char* buffer, uint16_t size) {
     json.unsigned32("details", state.details);
     json.unsigned32("waves", state.waves);
     json.boolean("shootOff", state.shootOff);
+    json.unsigned32("breakRemainingMs", state.breakRemainingMs);
+    json.boolean("breakCountdownVisible", state.breakCountdownVisible);
+    json.boolean("lastWaveOfRound", state.lastWaveOfRound);
+    json.boolean("technicalControl", state.technicalControl);
+    json.unsigned32("technicalControlArrows", state.technicalControlArrows);
+    json.boolean("technicalControlDone", state.technicalControlDone);
     json.boolean("running", state.running);
     json.boolean("finished", state.finished);
   }
