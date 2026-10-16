@@ -15,8 +15,9 @@
 
 namespace Core {
 
-// 4: shooting waves (1, AB/CD, or A/B/C) and qualification progress
-// (round, end-in-round, and configured totals).
+// 4: shooting waves, qualification progress, and round-end Technical Control.
+// Break remaining and Technical Control are extra JSON/live fields; UART
+// STATE records stay compatible with logcheck.
 constexpr uint16_t SCHEMA_VERSION = 4;
 
 // Where the shooting sequence currently is. Phase 0 only ever reports Idle,
@@ -29,7 +30,7 @@ enum class Phase : uint8_t {
   Warning,    // last 30 s, YELLOW
   Finished,   // time expired or stopped, RED
   Scoring,    // scoring may begin, 3 signals given
-  Break,      // optional pause after scoring, before the next end
+  Break,      // pause after the last wave of a round, before the next round
   Suspended,  // Art. 11.2.4 suspension
   Emergency   // Art. 11.3.3, all shooting ceases
 };
@@ -106,6 +107,19 @@ struct StateSnapshot {
   // end or set count.
   bool shootOff = false;
 
+  // Break after the last wave of a round. Remaining is kept even while
+  // Technical Control is using the time, so the visible countdown never goes
+  // negative and is hidden until Technical Control has finished.
+  uint32_t breakRemainingMs = 0;
+  bool breakCountdownVisible = false;
+  bool lastWaveOfRound = false;
+  bool technicalControl = false;
+  uint8_t technicalControlArrows = 0;
+  bool technicalControlDone = false;
+  bool makeupActive = false;
+  uint8_t makeupEnds = 0;
+  uint8_t makeupEnd = 0;
+
   bool running = false;
   bool finished = false;
   bool soundEnabled = true;
@@ -126,7 +140,13 @@ struct StateSnapshot {
            sideArrows[0] == other.sideArrows[0] &&
            sideArrows[1] == other.sideArrows[1] && sideRemainingMs[0] == other.sideRemainingMs[0] &&
            sideRemainingMs[1] == other.sideRemainingMs[1] && detail == other.detail && details == other.details &&
-           waves == other.waves && shootOff == other.shootOff;
+           waves == other.waves && shootOff == other.shootOff &&
+           breakRemainingMs == other.breakRemainingMs &&
+           breakCountdownVisible == other.breakCountdownVisible && lastWaveOfRound == other.lastWaveOfRound &&
+           technicalControl == other.technicalControl &&
+           technicalControlArrows == other.technicalControlArrows &&
+           technicalControlDone == other.technicalControlDone && makeupActive == other.makeupActive &&
+           makeupEnds == other.makeupEnds && makeupEnd == other.makeupEnd;
   }
 };
 
