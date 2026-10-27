@@ -63,21 +63,30 @@ The Waveshare build defaults to three panels (96×64) with one clock line. Rotat
 
 The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.
 
-HUB75 occupies many GPIOs, so the S3 console and MAX98357A move to the expansion header:
+HUB75 occupies many GPIOs, so the S3 controls and active buzzer use the expansion header. The
+board's onboard ES8311 codec drives a speaker connected to its speaker header; no external
+MAX98357A is needed.
 
 | Function | GPIO |
 |---|---|
-| Start / handoff | 11 |
-| Stop | 12 |
+| Start / handoff | 42 |
+| Stop | 9 |
 | Line clear | 13 |
 | Next end | 17 |
 | Suspend / resume | 1 |
 | Emergency stop | 10 |
-| Active buzzer | 38 |
-| I2S BCLK | 21 |
-| I2S LRC | 47 |
-| I2S DIN | 48 |
-| I2S SD | 14 |
+| Active buzzer | 14 |
+| ES8311 I2C SDA | 47 |
+| ES8311 I2C SCL | 48 |
+| ES8311 I2S MCLK | 12 |
+| ES8311 I2S BCLK | 43 |
+| ES8311 I2S LRC | 38 |
+| ES8311 I2S DOUT | 21 |
+| Speaker amplifier enable | 11 |
+
+Move the Start and Stop button wires to GPIO 42 and GPIO 9 respectively for this
+build. GPIO 42 and GPIO 9 are not connected to the HUB75 driver because its D
+and E address lines are unused for the supported 1/8-scan panels.
 
 Power the P5 panels from a 5 V supply sized for the module count. Do not power them from the ESP32 3.3 V pin.
 

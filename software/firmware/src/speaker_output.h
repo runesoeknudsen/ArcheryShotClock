@@ -4,15 +4,14 @@
 
 #include "core/sound.h"
 
-// Wired I2S amplifier (MAX98357A) that replaces the Bluetooth A2DP speaker.
+// The field speaker uses the onboard ES8311 codec on the Waveshare board and
+// an external MAX98357A on the original ESP32 board.
 //
-// The chip is a DAC and Class-D amp in one: it wants a continuous I2S clock,
-// 16-bit stereo slots, and a shutdown pin. Alerts are the same 880 Hz tone
-// the Bluetooth path used to generate, scaled by a 0-100 volume setting.
+// Both paths play the same 880 Hz tone, scaled by a 0-100 volume setting.
 
-class Max98357Output : public Core::SoundOutput {
+class SpeakerOutput : public Core::SoundOutput {
 public:
-  Max98357Output();
+  SpeakerOutput();
   void begin();
   void update(uint32_t now);
   void setActive(bool active) override;

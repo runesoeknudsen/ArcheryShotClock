@@ -12,6 +12,7 @@
 #include "hal/log_buffer.h"
 #include "hal/serial_trace.h"
 #include "settings.h"
+#include "speaker_output.h"
 #include "sound_outputs.h"
 #include "web_ui.h"
 
@@ -29,10 +30,10 @@ Core::Tracer tracer(traceSink);
 Core::ShotClock shotClock(tracer);
 Core::MatchLogic match(tracer);
 ActiveBuzzerOutput buzzer;
-Max98357Output amplifier;
-CombinedSoundOutput soundOutput(buzzer, amplifier);
+SpeakerOutput speaker;
+CombinedSoundOutput soundOutput(buzzer, speaker);
 Core::SoundController sound(soundOutput);
-WebUi webUi(settings, settingsStore, shotClock, match, sound, amplifier, tracer, logBuffer);
+WebUi webUi(settings, settingsStore, shotClock, match, sound, speaker, tracer, logBuffer);
 ButtonPanel buttons;
 EmergencyStop emergencyStop;
 
@@ -173,6 +174,9 @@ void publishState(uint32_t now) {
 }  // namespace
 
 void setup() {
+  display.begin();
+  display.showStartupRed();
+
   Serial.begin(Config::SERIAL_BAUD);
   tracer.boot(millis(), Config::FIRMWARE_ID);
 
@@ -189,24 +193,25 @@ void setup() {
   tracer.config(millis(), "gap_ms", 0, settings.gapMs);
 
   buzzer.begin();
-  amplifier.setVolume(settings.volume);
-  amplifier.begin();
-  display.begin();
+  speaker.setVolume(settings.volume);
+  speaker.begin();
   display.configure(DisplayLogic::geometryFor(static_cast<DisplayLogic::PanelPreset>(settings.panelPreset),
                                              static_cast<DisplayLogic::Orientation>(settings.orientation)));
+  display.showStartupRed();
   buttons.begin();
   // Armed before Wi-Fi comes up, so the emergency stop works from the first
   // moment the board is running rather than from the moment the AP is ready.
   emergencyStop.begin();
+
+  lastSnapshot = shotClock.snapshot();
+  tracer.state(millis(), lastSnapshot, "boot");
+  drawPanel(millis(), lastSnapshot);
 
   WiFi.mode(WIFI_AP);
   WiFi.softAP(Config::AP_NAME, Config::AP_PASSWORD);
   tracer.configText(millis(), "ap_ip", "", WiFi.softAPIP().toString().c_str());
   webUi.begin();
 
-  lastSnapshot = shotClock.snapshot();
-  tracer.state(millis(), lastSnapshot, "boot");
-  drawPanel(millis(), lastSnapshot);
   lastHeartbeat = millis();
 }
 
@@ -234,7 +239,7 @@ void loop() {
   while (shotClock.takeSignal(signal)) sound.playSignal(signal, now);
 
   sound.update(now);
-  amplifier.update(now);
+  speaker.update(now);
 
   shotClock.setMatchTotals(match.state().runningTotal, match.state().setPoints);
   publishState(now);

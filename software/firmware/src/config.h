@@ -23,15 +23,18 @@ constexpr int8_t HUB75_LAT = 40;
 constexpr int8_t HUB75_OE = 2;
 constexpr int8_t HUB75_CLK = 41;
 
-// Remaining expansion GPIOs, kept off the HUB75, USB, and Octal PSRAM pins.
+// Waveshare board audio codec and expansion GPIOs.
 constexpr uint8_t DATA_PIN = 13;
-constexpr uint8_t SOUND_PIN = 38;
-constexpr uint8_t I2S_BCLK_PIN = 21;
-constexpr uint8_t I2S_LRC_PIN = 47;
-constexpr uint8_t I2S_DOUT_PIN = 48;
-constexpr uint8_t I2S_SD_PIN = 14;
-constexpr uint8_t PIN_START = 11;
-constexpr uint8_t PIN_STOP = 12;
+constexpr uint8_t SOUND_PIN = 14;
+constexpr uint8_t I2S_MCLK_PIN = 12;
+constexpr uint8_t I2S_BCLK_PIN = 43;
+constexpr uint8_t I2S_LRC_PIN = 38;
+constexpr uint8_t I2S_DOUT_PIN = 21;
+constexpr uint8_t I2C_SDA_PIN = 47;
+constexpr uint8_t I2C_SCL_PIN = 48;
+constexpr uint8_t SPEAKER_ENABLE_PIN = 11;
+constexpr uint8_t PIN_START = 42;
+constexpr uint8_t PIN_STOP = 9;
 constexpr uint8_t PIN_LINE_CLEAR = 13;
 constexpr uint8_t PIN_NEXT_END = 17;
 constexpr uint8_t PIN_SUSPEND = 1;
@@ -44,7 +47,7 @@ constexpr uint8_t I2S_BCLK_PIN = 18;
 constexpr uint8_t I2S_LRC_PIN = 19;
 constexpr uint8_t I2S_DOUT_PIN = 23;
 // SD high = left channel / amp on. SD low = shutdown.
-constexpr uint8_t I2S_SD_PIN = 16;
+constexpr uint8_t SPEAKER_ENABLE_PIN = 16;
 constexpr uint8_t PIN_START = 32;
 constexpr uint8_t PIN_STOP = 33;
 constexpr uint8_t PIN_LINE_CLEAR = 14;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/sound.h"
-#include "max98357.h"
+#include "speaker_output.h"
 
 class ActiveBuzzerOutput : public Core::SoundOutput {
 public:
@@ -9,15 +9,13 @@ public:
   void setActive(bool active) override;
 };
 
-// The box buzzer and the field amplifier sound together. The MAX98357A is
-// wired, so there is no pairing step and no "use the buzzer until the speaker
-// connects" fallback the way there was with Bluetooth.
+// The box buzzer and the board-specific wired speaker sound together.
 class CombinedSoundOutput : public Core::SoundOutput {
 public:
-  CombinedSoundOutput(ActiveBuzzerOutput& buzzer, Max98357Output& amplifier);
+  CombinedSoundOutput(ActiveBuzzerOutput& buzzer, SpeakerOutput& speaker);
   void setActive(bool active) override;
 
 private:
   ActiveBuzzerOutput& buzzer_;
-  Max98357Output& amplifier_;
+  SpeakerOutput& speaker_;
 };
