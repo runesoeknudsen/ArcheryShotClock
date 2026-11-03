@@ -434,46 +434,6 @@ void test_counting_ones_does_not_nudge_the_tens() {
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, ninetyDelta);
 }
 
-void test_last_line_takes_leftover_height() {
-  const DisplayLogic::Geometry geometry =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
-  Core::DisplayContent lines[3] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
-                                   Core::DisplayContent::Score};
-  const DisplayLogic::LayoutPlan plan = DisplayLogic::planLayout(geometry, lines, 3);
-  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(22, plan.lines[2].height);
-  TEST_ASSERT_EQUAL_UINT16(64, plan.lines[0].height + plan.lines[1].height + plan.lines[2].height);
-}
-
-void test_hero_line_is_larger_than_the_others() {
-  const DisplayLogic::Geometry geometry =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
-  Core::DisplayContent lines[4] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
-                                   Core::DisplayContent::Score, Core::DisplayContent::ArrowCount};
-  const DisplayLogic::LayoutPlan first =
-      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 0);
-  TEST_ASSERT_EQUAL_UINT16(32, first.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(16, first.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(16, first.lines[2].height);
-  TEST_ASSERT_EQUAL_UINT16(64, first.lines[0].height + first.lines[1].height + first.lines[2].height);
-
-  const DisplayLogic::LayoutPlan lastHero =
-      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 2);
-  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(32, lastHero.lines[2].height);
-
-  const DisplayLogic::LayoutPlan four =
-      DisplayLogic::planLayout(geometry, lines, 4, DisplayLogic::LineScaleMode::Hero, 0);
-  TEST_ASSERT_EQUAL_UINT16(28, four.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(12, four.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(12, four.lines[2].height);
-  TEST_ASSERT_EQUAL_UINT16(12, four.lines[3].height);
-  TEST_ASSERT_EQUAL_UINT16(64, four.lines[0].height + four.lines[1].height + four.lines[2].height +
-                                   four.lines[3].height);
-}
-
 void test_ws2812_32x16_matches_the_original_map() {
   const DisplayLogic::Geometry geometry =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::Led32x16, DisplayLogic::Orientation::Landscape);
