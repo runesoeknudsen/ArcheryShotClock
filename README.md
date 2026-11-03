@@ -59,6 +59,8 @@ npm test
 
 ## Browser demo
 
+Preview the [web demo on GitHub Pages](https://runesoeknudsen.github.io/ArcheryShotClock/).
+
 The standalone demo lives in [software/web/demo](software/web/demo). Build its WebAssembly module and serve it locally:
 
 ```text
