@@ -4,7 +4,7 @@
 
 // Project volume, not a rulebook value. Article 11.3 fixes how many signals
 // are given and says nothing about how loud they are, so the director sets
-// this from the web UI and it is applied to the MAX98357A PCM path.
+// this from the web UI and it is applied to the speaker PCM path.
 
 namespace Core {
 

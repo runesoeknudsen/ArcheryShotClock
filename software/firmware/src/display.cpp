@@ -41,7 +41,8 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
   // Match the YS-P5 example: each 64x32 module maps onto a 128x16 DMA surface.
   HUB75_I2S_CFG mxconfig(64 * 2, 32 / 2, canvas.chain, pins);
   mxconfig.double_buff = true;
-  mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;
+  mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_20M;
+  mxconfig.min_refresh_rate = 120;
   mxconfig.driver = HUB75_I2S_CFG::FM6124;
   mxconfig.line_decoder = HUB75_I2S_CFG::TYPE595;
   mxconfig.clkphase = false;
@@ -56,6 +57,7 @@ void Display::configure(const DisplayLogic::Geometry& geometry) {
   dma_->clearScreen();
   virtual_ = new VirtualMatrixPanel_T<CHAIN_TOP_LEFT_DOWN, FourScanMapping>(1, canvas.chain, 64, 32);
   virtual_->setDisplay(*dma_);
+  virtual_->setPixelBase(1);
 #else
   const uint16_t count = DisplayLogic::pixelCount(geometry);
   leds_.updateLength(count == 0 ? Config::LED_COUNT : count);

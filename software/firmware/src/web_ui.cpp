@@ -35,13 +35,13 @@ bool modeImplemented(Core::Mode mode) { return mode != Core::Mode::Plain && mode
 }  // namespace
 
 WebUi::WebUi(Settings& settings, SettingsStore& store, Core::ShotClock& clock, Core::MatchLogic& match,
-             Core::SoundController& sound, Max98357Output& amplifier, Core::Tracer& tracer, LogBufferSink& log)
+             Core::SoundController& sound, SpeakerOutput& speaker, Core::Tracer& tracer, LogBufferSink& log)
     : settings_(settings),
       store_(store),
       clock_(clock),
       match_(match),
       sound_(sound),
-      amplifier_(amplifier),
+      speaker_(speaker),
       tracer_(tracer),
       log_(log) {
   panelText_[0] = '\0';
@@ -127,7 +127,7 @@ void WebUi::handleState() {
   view.beepMs = sound_.beepMs();
   view.gapMs = sound_.gapMs();
   view.soundEnabled = sound_.isEnabled();
-  view.volume = amplifier_.volume();
+  view.volume = speaker_.volume();
   view.panelText = panelText_;
   view.traceLevel = tracer_.level();
   view.traceSeq = tracer_.sequence();
@@ -416,7 +416,7 @@ void WebUi::handleSound() {
       const uint8_t volume = Core::clampVolume(readJsonInteger(body, "volume"));
       tracer_.config(now_, "volume", settings_.volume, volume);
       settings_.volume = volume;
-      amplifier_.setVolume(volume);
+      speaker_.setVolume(volume);
     }
     store_.save(settings_);
     sound_.setEnabled(readJsonBool(body, "enabled", sound_.isEnabled()));
@@ -426,7 +426,7 @@ void WebUi::handleSound() {
 
 void WebUi::handleSoundTest() {
   traceInput("sound_test");
-  amplifier_.playTestTone(now_, 2000);
+  speaker_.playTestTone(now_, 2000);
   handleState();
 }
 
@@ -557,4 +557,3 @@ bool WebUi::readJsonBool(const String& body, const char* key, bool fallback) con
   if (rest.indexOf("false") >= 0) return false;
   return fallback;
 }
-

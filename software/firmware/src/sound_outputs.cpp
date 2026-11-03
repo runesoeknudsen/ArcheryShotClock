@@ -11,10 +11,10 @@ void ActiveBuzzerOutput::begin() {
 
 void ActiveBuzzerOutput::setActive(bool active) { digitalWrite(Config::SOUND_PIN, active ? HIGH : LOW); }
 
-CombinedSoundOutput::CombinedSoundOutput(ActiveBuzzerOutput& buzzer, Max98357Output& amplifier)
-    : buzzer_(buzzer), amplifier_(amplifier) {}
+CombinedSoundOutput::CombinedSoundOutput(ActiveBuzzerOutput& buzzer, SpeakerOutput& speaker)
+    : buzzer_(buzzer), speaker_(speaker) {}
 
 void CombinedSoundOutput::setActive(bool active) {
   buzzer_.setActive(active);
-  amplifier_.setActive(active);
+  speaker_.setActive(active);
 }

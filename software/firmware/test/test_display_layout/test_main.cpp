@@ -26,7 +26,6 @@ void test_named_sizes_and_portrait_swap() {
   TEST_ASSERT_EQUAL_UINT16(64, tall.rows);
   TEST_ASSERT_EQUAL_UINT8(8, DisplayLogic::maxLinesFor(tall));
   TEST_ASSERT_EQUAL_UINT8(8, DisplayLogic::defaultLineCount(tall));
-
   const DisplayLogic::Geometry two =
       DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
   TEST_ASSERT_EQUAL_UINT16(64, two.columns);
@@ -189,6 +188,51 @@ void test_hub75_three_vertical_uses_every_chain_pixel() {
       used[index] = true;
     }
   }
+}
+
+void test_last_line_takes_leftover_height() {
+  const DisplayLogic::Geometry geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
+  Core::DisplayContent lines[3] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
+                                   Core::DisplayContent::Score};
+  const DisplayLogic::LayoutPlan plan = DisplayLogic::planLayout(geometry, lines, 3);
+  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(22, plan.lines[2].height);
+  TEST_ASSERT_EQUAL_UINT16(64, plan.lines[0].height + plan.lines[1].height + plan.lines[2].height);
+}
+
+void test_hero_line_is_larger_than_the_others() {
+  const DisplayLogic::Geometry geometry =
+      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
+  Core::DisplayContent lines[4] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
+                                   Core::DisplayContent::Score, Core::DisplayContent::ArrowCount};
+  const DisplayLogic::LayoutPlan first =
+      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 0);
+  TEST_ASSERT_EQUAL_UINT16(32, first.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(16, first.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(16, first.lines[2].height);
+  TEST_ASSERT_EQUAL_UINT16(64, first.lines[0].height + first.lines[1].height + first.lines[2].height);
+
+  const DisplayLogic::LayoutPlan lastHero =
+      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 2);
+  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(32, lastHero.lines[2].height);
+
+  const DisplayLogic::LayoutPlan four =
+      DisplayLogic::planLayout(geometry, lines, 4, DisplayLogic::LineScaleMode::Hero, 0);
+  TEST_ASSERT_EQUAL_UINT16(28, four.lines[0].height);
+  TEST_ASSERT_EQUAL_UINT16(12, four.lines[1].height);
+  TEST_ASSERT_EQUAL_UINT16(12, four.lines[2].height);
+  TEST_ASSERT_EQUAL_UINT16(12, four.lines[3].height);
+  TEST_ASSERT_EQUAL_UINT16(64, four.lines[0].height + four.lines[1].height + four.lines[2].height +
+                                   four.lines[3].height);
+}
+
+void test_hub75_other_panel_chain_lengths() {
+  TEST_ASSERT_EQUAL_UINT8(2, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_64x64).chain);
+  TEST_ASSERT_EQUAL_UINT8(5, DisplayLogic::hub75Canvas(DisplayLogic::PanelPreset::P5_160x64).chain);
 }
 
 void test_smooth_glyphs_use_in_between_levels() {
@@ -372,7 +416,6 @@ void test_counting_ones_does_not_nudge_the_tens() {
                                     ? static_cast<uint16_t>(hundredLeft - hundredOneLeft)
                                     : static_cast<uint16_t>(hundredOneLeft - hundredLeft);
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, hundredDelta);
-
   // 90 vs 89: the tens glyph itself changes. A left rail keeps 8 and 9
   // on the same origin instead of recentring a slightly different width.
   request.remainingMs = 90000;
@@ -389,46 +432,6 @@ void test_counting_ones_does_not_nudge_the_tens() {
                                    ? static_cast<uint16_t>(ninetyLeft - eightyNineLeft)
                                    : static_cast<uint16_t>(eightyNineLeft - ninetyLeft);
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(1, ninetyDelta);
-}
-
-void test_last_line_takes_leftover_height() {
-  const DisplayLogic::Geometry geometry =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
-  Core::DisplayContent lines[3] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
-                                   Core::DisplayContent::Score};
-  const DisplayLogic::LayoutPlan plan = DisplayLogic::planLayout(geometry, lines, 3);
-  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(21, plan.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(22, plan.lines[2].height);
-  TEST_ASSERT_EQUAL_UINT16(64, plan.lines[0].height + plan.lines[1].height + plan.lines[2].height);
-}
-
-void test_hero_line_is_larger_than_the_others() {
-  const DisplayLogic::Geometry geometry =
-      DisplayLogic::geometryFor(DisplayLogic::PanelPreset::P5_64x64, DisplayLogic::Orientation::Landscape);
-  Core::DisplayContent lines[4] = {Core::DisplayContent::Clock, Core::DisplayContent::ClockAndEnd,
-                                   Core::DisplayContent::Score, Core::DisplayContent::ArrowCount};
-  const DisplayLogic::LayoutPlan first =
-      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 0);
-  TEST_ASSERT_EQUAL_UINT16(32, first.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(16, first.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(16, first.lines[2].height);
-  TEST_ASSERT_EQUAL_UINT16(64, first.lines[0].height + first.lines[1].height + first.lines[2].height);
-
-  const DisplayLogic::LayoutPlan lastHero =
-      DisplayLogic::planLayout(geometry, lines, 3, DisplayLogic::LineScaleMode::Hero, 2);
-  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(16, lastHero.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(32, lastHero.lines[2].height);
-
-  const DisplayLogic::LayoutPlan four =
-      DisplayLogic::planLayout(geometry, lines, 4, DisplayLogic::LineScaleMode::Hero, 0);
-  TEST_ASSERT_EQUAL_UINT16(28, four.lines[0].height);
-  TEST_ASSERT_EQUAL_UINT16(12, four.lines[1].height);
-  TEST_ASSERT_EQUAL_UINT16(12, four.lines[2].height);
-  TEST_ASSERT_EQUAL_UINT16(12, four.lines[3].height);
-  TEST_ASSERT_EQUAL_UINT16(64, four.lines[0].height + four.lines[1].height + four.lines[2].height +
-                                   four.lines[3].height);
 }
 
 void test_ws2812_32x16_matches_the_original_map() {
@@ -470,6 +473,7 @@ int main() {
   RUN_TEST(test_portrait_stacks_more_lines_in_order);
   RUN_TEST(test_line_list_parsing);
   RUN_TEST(test_hub75_vertical_panels_are_rotated);
+  RUN_TEST(test_hub75_other_panel_chain_lengths);
   RUN_TEST(test_hub75_three_vertical_uses_every_chain_pixel);
   RUN_TEST(test_smooth_glyphs_use_in_between_levels);
   RUN_TEST(test_wide_and_narrow_glyphs_share_one_scale);

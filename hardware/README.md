@@ -49,32 +49,44 @@ Build `waveshare_s3_hub75` for the Waveshare ESP32-S3-RGB-Matrix board (ESP32-S3
 | E | unused (1/8 scan) | CLK | 41 |
 | LAT | 40 | OE | 2 |
 
-The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; the fork's `VirtualMatrixPanel_T` with `FOUR_SCAN_64X32_DOUBLE_WIDTH` maps the 64×32 cabinet onto that buffer.
+The YS-P5-320X160 modules are 64×32, 1/8 scan, FM6124HJ shift registers and a TC7559 3-to-8 line decoder. Address lines D and E stay unmapped. The DMA engine drives each module as 128×16; the library's `ScanTypeMapping<FOUR_SCAN_32PX_HIGH>` maps the 64×32 cabinet onto that buffer, with pixel base set to 1.
 
 Supported P5 64×32 layouts, set from the web UI:
 
 - One panel, kept horizontal: 64×32, or 32×64 when the cabinet is rotated 90°
-- Two to five panels stood on end, long side against long side: 64×64, 96×64, 128×64 or 160×64. The Waveshare build defaults to three panels (96×64) with one clock line. Rotate the whole cabinet 90° for a tall stand (64×64, 64×96, 64×128 or 64×160) so more lines fit. Chain the HUB75 ribbon left to right; each of those modules is rotated 90° clockwise.
+- Two panels stood on end: 64×64
+- Three panels stood on end: 96×64
+- Four panels stood on end: 128×64
+- Five panels stood on end: 160×64
 
-A larger cabinet stamps generated sans-serif outlines at the panel resolution. Edges fall off smoothly so a curve reads as a hill instead of a staircase of upscaled pixels. Add another typeface with `software/tools/font_to_glyphs.py`. Lines share the available height when you add more than one, and the last line takes any leftover pixels. You can instead pick one large line and keep the others the same size.
+The Waveshare build defaults to three panels (96×64) with one clock line. Rotate the whole cabinet 90° for a tall stand (64×64, 64×96, 64×128 or 64×160) so more lines fit. Chain the HUB75 ribbon left to right; each module is rotated 90° clockwise. Larger cabinets stamp generated sans-serif outlines at the panel resolution with soft edges. Lines share the available height when added, and the last line takes any leftover pixels. Add another typeface with `software/tools/font_to_glyphs.py`, or choose one large line and keep the others the same size.
 
 The same sizes also work on the original addressable-LED ESP32 build. Extra 32×8 WS2812B modules follow the existing rule: the first module in the chain is at the bottom, and every other row from the top is rotated 180°.
 
-HUB75 occupies many GPIOs, so the S3 console and MAX98357A move to the expansion header:
+HUB75 occupies many GPIOs, so the S3 controls and active buzzer use the expansion header. The
+board's onboard ES8311 codec drives a speaker connected to its speaker header; no external
+MAX98357A is needed.
 
 | Function | GPIO |
 |---|---|
-| Start / handoff | 11 |
-| Stop | 12 |
+| Start / handoff | 42 |
+| Stop | 9 |
 | Line clear | 13 |
 | Next end | 17 |
 | Suspend / resume | 1 |
 | Emergency stop | 10 |
-| Active buzzer | 38 |
-| I2S BCLK | 21 |
-| I2S LRC | 47 |
-| I2S DIN | 48 |
-| I2S SD | 14 |
+| Active buzzer | 14 |
+| ES8311 I2C SDA | 47 |
+| ES8311 I2C SCL | 48 |
+| ES8311 I2S MCLK | 12 |
+| ES8311 I2S BCLK | 43 |
+| ES8311 I2S LRC | 38 |
+| ES8311 I2S DOUT | 21 |
+| Speaker amplifier enable | 11 |
+
+Move the Start and Stop button wires to GPIO 42 and GPIO 9 respectively for this
+build. GPIO 42 and GPIO 9 are not connected to the HUB75 driver because its D
+and E address lines are unused for the supported 1/8-scan panels.
 
 Power the P5 panels from a 5 V supply sized for the module count. Do not power them from the ESP32 3.3 V pin.
 

@@ -8,7 +8,7 @@
 #include "core/sound.h"
 #include "core/trace.h"
 #include "hal/log_buffer.h"
-#include "max98357.h"
+#include "speaker_output.h"
 #include "settings.h"
 
 // The director's console. Everything the firmware knows is visible here, and
@@ -19,7 +19,7 @@
 class WebUi {
 public:
   WebUi(Settings& settings, SettingsStore& store, Core::ShotClock& clock, Core::MatchLogic& match,
-        Core::SoundController& sound, Max98357Output& amplifier, Core::Tracer& tracer, LogBufferSink& log);
+        Core::SoundController& sound, SpeakerOutput& speaker, Core::Tracer& tracer, LogBufferSink& log);
 
   void begin();
   // Takes the loop's timestamp so every command is stamped with the same
@@ -55,7 +55,7 @@ private:
   Core::ShotClock& clock_;
   Core::MatchLogic& match_;
   Core::SoundController& sound_;
-  Max98357Output& amplifier_;
+  SpeakerOutput& speaker_;
   Core::Tracer& tracer_;
   LogBufferSink& log_;
   WebServer server_{80};
