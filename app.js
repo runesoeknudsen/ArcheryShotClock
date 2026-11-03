@@ -100,7 +100,7 @@ function maxLinesFor(preset, orientation) {
 function defaultLinesFor(preset, orientation) {
   if (preset === 'LED_32X16' || orientation !== 'PORTRAIT') return ['CLOCK'];
   const maxLines = maxLinesFor(preset, orientation);
-  const used = maxLines > DEFAULT_LINE_ORDER.length ? DEFAULT_LINE_ORDER.length : maxLines;
+  const used = Math.min(maxLines, DEFAULT_LINE_ORDER.length);
   return DEFAULT_LINE_ORDER.slice(0, used);
 }
 
