@@ -216,7 +216,7 @@ void setup() {
 }
 
 void loop() {
-  const uint32_t now = millis();
+  uint32_t now = millis();
 
   // The emergency stop is served before anything else in the loop, and its
   // timestamp comes from the interrupt rather than from here.
@@ -231,6 +231,10 @@ void loop() {
   while (buttons.poll(now, control, longPress)) applyButton(now, control, longPress);
 
   webUi.handleClient(now);
+  // HTTP handling can take long enough to cross a displayed-second boundary.
+  // Use fresh monotonic time so the clock and panel do not render from the
+  // stale timestamp sampled before servicing the request.
+  now = millis();
   shotClock.update(now);
 
   // The clock queues signals rather than playing them, so the sound layer and

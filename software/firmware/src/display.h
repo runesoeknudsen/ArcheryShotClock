@@ -15,6 +15,7 @@ class Display {
 public:
   void begin();
   void configure(const DisplayLogic::Geometry& geometry);
+  void showStartupRed();
   // Draws the snapshot and returns what was drawn, so the caller can trace it.
   DisplayLogic::RenderResult render(const Core::StateSnapshot& state, uint8_t brightness,
                                     const DisplayLogic::RenderRequest& style);
