@@ -32,6 +32,7 @@ struct Settings {
   uint8_t lineScale;        // DisplayLogic::LineScaleMode
   uint8_t heroLine;
   bool replayOccupyOnResume;
+  bool recalculateOnResume;
   uint8_t firstShooter;     // Art. 11.1.4.1 / 11.1.4.3
   bool signalEachPeriod;    // Art. 11.3.4
   bool abcdRotation;        // Art. 11.2.3.1, default on
