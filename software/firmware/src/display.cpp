@@ -11,21 +11,6 @@ void Display::begin() {
 #endif
 }
 
-void Display::showStartupRed() {
-#ifdef DISPLAY_HUB75
-  if (dma_ == nullptr || virtual_ == nullptr) return;
-  dma_->setBrightness8(64);
-  for (uint16_t y = 0; y < virtual_->height(); y++) {
-    for (uint16_t x = 0; x < virtual_->width(); x++) {
-      virtual_->drawPixelRGB888(static_cast<int16_t>(x), static_cast<int16_t>(y), 255, 0, 0);
-    }
-  }
-  dma_->flipDMABuffer();
-  hasFrame_ = false;
-  hasBrightness_ = false;
-#endif
-}
-
 void Display::configure(const DisplayLogic::Geometry& geometry) {
   if (geometry_.columns == geometry.columns && geometry_.rows == geometry.rows &&
       geometry_.preset == geometry.preset && geometry_.orientation == geometry.orientation &&
