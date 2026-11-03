@@ -132,6 +132,10 @@ void test_state_json_carries_the_clock_and_the_session() {
   TEST_ASSERT_TRUE(has(json, "\"panelLines\":\"CLOCK\""));
   TEST_ASSERT_TRUE(has(json, "\"lineScale\":\"FILL\""));
   TEST_ASSERT_TRUE(has(json, "\"heroLine\":0"));
+  TEST_ASSERT_TRUE(has(json, "\"breakRemainingMs\":0"));
+  TEST_ASSERT_TRUE(has(json, "\"breakCountdownVisible\":false"));
+  TEST_ASSERT_TRUE(has(json, "\"lastWaveOfRound\":false"));
+  TEST_ASSERT_TRUE(has(json, "\"technicalControl\":false"));
 }
 
 void test_state_json_reports_the_board_s_memory() {
